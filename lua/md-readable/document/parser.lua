@@ -12,6 +12,8 @@ function M.parse(lines, opts)
         for row = block.start_row, block.end_row - 1 do excluded[row] = true end
       elseif block.type == "table" then
         local source_table = vim.deepcopy(block)
+        local removed_prefix = #original[block.start_row + 1] - #source_lines[block.start_row + 1]
+        source_table.prefix = original[block.start_row + 1]:sub(1, removed_prefix) .. (block.prefix or "")
         for _, table_row in ipairs(source_table.rows) do
           local offset = #original[table_row.source_row + 1] - #source_lines[table_row.source_row + 1]
           for _, cell in ipairs(table_row.cells) do cell.start_col, cell.end_col = cell.start_col + offset, cell.end_col + offset end

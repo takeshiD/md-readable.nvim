@@ -33,7 +33,22 @@ function M.cells(line)
 end
 
 function M.parse(lines, start_row)
-  local header, delimiter = M.cells(lines[start_row + 1] or ""), M.cells(lines[start_row + 2] or "")
+  local function contextual_cells(line)
+    local prefix = line:match("^%s*") or ""
+    local depth = 0
+    while line:sub(#prefix + 1, #prefix + 1) == ">" do
+      local marker = line:sub(#prefix + 1):match("^>%s*")
+      prefix, depth = prefix .. marker, depth + 1
+    end
+    local cells = M.cells(line:sub(#prefix + 1))
+    for _, cell in ipairs(cells or {}) do
+      cell.start_col, cell.end_col = cell.start_col + #prefix, cell.end_col + #prefix
+    end
+    return cells, prefix, depth
+  end
+  local header, prefix, depth = contextual_cells(lines[start_row + 1] or "")
+  local delimiter, _, delimiter_depth = contextual_cells(lines[start_row + 2] or "")
+  if depth ~= delimiter_depth then return nil end
   if not header or not delimiter or #header ~= #delimiter then return nil end
   local alignments = {}
   for i, cell in ipairs(delimiter) do
@@ -43,14 +58,16 @@ function M.parse(lines, start_row)
   end
   local rows, row = { { source_row = start_row, cells = header } }, start_row + 2
   while row < #lines do
-    local cells = M.cells(lines[row + 1])
-    if not cells or lines[row + 1]:match("^%s*$") then break end
+    local cells, _, row_depth = contextual_cells(lines[row + 1])
+    if not cells or row_depth ~= depth or lines[row + 1]:match("^%s*$") then break end
     -- GFM ignores excess cells and fills absent trailing cells.
     while #cells > #header do table.remove(cells) end
     while #cells < #header do cells[#cells + 1] = { text = "", start_col = #lines[row + 1], end_col = #lines[row + 1] } end
     rows[#rows + 1] = { source_row = row, cells = cells }
     row = row + 1
   end
-  return { type = "table", start_row = start_row, end_row = row, rows = rows, alignments = alignments }
+  -- The formatter prefixes every output row with this exact container spelling;
+  -- cell coordinates remain absolute byte offsets in the original source line.
+  return { type = "table", start_row = start_row, end_row = row, rows = rows, alignments = alignments, prefix = prefix }
 end
 return M

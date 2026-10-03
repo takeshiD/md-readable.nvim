@@ -71,4 +71,53 @@ return function(t)
     local doc = parse({ "[real][ref]", "```", "[ref]: example.md", "```" })
     t.eq("unresolved", doc.links[1].kind)
   end)
+  t.test("direct table parsing retains indentation and original cell byte columns", function()
+    local lines = { "  | A | B |", "  |---|---|", "  | x | y |" }
+    local value = tables.parse(lines, 0)
+    t.eq("  ", value.prefix)
+    for _, row in ipairs(value.rows) do for _, cell in ipairs(row.cells) do
+      t.eq(cell.text, lines[row.source_row + 1]:sub(cell.start_col + 1, cell.end_col))
+    end end
+  end)
+  t.test("quoted tables preserve container prefix and stop before leaving their quote", function()
+    local lines = { "> > | A | B |", "> > |---|---|", "> > |x|y|", "|outside|quote|" }
+    local value = tables.parse(lines, 0)
+    t.eq("> > ", value.prefix); t.eq(3, value.end_row); t.eq(2, #value.rows)
+    for _, row in ipairs(value.rows) do for _, cell in ipairs(row.cells) do
+      t.eq(cell.text, lines[row.source_row + 1]:sub(cell.start_col + 1, cell.end_col))
+    end end
+    t.eq("> > ", parse(lines).tables[1].prefix)
+  end)
+  t.test("callout tables restore the quote removed for recursive parsing", function()
+    local lines = { "> [!NOTE]", "> | A | B |", "> |---|---|", "> |x|y|" }
+    local value = parse(lines).tables[1]
+    t.eq("> ", value.prefix); t.eq(1, value.start_row); t.eq(4, value.end_row)
+    for _, row in ipairs(value.rows) do for _, cell in ipairs(row.cells) do
+      t.eq(cell.text, lines[row.source_row + 1]:sub(cell.start_col + 1, cell.end_col))
+    end end
+  end)
+  t.test("nested dedentation and quoting compose the original table prefix once", function()
+    local lines = { '!!! note "Outer"', "    > [!NOTE] Inner", "    >   | A | B |", "    >   |---|---|", "    >   |x|y|" }
+    local value = parse(lines).tables[1]
+    t.eq("    >   ", value.prefix); t.eq(2, value.start_row)
+    for _, row in ipairs(value.rows) do for _, cell in ipairs(row.cells) do
+      t.eq(cell.text, lines[row.source_row + 1]:sub(cell.start_col + 1, cell.end_col))
+    end end
+  end)
+  local has_format, formatter = pcall(require, "md-readable.table.format")
+  if has_format then
+    t.test("real format and edit preserve the surrounding callout and its cell values", function()
+      local source = { "> [!NOTE]", "> | A | B |", "> |---|---|", "> |x|y|" }
+      local value = parse(source).tables[1]
+      local formatted = formatter.format(value)
+      for _, line in ipairs(formatted) do t.eq("> ", line:sub(1, 2)) end
+      local updated = { source[1] }; vim.list_extend(updated, formatted)
+      local reparsed = parse(updated)
+      t.eq("callout", reparsed.blocks[1].type); t.eq("> ", reparsed.tables[1].prefix)
+      t.eq("x", reparsed.tables[1].rows[2].cells[1].text)
+      local edited = require("md-readable.table.edit").edit(reparsed.tables[1], "col_after", 1, 1)
+      for _, line in ipairs(edited) do t.eq("> ", line:sub(1, 2)) end
+      t.eq(3, #tables.parse(edited, 0).alignments)
+    end)
+  end
 end
