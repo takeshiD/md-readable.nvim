@@ -48,7 +48,9 @@ function M.parse(line, row, links, opts, start_col, end_col)
             add(omission)
           else
             local before = #result
+            by_start[i] = nil
             parse(link.label_start + 1, link.label_end, "MdReadableLink")
+            by_start[i] = link
             for index = before + 1, #result do
               local label = result[index]
               label.kind, label.full_start, label.full_end = "node", item.full_start, item.full_end
