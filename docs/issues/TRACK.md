@@ -55,3 +55,11 @@ I00を先に確定し、文書解析・SourceMap・ナビゲーション/各pars
 - `docs/adr/`: 原文コピー/表示検索の分離と、参考機能の内蔵方針。
 
 各機能のheadless検証、全7対象の対応形式表、WezTerm/Ghostty等の実表示結果、README/help/health/導入例を揃える。画像等の任意依存がない環境でも基本表示・ナビゲーションが成立すること、原文を読むだけでは変更しないこと、未保存内容を保持することを確認する。Neovim終了をまたぐ位置保存、動画・PlantUML・CSV変換・数式は対象外。
+
+## 実装状況（2026-10-04）
+
+[PR #34](https://github.com/takeshiD/md-readable.nvim/pull/34) に全実装を統合済み。ブランチは `feat/readable-implementation`。3つの隔離worktreeで描画・ナビゲーション・サービスを並列実装し、共有契約を通して接続した。
+
+150件のheadlessテストが成功。7SSG、実Session、UTF-8の原文コピー、レジスタ、未保存編集・ページ同期、狭幅UI、表編集、Git/LSP注釈、画像プロトコル・取消し、導入済みTelescope/Snacksを検証。1,000ページfixtureの初回は約49ms、再解析約46ms（保証値ではない）。
+
+コード未マージのため追跡チェックは残す。#23・#24・#28は実装済みだが、WezTerm/Ghostty実端末の画像表示と実際のmmdc描画の検証を残す。詳細は [検証記録](https://github.com/takeshiD/md-readable.nvim/blob/feat/readable-implementation/docs/verification.md)。
