@@ -1,0 +1,36 @@
+# Neovim / Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+Session.vim
+Sessionx.vim
+.netrwhist
+*~
+[._]*.un~
+tags
+doc/tags*
+
+# Lua
+luac.out
+*.src.rock
+*.zip
+*.tar.gz
+.luarc.json
+
+# テスト・一時ファイル
+.tests/
+.testdata/
+*.log
+
+# エディタ
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# AI支援ツール
+.claude/
