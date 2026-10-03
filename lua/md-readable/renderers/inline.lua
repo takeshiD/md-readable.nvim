@@ -42,6 +42,7 @@ function M.parse(line, row, links, opts, start_col, end_col)
               text = text .. char
             end
             item.text, item.source_end = text, item.source_start + #text
+            item.node_complete = false
             add(item)
             local omission = piece("…", item.source_end, link.label_end, "MdReadableOmission", "omission")
             omission.full_start, omission.full_end = link.range.start.byteColumn, link.range["end"].byteColumn

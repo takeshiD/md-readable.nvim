@@ -63,6 +63,38 @@ return function(t)
     local omission; for _, segment in ipairs(value.segments) do if segment.kind == "omission" then omission = segment end end
     t.eq(value.cells[4].source_start, omission.full_start); t.eq(value.cells[4].source_end, omission.full_end)
   end)
+  t.test("truncated link label pieces cannot claim whole-node selection", function()
+    local value = draw({ "| Name |", "| --- |", "| [abcdefghijk](dest.md) |" }, { width = 20, table = { max_cell_width = 5 } })
+    local nodes = {}
+    for _, segment in ipairs(value.segments) do
+      if segment.kind == "node" then nodes[#nodes + 1] = segment; t.eq(false, segment.node_complete) end
+    end
+    t.eq(1, #nodes); t.eq("abcd", value.lines[nodes[1].row + 1]:sub(nodes[1].start_col + 1, nodes[1].end_col))
+  end)
+  t.test("table clipping marks all fragments of a formatted partial label", function()
+    local value = draw({ "| Name |", "| --- |", "| [**bold** and tail](dest.md) |" }, { width = 20, table = { max_cell_width = 7 } })
+    local count = 0
+    for _, segment in ipairs(value.segments) do
+      if segment.kind == "node" then count = count + 1; t.eq(false, segment.node_complete) end
+    end
+    t.ok(count >= 2)
+  end)
+  t.test("fully retained links remain complete even when a later cell tail is omitted", function()
+    local value = draw({ "| Name |", "| --- |", "| [ok](dest.md) long trailing text |" }, { width = 20, table = { max_cell_width = 6 } })
+    local count = 0
+    for _, segment in ipairs(value.segments) do
+      if segment.kind == "node" then count = count + 1; t.ok(segment.node_complete ~= false) end
+    end
+    t.eq(1, count)
+  end)
+  t.test("URL omissions mark retained fragments incomplete before wrapping", function()
+    local value = draw({ "https://example.org/long/long/long" }, { max_url_width = 24, width = 10 })
+    local count = 0
+    for _, segment in ipairs(value.segments) do
+      if segment.kind == "node" then count = count + 1; t.eq(false, segment.node_complete) end
+    end
+    t.ok(count >= 2)
+  end)
   t.test("narrow table fallback never loses columns", function()
     local value = draw({ "a | b | c | d", "--- | --- | --- | ---", "one | two | three | four" }, { width = 10 })
     t.eq(8, #value.cells); t.ok(contains(value.lines, "four"))
@@ -109,4 +141,67 @@ return function(t)
     local lines = { "# Title", "text" }; local document = parse(lines); draw(lines, { width = 80 }); render(document, { width = 120 })
     t.eq({ "# Title", "text" }, document.lines); t.eq(lines, document.lines)
   end)
+  t.test("ordinary soft lines join while retaining all source rows and byte spans", function()
+    local source = { "This is", "one **paragraph** with", "[a link](x.md)." }
+    local value = draw(source)
+    t.eq({ "This is one paragraph with a link." }, value.lines)
+    t.eq({ { 0, 1, 2 } }, value.source_rows); t.eq({ 0 }, value.row_map)
+    for _, segment in ipairs(value.segments) do
+      t.eq(source[segment.source_row + 1]:sub(segment.source_start + 1, segment.source_end),
+        value.lines[segment.row + 1]:sub(segment.start_col + 1, segment.end_col))
+    end
+  end)
+  t.test("CJK soft breaks join without artificial spaces and wrap with source identity", function()
+    local source = { "日本語の", "文章です", "終わり" }
+    local value = draw(source, { width = 12 })
+    t.eq("日本語の文章です終わり", table.concat(value.lines))
+    t.eq({ 0, 1 }, value.source_rows[1]); t.eq({ 1, 2 }, value.source_rows[2])
+    for _, segment in ipairs(value.segments) do
+      t.eq(source[segment.source_row + 1]:sub(segment.source_start + 1, segment.source_end),
+        value.lines[segment.row + 1]:sub(segment.start_col + 1, segment.end_col))
+    end
+  end)
+  t.test("explicit Markdown hard breaks preserve separate lines without source markers", function()
+    local value = draw({ "line one  ", "line two\\", "line three", "continued", "", "New paragraph" })
+    t.eq({ "line one", "line two", "line three continued", "", "New paragraph" }, value.lines)
+    t.eq({ { 0 }, { 1 }, { 2, 3 }, { 4 }, { 5 } }, value.source_rows)
+  end)
+  t.test("unknown HTML and image source lines never join surrounding paragraphs", function()
+    local value = draw({ "before", "<Widget value={1} />", "after", "![alt](x.png)", "last" }, { media = { enabled = false } })
+    t.eq({ "before", "<Widget value={1} />", "after", "[Image: alt]", "last" }, value.lines)
+  end)
+  t.test("joined paragraphs within dedented tabs preserve original source columns", function()
+    local source = { '=== "Tab"', "    first", "    [second](x.md)", "    third" }
+    local value = draw(source)
+    t.eq("first second third", value.lines[2]); t.eq({ 1, 2, 3 }, value.source_rows[2])
+    for _, segment in ipairs(value.segments) do
+      t.eq(source[segment.source_row + 1]:sub(segment.source_start + 1, segment.source_end),
+        value.lines[segment.row + 1]:sub(segment.start_col + 1, segment.end_col))
+    end
+  end)
+  local has_map, source_map = pcall(require, "md-readable.reader.source_map")
+  if has_map then
+    t.test("real SourceMap distinguishes truncated link text and its cell ellipsis", function()
+      local source = { "| Name |", "| --- |", "| [abcdefghijk](dest.md) |" }
+      local value = draw(source, { width = 20, table = { max_cell_width = 5 } })
+      local map = source_map.new(source, value)
+      for _, segment in ipairs(value.segments) do
+        if segment.source_row == 2 and segment.kind == "node" then
+          t.eq("abcd", map:copy(segment.row, segment.start_col, segment.row, segment.end_col, "char"))
+        elseif segment.source_row == 2 and segment.kind == "omission" then
+          t.eq("[abcdefghijk](dest.md)", map:copy(segment.row, segment.start_col, segment.row, segment.end_col, "char"))
+        end
+      end
+    end)
+    t.test("real SourceMap copies all joined source lines and locates their individual text", function()
+      local source = { "first source line", "second source line" }
+      local value = draw(source)
+      local map = source_map.new(source, value)
+      t.eq(table.concat(source, "\n"), map:copy(0, 0, 0, #value.lines[1], "line"))
+      local row, col = map:to_display(1, 0)
+      t.eq(0, row); t.eq(18, col)
+      local original_row, original_col = map:to_source(row, col)
+      t.eq(1, original_row); t.eq(0, original_col)
+    end)
+  end
 end

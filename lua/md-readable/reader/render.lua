@@ -3,9 +3,12 @@ function M.register(kind, renderer) M.renderers[kind] = renderer end
 
 -- Optional result metadata: cells expose full source cell text for inspection;
 -- controls describe static details/tabs; code_blocks retain language and ranges.
+-- source_rows lists every original row contributing to each display line, while
+-- row_map retains the first contributor. node_complete=false prevents copying a
+-- truncated visible link label as though its omitted tail had been selected.
 function M.render(document, opts)
   opts = opts or {}
-  local result = { lines = {}, segments = {}, row_map = {}, highlights = {}, images = {}, cells = {}, controls = {}, code_blocks = {} }
+  local result = { lines = {}, segments = {}, row_map = {}, source_rows = {}, highlights = {}, images = {}, cells = {}, controls = {}, code_blocks = {} }
   local ctx = { document = document, opts = opts, result = result }
   local width = math.max(1, opts.width or 80)
   local media = opts.media or {}
@@ -16,17 +19,22 @@ function M.render(document, opts)
     local kind = item.kind or "text"
     if previous and previous.row == row and previous.end_col == a and previous.source_row == source_row
       and previous.source_end == source_a and previous.kind == kind and previous.full_start == item.full_start
-      and previous.full_end == item.full_end and (b - a == source_b - source_a)
+      and previous.full_end == item.full_end and previous.node_complete == item.node_complete and (b - a == source_b - source_a)
       and (previous.end_col - previous.start_col == previous.source_end - previous.source_start) then
       previous.end_col, previous.source_end = b, source_b
     else result.segments[#result.segments + 1] = { row = row, start_col = a, end_col = b, source_row = source_row,
-      source_start = source_a, source_end = source_b, kind = kind, full_start = item.full_start, full_end = item.full_end } end
+      source_start = source_a, source_end = source_b, kind = kind, full_start = item.full_start, full_end = item.full_end,
+      node_complete = item.node_complete } end
   end
   function ctx.emit(pieces, source_row, wrap)
     local first_row, line, cells, row = #result.lines, "", 0, #result.lines
+    local contributors, seen = {}, {}
     local function flush()
-      result.lines[#result.lines + 1], result.row_map[#result.row_map + 1] = line, source_row
+      if #contributors == 0 then contributors = { source_row } end
+      result.lines[#result.lines + 1], result.row_map[#result.row_map + 1] = line, contributors[1]
+      result.source_rows[#result.source_rows + 1] = contributors
       row, line, cells = #result.lines, "", 0
+      contributors, seen = {}, {}
     end
     for _, item in ipairs(pieces) do
       local consumed = 0
@@ -42,7 +50,11 @@ function M.render(document, opts)
           if #item.text == item.source_end - item.source_start then source_a, source_b = item.source_start + consumed, item.source_start + consumed + #char
           else source_a, source_b = item.source_start, item.source_end end
         end
-        add_segment(item, row, start, #line, source_row, source_a, source_b)
+        local item_source_row = item.source_row or source_row
+        if source_a ~= nil and not seen[item_source_row] then
+          contributors[#contributors + 1], seen[item_source_row] = item_source_row, true
+        end
+        add_segment(item, row, start, #line, item_source_row, source_a, source_b)
         if item.group then
           local previous = result.highlights[#result.highlights]
           if previous and previous.row == row and previous.end_col == start and previous.group == item.group then previous.end_col = #line
@@ -53,6 +65,26 @@ function M.render(document, opts)
     end
     flush()
     return first_row
+  end
+  local function cjk(char)
+    local cp = vim.fn.char2nr(char)
+    return (cp >= 0x2E80 and cp <= 0xA4CF) or (cp >= 0xAC00 and cp <= 0xD7AF)
+      or (cp >= 0xF900 and cp <= 0xFAFF) or (cp >= 0xFE30 and cp <= 0xFE4F)
+      or (cp >= 0xFF00 and cp <= 0xFFEF) or (cp >= 0x20000 and cp <= 0x323AF)
+  end
+  local function paragraph_pieces(doc, row)
+    local line = doc.lines[row + 1]
+    local slashes = line:match("(\\+)$") or ""
+    local hard = line:match("  +$") ~= nil or #slashes % 2 == 1
+    local last = #slashes % 2 == 1 and #line - 1 or #(line:gsub("%s+$", ""))
+    local first = #(line:match("^ ? ? ?") or "")
+    local pieces = require("md-readable.renderers.inline").parse(line, row, doc.links, opts, first, last)
+    local visible = {}
+    for _, piece in ipairs(pieces) do
+      piece.source_row = row
+      visible[#visible + 1] = piece.text
+    end
+    return pieces, hard, table.concat(visible)
   end
   local render_blocks
   function ctx.body(start_row, end_row, indent, strip_quote)
@@ -81,8 +113,16 @@ function M.render(document, opts)
     else render_blocks(require("md-readable.document.blocks").scan(lines, start_row, end_row), parent_document) end
   end
   render_blocks = function(blocks, doc)
-    for _, block in ipairs(blocks) do
-      if M.renderers[block.type] then M.renderers[block.type](block, ctx)
+    local consumed = {}
+    local function joinable(block)
+      if not block or block.type ~= "paragraph" then return false end
+      if doc.lines[block.start_row + 1]:match("^%s*</?[%a][%w-]*[%s>/]") then return false end
+      for _, link in ipairs(doc.links) do if link.kind == "image" and link.range.start.row == block.start_row then return false end end
+      return true
+    end
+    for block_index, block in ipairs(blocks) do
+      if consumed[block_index] then -- Joined into the preceding ordinary paragraph.
+      elseif M.renderers[block.type] then M.renderers[block.type](block, ctx)
       elseif block.type == "table" then require("md-readable.renderers.table").render(block, ctx)
       elseif block.type == "callout" or block.type == "details" or block.type == "tabs" then require("md-readable.renderers.extensions").render(block, ctx)
       elseif block.type == "frontmatter" or block.type == "reference" then -- Kept in source, intentionally absent from reading text.
@@ -113,6 +153,19 @@ function M.render(document, opts)
             code = table.concat(body_lines, "\n"), alt = "Mermaid diagram", height = image_height, width = width }
           for _ = 1, image_height do ctx.emit({}, block.start_row, false) end
         end
+      elseif joinable(block) then
+        local pieces, hard, previous_text = paragraph_pieces(doc, block.start_row)
+        local next_index = block_index + 1
+        while not hard and joinable(blocks[next_index]) do
+          local following, next_hard, next_text = paragraph_pieces(doc, blocks[next_index].start_row)
+          local last_char = vim.fn.strcharpart(previous_text, math.max(0, vim.fn.strchars(previous_text, true) - 1), 1, true)
+          local first_char = vim.fn.strcharpart(next_text, 0, 1, true)
+          if not (cjk(last_char) and cjk(first_char)) then pieces[#pieces + 1] = { text = " " } end
+          for _, piece in ipairs(following) do pieces[#pieces + 1] = piece end
+          consumed[next_index], hard, previous_text = true, next_hard, next_text
+          next_index = next_index + 1
+        end
+        ctx.emit(pieces, block.start_row, true)
       else
         for row = block.start_row, (block.type == "heading" and block.start_row or block.end_row - 1) do
           local display_row = ctx.emit(require("md-readable.renderers.text").pieces(block, doc, row, opts), row, true)
@@ -128,7 +181,7 @@ function M.render(document, opts)
     end
   end
   render_blocks(document.blocks, document)
-  if #result.lines == 0 then result.lines, result.row_map = { "" }, { 0 } end
+  if #result.lines == 0 then result.lines, result.row_map, result.source_rows = { "" }, { 0 }, { { 0 } } end
   return result
 end
 return M

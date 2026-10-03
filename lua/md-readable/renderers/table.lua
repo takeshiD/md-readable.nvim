@@ -22,6 +22,19 @@ local function clipped(pieces, width, cell)
     end
     if #part < #item.text then break end
   end
+  -- Selecting every retained fragment is not the same as selecting a complete
+  -- label. Preserve that distinction before the omitted tail is discarded.
+  local original, retained = {}, {}
+  local function key(item) return tostring(item.full_start) .. ":" .. tostring(item.full_end) end
+  for _, item in ipairs(pieces) do
+    if item.kind == "node" then original[key(item)] = (original[key(item)] or 0) + #item.text end
+  end
+  for _, item in ipairs(result) do
+    if item.kind == "node" then retained[key(item)] = (retained[key(item)] or 0) + #item.text end
+  end
+  for _, item in ipairs(result) do
+    if item.kind == "node" and retained[key(item)] < original[key(item)] then item.node_complete = false end
+  end
   result[#result + 1] = { text = "…", kind = "omission", source_start = cell.start_col, source_end = cell.end_col,
     full_start = cell.start_col, full_end = cell.end_col, group = "MdReadableOmission" }
   return result, true

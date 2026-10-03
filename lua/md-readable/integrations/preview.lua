@@ -85,9 +85,19 @@ function M.new(opts)
       end
       vim.bo[buf].modifiable = false
       local target_source = math.max(0, (position and position[1] or 1) - 1)
-      local target = #rendered.lines
+      local target, column = #rendered.lines, 0
+      local source_column = math.max(0, position and position[2] or 0)
       for row, source in ipairs(rendered.row_map) do if source >= target_source then target = row; break end end
-      vim.api.nvim_win_set_cursor(win, { math.max(1, target), 0 })
+      for _, segment in ipairs(rendered.segments) do
+        if segment.source_row == target_source then
+          target, column = segment.row + 1, segment.start_col
+          if source_column < segment.source_end then
+            column = math.min(segment.end_col - 1, segment.start_col + math.max(0, source_column - segment.source_start))
+            break
+          end
+        end
+      end
+      vim.api.nvim_win_set_cursor(win, { math.max(1, target), column })
       vim.api.nvim_win_call(win, function() vim.cmd("normal! zz") end)
       if media_enabled then
         local session = self.session
