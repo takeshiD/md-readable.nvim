@@ -1,0 +1,143 @@
+return function(t)
+  local api = require("md-readable")
+  local sessions = require("md-readable.reader.session")
+  local function cleanup()
+    local all = vim.tbl_values(sessions.all())
+    for _, s in ipairs(all) do
+      sessions.close(s)
+    end
+    vim.cmd("silent! only!")
+  end
+  local function fixture()
+    cleanup()
+    api.setup({
+      navigation = { auto_open = false },
+      images = { enabled = false },
+      debounce = 0,
+      table = {
+        max_cell_width = 8,
+      },
+    })
+    local dir = t.tempdir()
+    t.write(dir .. "/next.md", { "# Next", "next paragraph" })
+    local buf = vim.api.nvim_create_buf(true, false)
+    vim.api.nvim_buf_set_name(buf, dir .. "/README.md")
+    vim.api.nvim_set_current_buf(buf)
+    vim.bo[buf].filetype = "markdown"
+    local lines = {
+      "# Title",
+      "[guide](next.md)",
+      "",
+      "| Name | Description |",
+      "| --- | --- |",
+      "| sample | hidden-tail-secret |",
+    }
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+    return buf, lines, dir
+  end
+  t.test("vertical reading and current reading preserve unsaved source and lifecycle", function()
+    local source, lines = fixture()
+    local sourcewin = vim.api.nvim_get_current_win()
+    local s = api.open("vert")
+    t.ok(s.read_win ~= sourcewin)
+    t.eq(source, s.source_buf)
+    t.eq(lines, vim.api.nvim_buf_get_lines(source, 0, -1, false))
+    t.ok(vim.bo[source].modified)
+    t.ok(not vim.bo[s.read_buf].modifiable)
+    t.eq(s, api.open("vert"))
+    sessions.close(s)
+    t.ok(not vim.api.nvim_buf_is_valid(s.read_buf))
+    vim.api.nvim_set_current_win(sourcewin)
+    local oldwrap = vim.wo.wrap
+    s = api.open()
+    t.eq(sourcewin, s.read_win)
+    sessions.close(s)
+    t.eq(source, vim.api.nvim_get_current_buf())
+    t.eq(oldwrap, vim.wo.wrap)
+    cleanup()
+  end)
+  t.test("native y copies original link and partial label while normal search stays displayed", function()
+    fixture()
+    local s = api.open("vert")
+    s:jump_source(1, 1)
+    vim.cmd("normal v4ly")
+    t.eq("[guide](next.md)", vim.fn.getreg('"'))
+    s:jump_source(1, 1)
+    vim.cmd("normal v1ly")
+    t.eq("gu", vim.fn.getreg('"'))
+    t.eq(0, vim.fn.search("hidden-tail-secret", "nw"))
+    local matches = require("md-readable.reader.search").find(s, "hidden-tail-secret")
+    t.eq(1, #matches)
+    t.eq(5, matches[1].row)
+    cleanup()
+  end)
+  t.test("source edits refresh and page movement keeps unsaved buffers", function()
+    local source, _, dir = fixture()
+    local s = api.open("vert")
+    vim.api.nvim_buf_set_lines(source, 0, 1, false, { "# Changed" })
+    t.ok(
+      vim.wait(1000, function()
+        return s.document.lines[1] == "# Changed"
+      end, 10),
+      "live update"
+    )
+    s:navigate(dir .. "/next.md")
+    t.eq(dir .. "/next.md", vim.api.nvim_buf_get_name(s.source_buf))
+    t.eq(s.source_buf, vim.api.nvim_win_get_buf(s.source_win))
+    t.eq("# Changed", vim.api.nvim_buf_get_lines(source, 0, 1, false)[1])
+    t.ok(vim.bo[source].modified)
+    cleanup()
+  end)
+  t.test("table commands edit the original buffer and refresh projection", function()
+    local source = fixture()
+    local s = api.open("vert")
+    s:jump_source(5, 3)
+    api.action("table", { "col-after", "2" })
+    t.eq(4, #s.document.tables[1].rows[1].cells)
+    t.eq(4, #s.document.tables[1].rows[2].cells)
+    t.ok(vim.bo[source].modified)
+    api.action("table", { "row-after" })
+    t.eq(3, #s.document.tables[1].rows)
+    cleanup()
+  end)
+  t.test("Focus and theme leave source window untouched", function()
+    fixture()
+    local s = api.open("vert")
+    local ns = vim.api.nvim_get_hl_ns({ winid = s.source_win })
+    api.action("theme", { "dark" })
+    api.action("focus", { "on" })
+    t.eq(ns, vim.api.nvim_get_hl_ns({ winid = s.source_win }))
+    t.eq(0, #vim.fn.getmatches(s.source_win))
+    t.ok(#vim.fn.getmatches(s.read_win) > 0)
+    api.action("minimap", { "on" })
+    api.action("minimap", { "off" })
+    cleanup()
+  end)
+  t.test("native jump back restores the previous source document in the reader", function()
+    local original, _, dir = fixture()
+    local s = api.open("vert")
+    s:jump_source(1, 2)
+    s:navigate(dir .. "/next.md")
+    vim.cmd("normal! " .. string.char(15))
+    t.ok(
+      vim.wait(1000, function()
+        return s.source_buf == original
+      end, 10),
+      "Ctrl-O returns to original document"
+    )
+    t.eq(s.read_buf, vim.api.nvim_win_get_buf(s.read_win))
+    cleanup()
+  end)
+  t.test("source-aware native jumps go both backward and forward", function()
+    local original, _, dir = fixture()
+    local s = api.open("vert")
+    s:navigate(dir .. "/next.md")
+    local nextbuf = s.source_buf
+    s:native_jump(string.char(15), 1)
+    t.eq(original, s.source_buf, vim.inspect(vim.fn.getjumplist(s.read_win)))
+    s:native_jump(string.char(9), 1)
+    t.eq(nextbuf, s.source_buf)
+    t.eq(s.read_buf, vim.api.nvim_win_get_buf(s.read_win))
+    cleanup()
+  end)
+end
