@@ -16,10 +16,12 @@
 ---@field kind 'text'|'node'|'omission'
 ---@field full_start? integer Entire source element start (links / omitted cells)
 ---@field full_end? integer Entire source element end
+---@field node_complete? boolean False when a visible node is only a truncated label fragment
 ---@class MdReadableRendered
 ---@field lines string[]
 ---@field segments MdReadableSegment[]
 ---@field row_map table<integer, integer> 1-based display index to zero-based source row
+---@field source_rows? table<integer, integer[]> All contributing original rows for joined prose
 ---@field highlights table[] {row,start_col,end_col,group}
 ---@field images table[] {row,source_row,path,alt,kind,code?}
 ---@class MdReadableDocument

@@ -9,10 +9,18 @@ function M.preview(opts)
     local util = require("snacks.picker.util")
     local path = util.path(ctx.item)
     local engine = engines[ctx.win]
-    if not engine or engine.closed then engine = core.new(opts); engines[ctx.win] = engine end
-    local function fallback() return require("snacks.picker.preview").file(ctx) end
+    if not engine or engine.closed then
+      engine = core.new(opts)
+      engines[ctx.win] = engine
+    end
+    local function fallback()
+      return require("snacks.picker.preview").file(ctx)
+    end
     local kind = core.kind(path)
-    if not kind or (kind == "image" and not core.capable(opts)) then engine:clear(); return fallback() end
+    if not kind or (kind == "image" and not core.capable(opts)) then
+      engine:clear()
+      return fallback()
+    end
     ctx.preview:reset()
     ctx.preview:set_title(ctx.item.title or vim.fn.fnamemodify(path, ":t"))
     ctx.preview:minimal()

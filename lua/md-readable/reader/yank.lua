@@ -37,7 +37,19 @@ function M.handle(session, event)
   elseif event.inclusive then
     ec = char_end(session.rendered.lines[er + 1] or "", ec)
   end
-  local text, kind = session.map:copy(sr, sc, er, ec, mode)
+  local columns
+  if mode == "block" then
+    columns = {}
+    local left = vim.fn.virtcol({ sr + 1, sc + 1 }, true)[1]
+    local width = tonumber(event.regtype:sub(2)) or 1
+    for row = sr, er do
+      local line = session.rendered.lines[row + 1] or ""
+      local first = vim.fn.virtcol2col(session.read_win, row + 1, left)
+      local last = vim.fn.virtcol2col(session.read_win, row + 1, left + width - 1)
+      columns[row] = { first > 0 and first - 1 or #line, last > 0 and char_end(line, last - 1) or #line }
+    end
+  end
+  local text, kind = session.map:copy(sr, sc, er, ec, mode, columns)
   if text == nil then
     restore(session)
     vim.notify("md-readable: selection contains no source text")
@@ -47,6 +59,10 @@ function M.handle(session, event)
   if reg == "" then
     reg = '"'
   end
+  if reg == "_" then
+    session.yank_previous, session.yank_register = nil, nil
+    return
+  end
   if reg:match("^[A-Z]$") then
     local previous = session.yank_previous and session.yank_previous[reg:lower()]
     if previous then
@@ -54,7 +70,11 @@ function M.handle(session, event)
     end
   end
   vim.fn.setreg(reg, text, kind)
-  vim.fn.setreg('"', text, kind)
+  if reg:match("^[A-Z]$") then
+    vim.fn.setreg('"', vim.fn.getreginfo(reg:lower()))
+  else
+    vim.fn.setreg('"', text, kind)
+  end
   if reg == '"' then
     vim.fn.setreg("0", text, kind)
   end

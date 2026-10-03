@@ -5,17 +5,19 @@ local dots = { { 1, 2, 4, 64 }, { 8, 16, 32, 128 } }
 function M.render(lines, opts)
   opts = opts or {}
   local width, height = math.max(1, opts.width or 12), math.max(1, opts.height or 24)
-  local ascii = opts.mode == 'ascii'
+  local ascii = opts.mode == "ascii"
   local vertical = ascii and 1 or 4
   local row_stride = math.max(1, math.ceil(#lines / (height * vertical)))
   local chars, max_width = {}, 1
   for row, line in ipairs(lines) do
     chars[row] = {}
     local col = 0
-    for _, char in ipairs(vim.fn.split(line, '\\zs')) do
-      local cells = char == '\t' and ((opts.tabstop or 8) - col % (opts.tabstop or 8)) or vim.fn.strdisplaywidth(char)
-      if char ~= '\t' and not char:match('^%s$') then
-        for offset = 0, cells - 1 do chars[row][col + offset] = true end
+    for _, char in ipairs(vim.fn.split(line, "\\zs")) do
+      local cells = char == "\t" and ((opts.tabstop or 8) - col % (opts.tabstop or 8)) or vim.fn.strdisplaywidth(char)
+      if char ~= "\t" and not char:match("^%s$") then
+        for offset = 0, cells - 1 do
+          chars[row][col + offset] = true
+        end
       end
       col = col + cells
     end
@@ -44,7 +46,7 @@ function M.render(lines, opts)
     local cells = {}
     for col = 1, width do
       local value = (pixels[row] or {})[col] or 0
-      cells[col] = ascii and (value > 0 and '#' or ' ') or vim.fn.nr2char(0x2800 + value)
+      cells[col] = ascii and (value > 0 and "#" or " ") or vim.fn.nr2char(0x2800 + value)
     end
     result[row] = table.concat(cells)
   end
@@ -63,7 +65,9 @@ function M.annotations(items, map, rendered)
     local bottom = rendered.display_to_mini[last_display + 1] or (#rendered.lines - 1)
     for row = math.min(top, bottom), math.max(top, bottom) do
       local old = projected[row]
-      if not old or (item.severity or 99) < (old.severity or 99) then projected[row] = item end
+      if not old or (item.severity or 99) < (old.severity or 99) then
+        projected[row] = item
+      end
     end
   end
   return projected

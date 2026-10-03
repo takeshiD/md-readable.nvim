@@ -22,6 +22,10 @@ function M.setup(opts)
   assert(type(value.width) == "number" and value.width >= 12, "reader width must be >= 12")
   assert(type(value.debounce) == "number" and value.debounce >= 0, "debounce must be nonnegative")
   assert(value.table.max_cell_width >= 3, "table.max_cell_width must be >= 3")
+  assert(value.focus.coefficient >= 0 and value.focus.coefficient <= 1, "focus.coefficient must be between 0 and 1")
+  assert(value.float.width > 0 and value.float.width <= 1, "float.width must be a fraction between 0 and 1")
+  assert(value.float.height > 0 and value.float.height <= 1, "float.height must be a fraction between 0 and 1")
+  assert(value.images.height >= 1, "images.height must be positive")
   M.options = value
   return value
 end

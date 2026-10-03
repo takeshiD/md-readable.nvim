@@ -11,7 +11,7 @@ All source/display rows and byte columns are zero-based and ranges half-open. So
 
 ## Render and mapping
 
-`reader.render.render(document, opts)` returns `MdReadableRendered`; opts includes `width`, `table.max_cell_width`, `expanded` keyed by zero-based source row, and `tabs` keyed by source row. `row_map[display_row+1]` is a zero-based source row. Segments follow `types.lua`: direct text, inline node (full_start/full_end for entire link when full label selected), omission (full source range if the ellipsis is selected). Generated borders have no segment. `highlights` are `{row,start_col,end_col,group}` using `MdReadable*` groups. `images` have kind `image` or `mermaid` and source_row/path/alt/code.
+`reader.render.render(document, opts)` returns `MdReadableRendered`; opts includes `width`, `table.max_cell_width`, `expanded` keyed by zero-based source row, and `tabs` keyed by source row. `row_map[display_row+1]` is a zero-based source row; `source_rows` lists all contributing original rows when prose is joined. Segments follow `types.lua`: direct text, inline node (full_start/full_end for entire link when full label selected), omission (full source range if the ellipsis is selected). A truncated label marks `node_complete=false`; selecting every visible fragment must not expand a still-incomplete node. Generated borders have no segment. `highlights` are `{row,start_col,end_col,group}` using `MdReadable*` groups. `images` have kind `image` or `mermaid` and source_row/path/alt/code.
 
 Root owns `reader.source_map`: `new(source_lines, rendered)` returns a map with `to_source(row,col) -> row,col`, `to_display(row,col) -> row,col`, `copy(start_row,start_col,end_row,end_col,mode) -> text,regtype` (selection end exclusive; mode char/line/block). Renderers do not require it to render.
 
@@ -22,7 +22,7 @@ Root owns `reader.session`, configuration and commands. Session fields and callb
 Focus: `reader.focus.set(session, enabled, range?)`, `.update(session)`, `.close(session)`.
 Theme: `ui.theme.apply(win, name, opts?)`, `.setup()`.
 Minimap: `nav.minimap.open(session)`, `.close(session)`, `.update(session)`, `.toggle(session)`, `.set_annotations(session, provider_id, items)`; items are `{start_row,end_row,kind,severity?}` in original coordinates. Git/diagnostic updates are service-owned and must be cleaned up. Mini buffers can map Enter to session:jump_source.
-Table: `table.format.format(table) -> lines`; `table.edit.edit(table, action, index, count) -> lines,err` actions row_before/row_after/row_delete/col_before/col_after/col_delete; index is 1-based data row (header 0) or column. Root applies edit to `[start_row,end_row)` exactly once and refreshes. `format` must not mutate its argument.
+Table: `table.format.format(table) -> lines`; `table.edit.edit(table, action, index, count) -> lines,err` actions row_before/row_after/row_delete/col_before/col_after/col_delete; index is 1-based data row (header 0) or column. `table.prefix` preserves the source container/indent spelling and is prepended by the formatter. Root applies edit to `[start_row,end_row)` exactly once and refreshes. `format` must not mutate its argument.
 
 ## Navigation
 

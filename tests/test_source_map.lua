@@ -93,18 +93,15 @@ return function(t)
     t.eq("abcdef", m:copy(0, 0, 1, 3, "char"))
   end)
   t.test("linewise joined prose retains every source line, decoration retains none", function()
-    local m = require("md-readable.reader.source_map").new(
-      { "one", "two" },
-      {
-        lines = { "one two", "──" },
-        row_map = { 0, 1 },
-        source_rows = { { 0, 1 }, {} },
-        segments = {
-          { row = 0, start_col = 0, end_col = 3, source_row = 0, source_start = 0, source_end = 3, kind = "text" },
-          { row = 0, start_col = 4, end_col = 7, source_row = 1, source_start = 0, source_end = 3, kind = "text" },
-        },
-      }
-    )
+    local m = require("md-readable.reader.source_map").new({ "one", "two" }, {
+      lines = { "one two", "──" },
+      row_map = { 0, 1 },
+      source_rows = { { 0, 1 }, {} },
+      segments = {
+        { row = 0, start_col = 0, end_col = 3, source_row = 0, source_start = 0, source_end = 3, kind = "text" },
+        { row = 0, start_col = 4, end_col = 7, source_row = 1, source_start = 0, source_end = 3, kind = "text" },
+      },
+    })
     t.eq("one\ntwo", m:copy(0, 0, 1, 0, "line"))
     t.eq(nil, m:copy(1, 0, 2, 0, "line"))
   end)

@@ -39,6 +39,14 @@ function M.open(mode)
   return require("md-readable.reader.session").open(mode)
 end
 local function source_position(s)
+  if
+    vim.api.nvim_get_current_win() == s.source_win
+    and s.source_win ~= s.read_win
+    and vim.api.nvim_win_get_buf(s.source_win) == s.source_buf
+  then
+    local pos = vim.api.nvim_win_get_cursor(s.source_win)
+    return pos[1] - 1, pos[2]
+  end
   local pos = vim.api.nvim_win_get_cursor(s.read_win)
   return s.map:to_source(pos[1] - 1, pos[2])
 end
@@ -159,8 +167,12 @@ function M.action(command, args, opts)
     local range = opts.range and opts.range > 0 and { start_row = opts.line1 - 1, end_row = opts.line2 } or nil
     require("md-readable.reader.focus").set(s, enabled, range)
   elseif command == "theme" then
-    s.config.theme = args[1] or "default"
-    require("md-readable.ui.theme").apply(s.read_win, s.config.theme, s.config)
+    local name = args[1] or "default"
+    local applied, err = require("md-readable.ui.theme").apply(s.read_win, name, s.config)
+    if not applied then
+      error(err)
+    end
+    s.config.theme = name
     require("md-readable.reader.focus").update(s)
   elseif command == "minimap" then
     local map = require("md-readable.nav.minimap")
@@ -203,6 +215,9 @@ function M.action(command, args, opts)
     for _, d in ipairs((s.nav_result and s.nav_result.diagnostics) or (s.snapshot and s.snapshot.diagnostics) or {}) do
       items[#items + 1] =
         { text = (d.code or "") .. " " .. (d.message or tostring(d)), type = d.severity == "error" and "E" or "W" }
+    end
+    for index, message in pairs(require("md-readable.providers.image").errors(s)) do
+      items[#items + 1] = { text = "image " .. index .. ": " .. tostring(message), type = "W" }
     end
     if #items == 0 then
       vim.notify("md-readable: no navigation diagnostics")

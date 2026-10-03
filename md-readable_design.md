@@ -7,7 +7,7 @@
 
 ## 0. 本書の読み方
 
-本書はREADMEの必須機能とgrill-with-docsのQ1〜Q21の回答を統合した仕様案である。[対話の合意記録](docs/design-decisions.md)、[並列実装Issue一覧](docs/implementation-issues.md)、[最終確認事項](docs/final-spec-review.md)を併せて参照する。ユーザーによる全体の認識確認後にIssueを起票する。
+本書はREADMEの必須機能とgrill-with-docsのQ1〜Q21の回答を統合し、Q22で承認された仕様である。[対話の合意記録](docs/design-decisions.md)、[並列実装Issue一覧](docs/implementation-issues.md)、[合意した初期値](docs/final-spec-review.md)を併せて参照する。実装Issueは[全体追跡 #33](https://github.com/takeshiD/md-readable.nvim/issues/33)に登録済み。
 
 実装必須なのは、全Appearance / Navigation / Formatting / Contents / Writing機能とSSG全7対象、およびQ20で追加されたpicker連携・表の行列編集・Git/LSP注釈である。段階分けは実装順序を表し、後続機能を任意扱いしない。任意依存の導入と、機能自体を実装する義務は区別する。
 
@@ -519,7 +519,7 @@ README.md
 
 ## 14. 実装への引き継ぎ
 
-最終的な認識確認後に、追跡Issueと各機能IssueをGitHubへ起票する。各Issueには目的、担当ファイル、入出力、先行Issue、具体的な受け入れ条件と検証方法を含める。共通契約の変更は統合担当が調整し、複数のエージェントが各自で別の型や座標規約を作らない。
+追跡Issueと各機能IssueをGitHubへ起票済み。各Issueには目的、担当ファイル、入出力、先行Issue、具体的な受け入れ条件と検証方法を記載した。共通契約の変更は統合担当が調整し、複数のエージェントが各自で別の型や座標規約を作らない。
 
 仕様に影響しない実装上の選択は担当エージェントが判断して理由を残す。表示の細部は初期実装を確認して改善するが、必須機能を削除したり、参考プラグインへの必須依存へ置き換えたりしない。
 

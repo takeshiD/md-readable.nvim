@@ -1,4 +1,4 @@
-local M = { sessions = {}, next_id = 0 }
+local M = { sessions = {}, next_id = 0, watchers = {} }
 local Session = {}
 Session.__index = Session
 local ns = vim.api.nvim_create_namespace("md-readable.render")
@@ -38,6 +38,19 @@ function M.current()
   for _, s in pairs(M.sessions) do
     if not s.closed and s.source_win == win then
       return s
+    end
+  end
+  for _, s in pairs(M.sessions) do
+    if not s.closed then
+      for _, panel in pairs((s._navigation or {}).panels or {}) do
+        if panel.win == win then
+          return s
+        end
+      end
+      local minimap = require("md-readable.minimap.session").get(s)
+      if minimap and minimap.win == win then
+        return s
+      end
     end
   end
 end
@@ -115,28 +128,34 @@ function Session:refresh()
     row, col = self.map:to_source(row, col)
   end
   self.generation = self.generation + 1
-  self.document =
+  local document =
     require("md-readable.document.parser").parse(vim.api.nvim_buf_get_lines(self.source_buf, 0, -1, false), {
       bufnr = self.source_buf,
       changedtick = vim.api.nvim_buf_get_changedtick(self.source_buf),
       path = vim.api.nvim_buf_get_name(self.source_buf),
     })
-  self.document.changedtick = vim.api.nvim_buf_get_changedtick(self.source_buf)
+  document.changedtick = vim.api.nvim_buf_get_changedtick(self.source_buf)
   local opts = vim.deepcopy(self.config)
+  opts.tabstop = vim.bo[self.source_buf].tabstop
+  vim.bo[self.read_buf].tabstop = opts.tabstop
   opts.width = math.max(12, math.min(opts.width, vim.api.nvim_win_get_width(self.read_win) - 2))
   opts.expanded, opts.tabs = self.expanded, self.tabs
   local image_ok, image = pcall(require, "md-readable.providers.image")
   local capable = image_ok and image.capabilities and image.capabilities()
   opts.media = { enabled = self.config.images.enabled and not not capable, image_height = self.config.images.height }
-  self.rendered = require("md-readable.reader.render").render(self.document, opts)
-  if #self.rendered.lines == 0 then
-    self.rendered.lines = { "" }
+  local rendered = require("md-readable.reader.render").render(document, opts)
+  if #rendered.lines == 0 then
+    rendered.lines = { "" }
   end
-  self.map = require("md-readable.reader.source_map").new(self.document.lines, self.rendered)
+  local map = require("md-readable.reader.source_map").new(document.lines, rendered)
   vim.bo[self.read_buf].modifiable = true
-  vim.api.nvim_buf_set_lines(self.read_buf, 0, -1, false, self.rendered.lines)
+  local written, err = pcall(vim.api.nvim_buf_set_lines, self.read_buf, 0, -1, false, rendered.lines)
   vim.bo[self.read_buf].modifiable = false
+  if not written then
+    error(err)
+  end
   vim.bo[self.read_buf].modified = false
+  self.document, self.rendered, self.map = document, rendered, map
   vim.api.nvim_buf_clear_namespace(self.read_buf, ns, 0, -1)
   for _, h in ipairs(self.rendered.highlights or {}) do
     local line = self.rendered.lines[h.row + 1] or ""
@@ -192,26 +211,34 @@ function Session:native_jump(key, count)
   self:jump_source(destination[1] - 1, destination[2])
 end
 function Session:attach_source()
-  if self.attached[self.source_buf] then
+  if M.watchers[self.source_buf] then
     return
   end
-  self.attached[self.source_buf] = true
   local buf = self.source_buf
+  M.watchers[buf] = true
   vim.api.nvim_buf_attach(buf, false, {
     on_lines = function()
-      if self.closed then
-        return true
+      local active = false
+      for _, s in pairs(M.sessions) do
+        if not s.closed and s.source_buf == buf then
+          s:schedule()
+          active = true
+        end
       end
-      if self.source_buf == buf then
-        self:schedule()
+      if not active then
+        M.watchers[buf] = nil
+        return true
       end
     end,
     on_detach = function()
-      if not self.closed and self.source_buf == buf then
-        vim.schedule(function()
-          M.close(self)
-        end)
-      end
+      M.watchers[buf] = nil
+      vim.schedule(function()
+        for _, s in pairs(M.sessions) do
+          if not s.closed and s.source_buf == buf then
+            M.close(s)
+          end
+        end
+      end)
     end,
   })
 end
@@ -223,6 +250,23 @@ function Session:navigate(path, anchor)
   if vim.fn.filereadable(path) == 0 and vim.fn.bufnr(path) < 0 then
     vim.notify("md-readable: document unavailable: " .. path, vim.log.levels.WARN)
     return
+  end
+  local anchor_row
+  if anchor and anchor ~= "" then
+    local resolved = require("md-readable.navigation.resolver").resolve(
+      { type = "document", path = path, anchor = anchor },
+      {
+        path = path,
+        root_dir = self.snapshot and self.snapshot.rootDir or vim.fs.dirname(path),
+        snapshot = self.snapshot,
+        headings = path == vim.api.nvim_buf_get_name(self.source_buf) and self.document.headings or nil,
+      }
+    )
+    if not resolved or resolved.type ~= "document" or resolved.row == nil then
+      vim.notify("md-readable: unresolved anchor: " .. anchor, vim.log.levels.WARN)
+      return false
+    end
+    anchor_row = resolved.row
   end
   local position = vim.api.nvim_win_get_cursor(self.read_win)
   local source_row, source_col = self.map:to_source(position[1] - 1, position[2])
@@ -246,25 +290,19 @@ function Session:navigate(path, anchor)
   end
   self.busy = false
   self:attach_source()
-  if not self.snapshot or path:sub(1, #self.snapshot.rootDir) ~= self.snapshot.rootDir then
+  if
+    not self.snapshot
+    or (self.snapshot.rootDir ~= "/" and path:sub(1, #self.snapshot.rootDir + 1) ~= self.snapshot.rootDir .. "/")
+  then
     self:load_navigation()
   end
   self:refresh()
   local dest = self.positions[path] or { 0, 0 }
-  if anchor and anchor ~= "" then
-    local resolver = require("md-readable.navigation.resolver")
-    local resolved = resolver.resolve({ type = "document", path = path, anchor = anchor }, {
-      path = path,
-      root_dir = self.snapshot and self.snapshot.rootDir or vim.fs.dirname(path),
-      headings = self.document.headings,
-    })
-    if resolved and resolved.row then
-      dest = { resolved.row, 0 }
-    else
-      vim.notify("md-readable: unresolved anchor: " .. anchor, vim.log.levels.WARN)
-    end
+  if anchor_row ~= nil then
+    dest = { anchor_row, 0 }
   end
   self:jump_source(dest[1], dest[2])
+  return true
 end
 function M.open(mode)
   mode = mode or "current"

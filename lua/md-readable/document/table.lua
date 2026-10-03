@@ -5,19 +5,30 @@ function M.cells(line)
   local cuts, code, i = {}, nil, 1
   while i <= #line do
     local c = line:sub(i, i)
-    if c == "\\" then i = i + 2
+    if c == "\\" then
+      i = i + 2
     elseif c == "`" then
       local run = line:match("^`+", i)
-      if not code then code = #run elseif code == #run then code = nil end
+      if not code then
+        code = #run
+      elseif code == #run then
+        code = nil
+      end
       i = i + #run
     else
-      if c == "|" and not code then cuts[#cuts + 1] = i end
+      if c == "|" and not code then
+        cuts[#cuts + 1] = i
+      end
       i = i + 1
     end
   end
-  if #cuts == 0 then return nil end
+  if #cuts == 0 then
+    return nil
+  end
   local boundaries = { 0 }
-  for _, cut in ipairs(cuts) do boundaries[#boundaries + 1] = cut end
+  for _, cut in ipairs(cuts) do
+    boundaries[#boundaries + 1] = cut
+  end
   boundaries[#boundaries + 1] = #line + 1
   local result = {}
   for n = 1, #boundaries - 1 do
@@ -48,21 +59,33 @@ function M.parse(lines, start_row)
   end
   local header, prefix, depth = contextual_cells(lines[start_row + 1] or "")
   local delimiter, _, delimiter_depth = contextual_cells(lines[start_row + 2] or "")
-  if depth ~= delimiter_depth then return nil end
-  if not header or not delimiter or #header ~= #delimiter then return nil end
+  if depth ~= delimiter_depth then
+    return nil
+  end
+  if not header or not delimiter or #header ~= #delimiter then
+    return nil
+  end
   local alignments = {}
   for i, cell in ipairs(delimiter) do
-    if not cell.text:match("^:?-+:?$") then return nil end
+    if not cell.text:match("^:?-+:?$") then
+      return nil
+    end
     alignments[i] = cell.text:sub(1, 1) == ":" and (cell.text:sub(-1) == ":" and "center" or "left")
       or (cell.text:sub(-1) == ":" and "right" or "left")
   end
   local rows, row = { { source_row = start_row, cells = header } }, start_row + 2
   while row < #lines do
     local cells, _, row_depth = contextual_cells(lines[row + 1])
-    if not cells or row_depth ~= depth or lines[row + 1]:match("^%s*$") then break end
+    if not cells or row_depth ~= depth or lines[row + 1]:match("^%s*$") then
+      break
+    end
     -- GFM ignores excess cells and fills absent trailing cells.
-    while #cells > #header do table.remove(cells) end
-    while #cells < #header do cells[#cells + 1] = { text = "", start_col = #lines[row + 1], end_col = #lines[row + 1] } end
+    while #cells > #header do
+      table.remove(cells)
+    end
+    while #cells < #header do
+      cells[#cells + 1] = { text = "", start_col = #lines[row + 1], end_col = #lines[row + 1] }
+    end
     rows[#rows + 1] = { source_row = row, cells = cells }
     row = row + 1
   end

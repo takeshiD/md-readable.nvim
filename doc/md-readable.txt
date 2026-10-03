@@ -1,0 +1,171 @@
+*md-readable.txt*  Markdown reading views with source-aware operations
+
+==============================================================================
+INTRODUCTION                                             *md-readable*
+
+md-readable.nvim requires Neovim 0.12 or newer. It renders Markdown in a
+read-only derived buffer, preserving the original and unsaved edits. No
+reference plugin is required. See README.md for the static SSG compatibility
+table and docs/verification.md for terminal-specific verification status.
+
+==============================================================================
+COMMANDS                                                 *:MdReadable*
+
+    :MdReadable                  Read in the current window
+    :MdReadable vert             Keep the original, read on the right
+    :MdReadable float            Read in a floating window
+    :MdReadable source           Go to the corresponding source position
+    :MdReadable close            Close the view, retain the original buffer
+    :MdReadable refresh          Reload navigation and render unsaved source
+
+Repeated opening of the same origin and mode reuses its reading view. The
+plugin provides commands and Lua APIs; assign them to your own keys/autocmds.
+No global keymaps are installed. In reading buffers, y copies source Markdown
+and CTRL-O/CTRL-I follow the original-document jumplist. / ? n N search the
+displayed text.
+
+NAVIGATION                                               *md-readable-navigation*
+
+    :MdReadable nav              Toggle the book tree
+    :MdReadable outline          Show page headings
+    :MdReadable select           Select a tree or ambiguous project adapter
+    :MdReadable prev             Previous available document
+    :MdReadable next             Next available document
+    :MdReadable heading-prev     Previous page heading
+    :MdReadable heading-next     Next page heading
+    :MdReadable links            Choose a document link
+    :MdReadable open             Open the link/control/cell at the cursor
+    :MdReadable search [pattern]  Search all source, including hidden text
+    :MdReadable diagnostics      Navigation and media errors in quickfix
+
+Book navigation supports documented static subsets of mdBook, HonKit, GitBook,
+MkDocs, Zensical, Docusaurus, and Astro/Starlight. Dynamic repository scripts
+are never automatically executed. Missing documents stay visible but are not
+visited by prev/next. Missing anchors do not cause an arbitrary jump.
+
+In navigation buffers: j/k move, Enter visits, h/l fold/unfold, q or Esc closes,
+Tab returns to the document, t selects tree/adapter, r refreshes, ? diagnostics.
+The three layouts are integrated, separate, and ondemand. Narrow windows use
+a floating chooser instead of squeezing the document.
+
+COPYING                                                  *md-readable-copy*
+
+Normal y, linewise/visual/rectangular yanks and named registers copy source.
+Selecting part of a link label copies that text. Selecting the full label
+copies the original Markdown link. The ellipsis in a table cell represents
+the full source cell. Generated decoration alone has no source and leaves
+registers unchanged. Soft-wrapped/joined display lines retain source mappings.
+Reference-style links retain their original reference syntax; a reference
+definition outside the selection is not automatically appended.
+
+FOCUS AND APPEARANCE                                      *md-readable-focus*
+
+    :MdReadable focus on|off|toggle
+    :'<,'>MdReadable focus on     Fix focus to selected display lines
+    :MdReadable theme default|dark|light
+    :MdReadable expand           Expand content at the source position
+    :MdReadable tab [index]       Select/cycle a static content tab
+
+Focus follows Limelight's blank-line paragraph boundaries. A selected range
+is fixed only when used to invoke the command. Coefficient defaults to 0.5,
+paragraph span to 0. Focus and themes affect only reading windows.
+
+TABLES                                                   *md-readable-tables*
+
+    :MdReadable table format
+    :MdReadable table row-before [count]
+    :MdReadable table row-after [count]
+    :MdReadable table row-delete [count]
+    :MdReadable table col-before [count]
+    :MdReadable table col-after [count]
+    :MdReadable table col-delete [count]
+
+Edits change the original buffer, are undoable, and never save automatically.
+Headers and delimiter rows stay structurally consistent; invalid boundary
+operations are rejected. Use open on an omitted cell to read its full value.
+
+MINIMAP                                                  *md-readable-minimap*
+
+    :MdReadable minimap on|off|toggle|focus
+
+Hidden by default. In the minimap, Enter jumps to the reading view; q/Esc
+closes it. Braille and ASCII modes are available. Git annotations use an
+internal git provider comparing the index to unsaved source text. Diagnostic
+annotations use vim.diagnostic; no extra LSP setup plugin is required.
+
+IMAGES AND MERMAID                                       *md-readable-images*
+
+    :MdReadable images allow|deny
+    :checkhealth md-readable
+
+Compatible terminals display visible local images and Mermaid inline. Remote
+images are denied by default. Optional tools: ImageMagick/rsvg-convert/FFmpeg
+for conversion, curl for permitted downloads, installed mmdc for Mermaid.
+Tools are never automatically downloaded. Missing dependencies or errors keep
+alt text/code readable. WezTerm/Ghostty pixels and actual mmdc output still
+require environment verification; protocol/process contracts are tested.
+
+CONFIGURATION                                            *md-readable-setup*
+>
+    require('md-readable').setup({
+      layout = 'integrated',
+      width = 100,
+      keymaps = false,
+      navigation = { auto_open = true, width = 28, min_body_width = 48 },
+      table = { max_cell_width = 28 },
+      focus = { coefficient = 0.5, span = 0, priority = 10 },
+      minimap = { width = 14, mode = 'braille', git = true, diagnostic = true },
+      images = { enabled = true, remote = false, height = 10 },
+      mermaid = { command = 'mmdc' },
+      float = { width = 0.85, height = 0.85, border = 'rounded' },
+    })
+<
+setup is optional. keymaps=true adds q and Enter only in reading buffers.
+Neovim-exit reading-position persistence is intentionally not implemented.
+
+PROVIDERS                                                *md-readable-providers*
+
+Configure adapters.adapter and adapters.root_dir to select a project
+explicitly. adapters.provider can be a user-configured Lua function, a JSON
+path, or the provider forms documented by providers/navigation.lua. It
+returns a NavigationSnapshot:
+>
+    require('md-readable').setup({ adapters = {
+      root_dir = '/path/to/docs',
+      provider = function(ctx)
+        return {
+          schemaVersion = 1, rootDir = ctx.root_dir, adapterId = 'custom',
+          orderOrigin = 'custom', diagnostics = {},
+          trees = {{ id = 'book', title = 'Book', items = {
+            { id = 'start', title = 'Start', children = {},
+              target = { type = 'document', path = 'start.md' } },
+          }}},
+        }
+      end,
+    }})
+<
+Snapshot paths are relative to rootDir. Categories may have children without
+a target. External targets use { type='external', url=... }; unavailable
+targets include a reason. Do not mutate a published snapshot in place.
+
+PICKERS                                                  *md-readable-pickers*
+>
+    local p = require('md-readable.integrations.telescope').previewer()
+    require('telescope.builtin').find_files({ previewer = p })
+
+    require('snacks').setup({ picker = {
+      preview = require('md-readable.integrations.snacks').preview(),
+    }})
+<
+Telescope extension: :Telescope md_readable find_files / live_grep
+Both integrations preserve selection actions. Unsupported or oversized files
+use the original previewer. Same-file grep results update preview positions.
+
+DEVELOPMENT                                              *md-readable-development*
+
+Run: nvim --headless -n -u NONE -i NONE -l tests/run.lua
+Specification: md-readable_design.md
+Verification: docs/verification.md
+License: MIT. Reference-derived sections retain their upstream notices.
+
+ vim:tw=78:ts=8:noet:ft=help:norl:

@@ -81,7 +81,7 @@ function Map:to_display(row, col)
   end
   return best or 0, 0
 end
-function Map:copy(sr, sc, er, ec, mode)
+function Map:copy(sr, sc, er, ec, mode, columns)
   if er < sr or (er == sr and ec < sc) then
     sr, sc, er, ec = er, ec, sr, sc
   end
@@ -100,8 +100,9 @@ function Map:copy(sr, sc, er, ec, mode)
       end
       groups[k].total = groups[k].total + s.end_col - s.start_col
       if s.row >= sr and s.row <= last then
-        local lo = (s.row == sr or mode == "block") and sc or 0
-        local hi = (s.row == er or mode == "block") and ec or math.huge
+        local lo = columns and columns[s.row] and columns[s.row][1] or ((s.row == sr or mode == "block") and sc or 0)
+        local hi = columns and columns[s.row] and columns[s.row][2]
+          or ((s.row == er or mode == "block") and ec or math.huge)
         groups[k].selected = groups[k].selected + math.max(0, math.min(hi, s.end_col) - math.max(lo, s.start_col))
       end
     end
@@ -132,11 +133,13 @@ function Map:copy(sr, sc, er, ec, mode)
         end
       end
       for _, source_row in ipairs(source_rows) do
-        ranges[source_row] = { 0, #(self.source[source_row + 1] or "") }
+        if #(self.display[row] or {}) > 0 or self.source[source_row + 1] == "" then
+          ranges[source_row] = { 0, #(self.source[source_row + 1] or "") }
+        end
       end
     else
-      local lo = (row == sr or mode == "block") and sc or 0
-      local hi = (row == er or mode == "block") and ec or math.huge
+      local lo = columns and columns[row] and columns[row][1] or ((row == sr or mode == "block") and sc or 0)
+      local hi = columns and columns[row] and columns[row][2] or ((row == er or mode == "block") and ec or math.huge)
       for _, s in ipairs(self.display[row] or {}) do
         local a, b = math.max(lo, s.start_col), math.min(hi, s.end_col)
         if b > a then
