@@ -32,6 +32,11 @@ function M.update(session)
   if not state then return end
   if not valid(session, state) then M.close(session); return end
   local config = session.config.minimap or {}
+  if state.float then
+    vim.api.nvim_win_set_config(state.win, { relative = 'win', win = session.read_win,
+      row = 0, col = vim.api.nvim_win_get_width(session.read_win) + 1,
+      height = math.max(1, vim.api.nvim_win_get_height(session.read_win)) })
+  end
   if state.source_buf ~= session.source_buf then
     state.source_buf = session.source_buf
     state.providers.git, state.providers.diagnostic = {}, {}
@@ -82,8 +87,26 @@ function M.open(session)
   if available < 30 then return nil, 'reading window needs at least 30 columns for the minimap' end
   local buf = vim.api.nvim_create_buf(false, true)
   local width = math.max(5, math.min(config.width or 14, math.floor(available / 3)))
-  local win = vim.api.nvim_open_win(buf, false, { split = 'right', win = session.read_win, width = width })
-  local state = { win = win, buf = buf, providers = {}, source_buf = session.source_buf }
+  local reader_config = vim.api.nvim_win_get_config(session.read_win)
+  local floating = reader_config.relative ~= ''
+  local open_config = { split = 'right', win = session.read_win, width = width }
+  local reserved_width
+  if floating then
+    -- Keep the combined footprint within the original reading float. A nested
+    -- split is illegal in Neovim, so reserve columns for an adjacent float.
+    reserved_width = available - width - 2
+    vim.api.nvim_win_set_config(session.read_win, { width = reserved_width })
+    open_config = { relative = 'win', win = session.read_win, row = 0, col = reserved_width + 1,
+      width = width, height = vim.api.nvim_win_get_height(session.read_win), style = 'minimal', border = 'single' }
+  end
+  local ok, win = pcall(vim.api.nvim_open_win, buf, false, open_config)
+  if not ok then
+    if floating then vim.api.nvim_win_set_config(session.read_win, { width = available }) end
+    vim.api.nvim_buf_delete(buf, { force = true })
+    return nil, win
+  end
+  local state = { win = win, buf = buf, providers = {}, source_buf = session.source_buf,
+    float = floating, original_width = available, reserved_width = reserved_width }
   store.set(session, state)
   vim.bo[buf].bufhidden, vim.bo[buf].filetype = 'wipe', 'md-readable-minimap'
   vim.bo[buf].swapfile, vim.bo[buf].modifiable = false, false
@@ -126,6 +149,10 @@ function M.close(session)
   if state.group then pcall(vim.api.nvim_del_augroup_by_id, state.group) end
   if vim.api.nvim_win_is_valid(state.win) then pcall(vim.api.nvim_win_close, state.win, true) end
   if vim.api.nvim_buf_is_valid(state.buf) then pcall(vim.api.nvim_buf_delete, state.buf, { force = true }) end
+  if state.float and vim.api.nvim_win_is_valid(session.read_win)
+    and vim.api.nvim_win_get_width(session.read_win) == state.reserved_width then
+    pcall(vim.api.nvim_win_set_config, session.read_win, { width = state.original_width })
+  end
 end
 
 function M.toggle(session)
