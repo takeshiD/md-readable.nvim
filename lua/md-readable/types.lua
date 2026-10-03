@@ -1,0 +1,50 @@
+---@meta
+-- Positions are zero-based UTF-8 byte columns, ranges are half open.
+---@class MdReadablePoint
+---@field row integer
+---@field byteColumn integer
+---@class MdReadableRange
+---@field start MdReadablePoint
+---@field end MdReadablePoint
+---@class MdReadableSegment
+---@field row integer Display row (0-based)
+---@field start_col integer Display start byte
+---@field end_col integer Display end byte (exclusive)
+---@field source_row integer Source row (0-based)
+---@field source_start integer Source start byte
+---@field source_end integer Source end byte (exclusive)
+---@field kind 'text'|'node'|'omission'
+---@field full_start? integer Entire source element start (links / omitted cells)
+---@field full_end? integer Entire source element end
+---@class MdReadableRendered
+---@field lines string[]
+---@field segments MdReadableSegment[]
+---@field row_map table<integer, integer> 1-based display index to zero-based source row
+---@field highlights table[] {row,start_col,end_col,group}
+---@field images table[] {row,source_row,path,alt,kind,code?}
+---@class MdReadableDocument
+---@field lines string[] Original text including unsaved changes
+---@field blocks table[] {type,start_row,end_row,...}; end_row exclusive
+---@field headings table[] {id,title,level,range,sectionRange,children}
+---@field links table[] {text,target,kind,range,label_start,label_end}
+---@field tables table[]
+---@field changedtick integer
+---@field bufnr? integer
+---@field path? string
+---@class MdReadableSession
+---@field id integer
+---@field source_buf integer
+---@field source_win integer
+---@field read_buf integer
+---@field read_win integer
+---@field document MdReadableDocument
+---@field rendered MdReadableRendered
+---@field map table
+---@field config table
+---@field generation integer
+---@field closed boolean
+---@field navigate fun(self:MdReadableSession,path:string,anchor?:string)
+---@field refresh fun(self:MdReadableSession)
+---@field jump_source fun(self:MdReadableSession,row:integer,col?:integer)
+---@field snapshot? table NavigationSnapshot (design document camelCase fields)
+return {}
