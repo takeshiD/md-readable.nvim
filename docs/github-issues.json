@@ -1,0 +1,167 @@
+{
+  "I00": {
+    "title": "[I00] 共通契約・headlessテスト基盤",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/1",
+    "number": 1
+  },
+  "I01": {
+    "title": "[I01] Markdown構造の抽出",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/2",
+    "number": 2
+  },
+  "I02": {
+    "title": "[I02] 原文と表示の範囲対応",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/3",
+    "number": 3
+  },
+  "I03": {
+    "title": "[I03] 基本読書レンダリング",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/4",
+    "number": 4
+  },
+  "I04": {
+    "title": "[I04] ナビゲーション共通モデル",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/5",
+    "number": 5
+  },
+  "I05": {
+    "title": "[I05] 宣言的設定の解析",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/6",
+    "number": 6
+  },
+  "I06": {
+    "title": "[I06] SUMMARY構文の解析",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/7",
+    "number": 7
+  },
+  "I07": {
+    "title": "[I07] プロジェクト検出と拡張入力",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/8",
+    "number": 8
+  },
+  "I08": {
+    "title": "[I08] mdBook対応",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/9",
+    "number": 9
+  },
+  "I09": {
+    "title": "[I09] HonKit対応",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/10",
+    "number": 10
+  },
+  "I10": {
+    "title": "[I10] GitBook対応",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/11",
+    "number": 11
+  },
+  "I11": {
+    "title": "[I11] MkDocs対応",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/12",
+    "number": 12
+  },
+  "I12": {
+    "title": "[I12] Zensical対応",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/13",
+    "number": 13
+  },
+  "I13": {
+    "title": "[I13] Docusaurus対応",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/14",
+    "number": 14
+  },
+  "I14": {
+    "title": "[I14] Astro/Starlight対応",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/15",
+    "number": 15
+  },
+  "I15": {
+    "title": "[I15] 読書Sessionと原文同期",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/16",
+    "number": 16
+  },
+  "I16": {
+    "title": "[I16] 目次・見出し・前後ページUI",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/17",
+    "number": 17
+  },
+  "I17": {
+    "title": "[I17] 表の表示と省略内容の確認",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/18",
+    "number": 18
+  },
+  "I18": {
+    "title": "[I18] 表の原文整形",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/19",
+    "number": 19
+  },
+  "I19": {
+    "title": "[I19] 原文コピーと原文検索",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/20",
+    "number": 20
+  },
+  "I20": {
+    "title": "[I20] Focus Mode",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/21",
+    "number": 21
+  },
+  "I21": {
+    "title": "[I21] 読書表示のテーマ",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/22",
+    "number": 22
+  },
+  "I22": {
+    "title": "[I22] 画像の本文内表示",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/23",
+    "number": 23
+  },
+  "I23": {
+    "title": "[I23] Mermaid描画",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/24",
+    "number": 24
+  },
+  "I24": {
+    "title": "[I24] ミニマップ",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/25",
+    "number": 25
+  },
+  "I25": {
+    "title": "[I25] 一般的な拡張記法",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/26",
+    "number": 26
+  },
+  "I26": {
+    "title": "[I26] リンク一覧とリンク操作",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/27",
+    "number": 27
+  },
+  "I27": {
+    "title": "[I27] 全体接続・導入・品質確認",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/28",
+    "number": 28
+  },
+  "I28": {
+    "title": "[I28] Telescope / Snacks連携",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/29",
+    "number": 29
+  },
+  "I29": {
+    "title": "[I29] 表の行列挿入削除",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/30",
+    "number": 30
+  },
+  "I30": {
+    "title": "[I30] ミニマップのGit差分",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/31",
+    "number": 31
+  },
+  "I31": {
+    "title": "[I31] ミニマップのLSP診断",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/32",
+    "number": 32
+  },
+  "TRACK": {
+    "title": "[TRACK] md-readable.nvim 全機能の並列実装",
+    "url": "https://github.com/takeshiD/md-readable.nvim/issues/33",
+    "number": 33
+  }
+}

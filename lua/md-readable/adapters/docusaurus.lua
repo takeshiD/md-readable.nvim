@@ -1,0 +1,288 @@
+local C = require("md-readable.adapters.common")
+local L = require("md-readable.parsers.literal")
+local Static = require("md-readable.parsers.sidebar_static")
+local M = {}
+---@class MdReadableNavDocusaurusDoc
+---@field path string Root-relative
+---@field relative string Path below the docs directory without extension
+---@field id string Document id
+---@field metadata table Frontmatter
+---@field title string
+---@field position number math.huge when unset
+---@param path string
+---@return string # Number prefixes removed from each part
+local function unprefix(path)
+  local parts = {}
+  for part in path:gmatch("[^/]+") do
+    parts[#parts + 1] = part:gsub("^%d+[%-%_ ]+", "")
+  end
+  return table.concat(parts, "/")
+end
+---@param ctx MdReadableNavContext
+---@return MdReadableNavResult
+function M.parse(ctx)
+  local s = C.context(ctx, "docusaurus")
+  local config_path = ctx.config_path
+  if not config_path then
+    for _, path in ipairs({ "docusaurus.config.ts", "docusaurus.config.js", "docusaurus.config.mjs" }) do
+      if s:read(path, true) then
+        config_path = path
+        break
+      end
+    end
+  end
+  local docs_options = {}
+  if config_path then
+    local lines = s:read(config_path)
+    if not lines then
+      return s:finish()
+    end
+    local options, errors = Static.extract(lines, "docs", "property", config_path)
+    vim.list_extend(s.diagnostics, errors)
+    if #errors > 0 then
+      return s:finish()
+    end
+    if options == false then
+      s:diagnostic("docs-disabled", "The docs instance is disabled", config_path, 0, "error")
+      return s:finish()
+    end
+    docs_options = type(options) == "table" and options or {}
+    for _, property in ipairs({ "plugins", "i18n" }) do
+      local value, diag = Static.extract(lines, property, "property", config_path)
+      vim.list_extend(s.diagnostics, diag)
+      if value then
+        s:diagnostic(
+          "isolated-default-instance",
+          "Only the current default docs instance is loaded; " .. property .. " combinations require a provider",
+          config_path
+        )
+      end
+    end
+    if docs_options.sidebarItemsGenerator or docs_options.numberPrefixParser then
+      s:diagnostic("custom-generator", "Custom generators require an explicit provider", config_path, 0, "error")
+      return s:finish()
+    end
+  end
+  local base = ctx.docs_dir or docs_options.path or "docs"
+  if s:read("versions.json", true) then
+    s:diagnostic(
+      "isolated-current-version",
+      "Only current docs are loaded; versioned_docs and locale instances require explicit providers",
+      "versions.json"
+    )
+  end
+  local docs, by_id = {}, {}
+  for _, path in ipairs(C.files(s, base)) do
+    local lines = s:read(path) or {}
+    local metadata, diagnostics, offset = require("md-readable.parsers.frontmatter").parse(lines, path)
+    vim.list_extend(s.diagnostics, diagnostics)
+    metadata = metadata or {}
+    local relative = C.relative(base, path):gsub("%.mdx?$", "")
+    local directory = vim.fs.dirname(unprefix(relative))
+    if directory == "." then
+      directory = ""
+    end
+    local id = metadata.id and C.join(directory, tostring(metadata.id)) or unprefix(relative)
+    local title = metadata.sidebar_label or metadata.title
+    if not title then
+      for i = offset + 1, #lines do
+        title = lines[i]:match("^#%s+(.+)")
+        if title then
+          break
+        end
+      end
+    end
+    title = title or vim.fs.basename(unprefix(relative))
+    local doc = {
+      path = path,
+      relative = relative,
+      id = id,
+      metadata = metadata,
+      title = title,
+      position = metadata.sidebar_position or tonumber(vim.fs.basename(relative):match("^(%d+)[%-%_ ]")) or math.huge,
+    }
+    if by_id[id] then
+      s:diagnostic("duplicate-document-id", "Multiple documents have id: " .. id, path, 0, "error")
+    else
+      by_id[id] = doc
+      docs[#docs + 1] = doc
+    end
+    if metadata.pagination_next or metadata.pagination_prev then
+      s:diagnostic(
+        "pagination-override",
+        "Reading order follows the sidebar; pagination overrides are not applied",
+        path
+      )
+    end
+  end
+  ---@param id string
+  ---@param label? string
+  ---@return MdReadableNavNode
+  local function document(id, label)
+    local doc = by_id[id]
+    if not doc then
+      s:diagnostic("unknown-document-id", "Unresolved Docusaurus document ID: " .. tostring(id))
+      return s:node(label or id, { type = "unavailable", raw = tostring(id), reason = "Unknown document ID" })
+    end
+    local target = doc.metadata.draft and { type = "unavailable", raw = id, reason = "Draft document" }
+      or { type = "document", path = doc.path }
+    local node = s:node(label or doc.title, target, {}, { path = doc.path })
+    node.position = doc.position
+    node.sort_key = doc.relative
+    return node
+  end
+  ---@param nodes MdReadableNavNode[]
+  local function sort(nodes)
+    table.sort(nodes, function(a, b)
+      if (a.position or math.huge) ~= (b.position or math.huge) then
+        return (a.position or math.huge) < (b.position or math.huge)
+      end
+      return (a.sort_key or a.title) < (b.sort_key or b.title)
+    end)
+  end
+  ---@type fun(dir:string):MdReadableNavNode[]
+  local autogenerated
+  autogenerated = function(dir)
+    local items, directories = {}, {}
+    dir = C.normalize(dir)
+    if dir == "." then
+      dir = ""
+    end
+    for _, doc in ipairs(docs) do
+      local relative = dir == "" and doc.relative
+        or (doc.relative:sub(1, #dir + 1) == dir .. "/" and doc.relative:sub(#dir + 2))
+      if relative then
+        local sub = relative:match("^([^/]+)/")
+        if sub then
+          directories[sub] = true
+        else
+          items[#items + 1] = document(doc.id)
+        end
+      end
+    end
+    for _, name in ipairs(L.keys(directories)) do
+      local subdir = C.join(dir, name)
+      local metadata = {}
+      for _, extension in ipairs({ "json", "yml", "yaml" }) do
+        local path = C.join(base, subdir .. "/_category_." .. extension)
+        if s:read(path, true) then
+          metadata = s:data(path, extension == "json" and "json" or "yaml") or {}
+          break
+        end
+      end
+      local children = autogenerated(subdir)
+      local target, default_doc
+      if metadata.link and metadata.link ~= vim.NIL then
+        if metadata.link.type == "doc" then
+          target = document(metadata.link.id).target
+        elseif metadata.link.type == "generated-index" then
+          target =
+            { type = "unavailable", raw = subdir, reason = "Generated category page has no local Markdown source" }
+        else
+          s:diagnostic("category-link", "Unsupported category link type", C.join(base, subdir))
+        end
+      elseif metadata.link ~= vim.NIL then
+        for i, child in ipairs(children) do
+          local stem = child.target
+            and child.target.type == "document"
+            and vim.fs.basename(child.target.path):gsub("%.mdx?$", ""):lower()
+          if stem == "index" or stem == "readme" or stem == name:lower() then
+            default_doc = i
+            target = child.target
+            break
+          end
+        end
+      end
+      local node = s:node(metadata.label or unprefix(name), target, children, { path = C.join(base, subdir) })
+      if default_doc then
+        table.remove(children, default_doc)
+      end
+      node.position = metadata.position or tonumber(name:match("^(%d+)[%-%_ ]")) or math.huge
+      node.sort_key = name
+      items[#items + 1] = node
+    end
+    sort(items)
+    return items
+  end
+  ---@type fun(items:any):MdReadableNavNode[]
+  local convert
+  convert = function(items)
+    local out = {}
+    if not L.is_array(items) then
+      if type(items) == "table" then
+        for _, label in ipairs(L.keys(items)) do
+          out[#out + 1] = s:node(label, nil, convert(items[label]))
+        end
+      else
+        s:diagnostic("sidebar-items", "Sidebar items must be an array or category shorthand")
+      end
+      return out
+    end
+    for _, item in ipairs(items) do
+      if type(item) == "string" then
+        out[#out + 1] = document(item)
+      elseif type(item) ~= "table" then
+        s:diagnostic("sidebar-item", "Invalid sidebar item")
+      elseif item.type == "autogenerated" then
+        vim.list_extend(out, autogenerated(item.dirName or "."))
+      elseif item.type == "doc" or item.type == "ref" then
+        out[#out + 1] = document(item.id, item.label)
+      elseif item.type == "link" then
+        out[#out + 1] = s:node(item.label or item.href, s:target(item.href, base))
+      elseif item.type == "category" then
+        local target
+        if item.link and item.link.type == "doc" then
+          target = document(item.link.id).target
+        elseif item.link then
+          target =
+            { type = "unavailable", raw = item.label or "", reason = "Generated category page has no local source" }
+        end
+        out[#out + 1] = s:node(item.label, target, convert(item.items or {}))
+      elseif item.type then
+        s:diagnostic("sidebar-item-type", "Unsupported sidebar item type: " .. tostring(item.type))
+      else
+        vim.list_extend(out, convert(item))
+      end
+    end
+    return out
+  end
+  local sidebar_path = ctx.sidebar_path or docs_options.sidebarPath
+  if not sidebar_path then
+    for _, path in ipairs({ "sidebars.ts", "sidebars.js", "sidebars.json" }) do
+      if s:read(path, true) then
+        sidebar_path = path
+        break
+      end
+    end
+  end
+  local trees, origin = {}, "declared"
+  if sidebar_path == false then
+    trees = { { id = "main", title = "Contents", items = {} } }
+  elseif sidebar_path then
+    if type(sidebar_path) ~= "string" then
+      s:diagnostic("sidebar-path", "sidebarPath must be a literal path", config_path, 0, "error")
+      return s:finish()
+    end
+    local lines = s:read(sidebar_path)
+    if not lines then
+      return s:finish()
+    end
+    local data, diagnostics = Static.parse(lines, sidebar_path)
+    vim.list_extend(s.diagnostics, diagnostics)
+    if not data then
+      return s:finish()
+    end
+    if L.is_array(data) then
+      s:diagnostic("sidebar-shape", "Sidebar export must map sidebar names to item lists", sidebar_path, 0, "error")
+      return s:finish()
+    end
+    for _, id in ipairs(L.keys(data)) do
+      trees[#trees + 1] = { id = tostring(id), title = tostring(id), items = convert(data[id]) }
+    end
+  else
+    trees = { { id = "main", title = "Contents", items = autogenerated(".") } }
+    origin = "generated"
+  end
+  return s:finish(trees, origin)
+end
+return M

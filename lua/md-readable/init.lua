@@ -1,0 +1,308 @@
+local M = {}
+local errors = require("md-readable.errors")
+---@class MdReadableCommandOpts
+---@field range? integer Number of range items given (0, 1 or 2)
+---@field line1? integer First line of the range (1-based)
+---@field line2? integer Last line of the range (1-based, inclusive)
+---@type string[]
+local commands = {
+  "vert",
+  "float",
+  "source",
+  "close",
+  "refresh",
+  "nav",
+  "outline",
+  "prev",
+  "next",
+  "heading-prev",
+  "heading-next",
+  "links",
+  "open",
+  "search",
+  "focus",
+  "theme",
+  "minimap",
+  "table",
+  "expand",
+  "tab",
+  "images",
+  "diagnostics",
+  "select",
+}
+-- Fixed first arguments; used by completion and argument validation.
+---@type table<string, string[]>
+local arguments = {
+  focus = { "on", "off", "toggle" },
+  theme = { "default", "dark", "light" },
+  minimap = { "on", "off", "toggle", "focus" },
+  table = { "format", "row-before", "row-after", "row-delete", "col-before", "col-after", "col-delete" },
+  images = { "allow", "deny" },
+}
+---@param command string
+---@param value? string
+---@param required? boolean
+local function check_argument(command, value, required)
+  local allowed = arguments[command]
+  if (value == nil and required) or (value ~= nil and not vim.tbl_contains(allowed, value)) then
+    errors.user(
+      string.format("%s: expected %s%s", command, table.concat(allowed, " | "), value and (", got " .. value) or "")
+    )
+  end
+end
+---@return MdReadableSession
+local function session()
+  local s = require("md-readable.reader.session").current()
+  if not s then
+    errors.user("Open a reading view with :MdReadable first")
+  end
+  ---@cast s MdReadableSession
+  return s
+end
+---@param opts? MdReadableUserConfig
+function M.setup(opts)
+  require("md-readable.config").setup(opts)
+  require("md-readable.ui.theme").setup()
+end
+---@param mode? MdReadableSessionMode
+---@return MdReadableSession
+function M.open(mode)
+  return require("md-readable.reader.session").open(mode)
+end
+-- Source cursor, from the source window when it is current, else mapped from the reader.
+---@param s MdReadableSession
+---@return integer row 0-based source row
+---@return integer col 0-based source byte column
+local function source_position(s)
+  if
+    vim.api.nvim_get_current_win() == s.source_win
+    and s.source_win ~= s.read_win
+    and vim.api.nvim_win_get_buf(s.source_win) == s.source_buf
+  then
+    local pos = vim.api.nvim_win_get_cursor(s.source_win)
+    return pos[1] - 1, pos[2]
+  end
+  local pos = vim.api.nvim_win_get_cursor(s.read_win)
+  return s.map:to_source(pos[1] - 1, pos[2])
+end
+---@param s MdReadableSession
+---@param action string "format" or a table.edit action ("row_before", ...)
+---@param count? integer
+local function edit_table(s, action, count)
+  local row, col = source_position(s)
+  for _, tbl in ipairs(s.document.tables or {}) do
+    if row >= tbl.start_row and row < tbl.end_row then
+      local lines, err
+      if action == "format" then
+        lines = require("md-readable.table.format").format(tbl)
+      else
+        local index = 1
+        if action:match("^row_") then
+          for i, item in ipairs(tbl.rows) do
+            if item.source_row <= row then
+              index = i - 1
+            end
+          end
+        else
+          for _, item in ipairs(tbl.rows) do
+            if item.source_row == row then
+              for i, cell in ipairs(item.cells) do
+                if cell.start_col <= col then
+                  index = i
+                end
+              end
+            end
+          end
+        end
+        lines, err = require("md-readable.table.edit").edit(tbl, action, index, count or 1)
+      end
+      if not lines then
+        errors.user(err or "Cannot edit this table")
+      end
+      ---@cast lines string[]
+      local before = vim.api.nvim_buf_get_lines(s.source_buf, tbl.start_row, tbl.end_row, false)
+      if not vim.deep_equal(before, lines) then
+        if not vim.bo[s.source_buf].modifiable then
+          errors.user("Source buffer is not modifiable")
+        end
+        vim.api.nvim_buf_set_lines(s.source_buf, tbl.start_row, tbl.end_row, false, lines)
+        s:refresh()
+        s:jump_source(row, col)
+      end
+      return
+    end
+  end
+  errors.user("Cursor is not in a Markdown table")
+end
+---@param command? string Subcommand; empty opens the current-window reader
+---@param args? string[]
+---@param opts? MdReadableCommandOpts|vim.api.keyset.create_user_command.command_args
+---@return any
+function M.action(command, args, opts)
+  args, opts = args or {}, opts or {}
+  if not command or command == "" then
+    return M.open("current")
+  end
+  if command == "vert" or command == "float" then
+    return M.open(command)
+  end
+  if command == "close" then
+    return require("md-readable.reader.session").close()
+  end
+  if command == "source" then
+    return require("md-readable.reader.session").source()
+  end
+  if not vim.tbl_contains(commands, command) then
+    errors.user("Unknown MdReadable command: " .. command)
+  end
+  if arguments[command] then
+    check_argument(command, args[1], command == "images")
+  end
+  if command == "table" and args[2] and not tonumber(args[2]) then
+    errors.user("table: count must be a number, got " .. args[2])
+  end
+  local s = session()
+  if command == "refresh" then
+    require("md-readable.providers.image").forget(s)
+    s:load_navigation()
+    s:refresh()
+  elseif command == "nav" then
+    require("md-readable.ui.navigation").toggle(s)
+  elseif command == "outline" then
+    require("md-readable.ui.navigation").outline(s)
+  elseif command == "prev" or command == "next" then
+    require("md-readable.ui.navigation").move(s, command)
+  elseif command == "select" then
+    require("md-readable.ui.navigation").select(s)
+  elseif command == "heading-prev" or command == "heading-next" then
+    local row = source_position(s)
+    local found
+    for _, heading in ipairs(s.document.headings or {}) do
+      local at = heading.range.start.row
+      if command == "heading-next" and at > row then
+        found = heading
+        break
+      end
+      if command == "heading-prev" and at < row then
+        found = heading
+      end
+    end
+    if found then
+      s:jump_source(found.range.start.row, 0)
+    end
+  elseif command == "links" then
+    require("md-readable.ui.links").open(s)
+  elseif command == "open" then
+    local row, col = source_position(s)
+    for _, control in ipairs(s.rendered.controls or {}) do
+      if control.row == vim.api.nvim_win_get_cursor(s.read_win)[1] - 1 then
+        if control.kind == "tabs" then
+          s.tabs[control.source_row] = (s.tabs[control.source_row] or 1) % #control.labels + 1
+        else
+          s.expanded[control.source_row] = not s.expanded[control.source_row]
+        end
+        s:refresh()
+        return
+      end
+    end
+    for _, link in ipairs(s.document.links or {}) do
+      local r = link.range
+      if row == r.start.row and col >= r.start.byteColumn and col <= r["end"].byteColumn then
+        return require("md-readable.ui.links").follow(s, link)
+      end
+    end
+    -- A footnote definition label returns to its first reference.
+    for _, note in pairs(s.document.footnotes or {}) do
+      local label = (s.document.lines[note.row + 1] or ""):match("^ ? ? ?%[%^[^%]]+%]:")
+      if row == note.row and label and col < #label and note.references[1] then
+        return s:jump_source(note.references[1].start.row, note.references[1].start.byteColumn)
+      end
+    end
+    require("md-readable.ui.cell").open(s)
+  elseif command == "search" then
+    require("md-readable.reader.search").open(s, #args > 0 and table.concat(args, " ") or nil)
+  elseif command == "focus" then
+    local enabled = args[1] == "on" or (args[1] ~= "off" and not s.focus_enabled)
+    s.focus_enabled = enabled
+    local range = opts.range and opts.range > 0 and { start_row = opts.line1 - 1, end_row = opts.line2 } or nil
+    require("md-readable.reader.focus").set(s, enabled, range)
+  elseif command == "theme" then
+    local name = args[1] or "default"
+    local applied, err = require("md-readable.ui.theme").apply(s.read_win, name, s.config)
+    if not applied then
+      errors.user(err)
+    end
+    s.config.theme = name
+    require("md-readable.reader.focus").update(s)
+  elseif command == "minimap" then
+    local map = require("md-readable.minimap")
+    local action = ({ on = "open", off = "close", focus = "focus", toggle = "toggle" })[args[1] or "toggle"]
+    map[action](s)
+  elseif command == "table" then
+    local action = (args[1] or "format"):gsub("-", "_")
+    edit_table(s, action, tonumber(args[2]) or 1)
+  elseif command == "expand" then
+    local row = source_position(s)
+    s.expanded[row] = not s.expanded[row]
+    s:refresh()
+  elseif command == "tab" then
+    local row = source_position(s)
+    for _, control in ipairs(s.rendered.controls or {}) do
+      if control.kind == "tabs" and control.source_row <= row then
+        s.tabs[control.source_row] = tonumber(args[1]) or ((s.tabs[control.source_row] or 1) % #control.labels + 1)
+      end
+    end
+    s:refresh()
+  elseif command == "images" then
+    s.config.images.remote = args[1] == "allow"
+    require("md-readable.providers.image").forget(s)
+    s:refresh()
+  elseif command == "diagnostics" then
+    local items = {}
+    for _, d in ipairs((s.nav_result and s.nav_result.diagnostics) or (s.snapshot and s.snapshot.diagnostics) or {}) do
+      items[#items + 1] =
+        { text = (d.code or "") .. " " .. (d.message or tostring(d)), type = d.severity == "error" and "E" or "W" }
+    end
+    for _, message in ipairs(require("md-readable.providers.image").errors(s)) do
+      items[#items + 1] = { text = "media " .. message, type = "W" }
+    end
+    if #items == 0 then
+      vim.notify("md-readable: no navigation diagnostics")
+    else
+      vim.fn.setqflist({}, " ", { title = "md-readable diagnostics", items = items })
+      vim.cmd("copen")
+    end
+  else
+    errors.user("Unknown MdReadable command: " .. command)
+  end
+end
+---@param opts vim.api.keyset.create_user_command.command_args
+function M.command(opts)
+  local args = vim.deepcopy(opts.fargs)
+  local command = table.remove(args, 1)
+  errors.report(M.action, command, args, opts)
+end
+-- Completes the subcommand, then the fixed argument list of that subcommand.
+---@param lead string
+---@param line? string
+---@param cursor? integer
+---@return string[]
+function M.complete(lead, line, cursor)
+  local before = (line or ""):sub(1, cursor or #(line or ""))
+  local words = vim.split(vim.trim(before:match("MdReadable!?%s+(.*)$") or ""), "%s+", { trimempty = true })
+  if lead ~= "" then
+    table.remove(words)
+  end
+  local candidates
+  if #words == 0 then
+    candidates = commands
+  elseif #words == 1 then
+    candidates = arguments[words[1]] or {}
+  else
+    candidates = {}
+  end
+  return vim.tbl_filter(function(c)
+    return c:sub(1, #lead) == lead
+  end, candidates)
+end
+return M

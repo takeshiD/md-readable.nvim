@@ -1,0 +1,296 @@
+*md-readable.txt*  Markdown reading views with source-aware operations
+
+==============================================================================
+INTRODUCTION                                             *md-readable*
+
+md-readable.nvim requires Neovim 0.12 or newer. It renders Markdown in a
+read-only derived buffer, preserving the original and unsaved edits. No
+reference plugin is required. See README.md for the static SSG compatibility
+table and docs/verification.md for terminal-specific verification status.
+
+==============================================================================
+COMMANDS                                                 *:MdReadable*
+
+    :MdReadable                  Read in the current window
+    :MdReadable vert             Keep the original, read on the right
+    :MdReadable float            Read in a floating window
+    :MdReadable source           Go to the corresponding source position
+    :MdReadable close            Close the view, retain the original buffer
+    :MdReadable refresh          Reload navigation and render unsaved source
+
+Repeated opening of the same origin and mode reuses its reading view. The
+plugin provides commands and Lua APIs; assign them to your own keys/autocmds.
+No global keymaps are installed. Reading-buffer keys: |md-readable-keymaps|.
+In reading buffers, y copies source Markdown
+and CTRL-O/CTRL-I follow the original-document jumplist. / ? n N search the
+displayed text.
+
+NAVIGATION                                               *md-readable-navigation*
+
+    :MdReadable nav              Toggle the book tree
+    :MdReadable outline          Show page headings
+    :MdReadable select           Select a tree or ambiguous project adapter
+    :MdReadable prev             Previous available document
+    :MdReadable next             Next available document
+    :MdReadable heading-prev     Previous page heading
+    :MdReadable heading-next     Next page heading
+    :MdReadable links            List document links in a floating panel
+    :MdReadable open             Open the link/control/cell at the cursor
+    :MdReadable search [pattern]  Search all source, including hidden text
+    :MdReadable diagnostics      Navigation and media errors in quickfix
+
+Book navigation supports documented static subsets of mdBook, HonKit, GitBook,
+MkDocs, Zensical, Docusaurus, and Astro/Starlight. Dynamic repository scripts
+are never automatically executed. Missing documents stay visible but are not
+visited by prev/next. Missing anchors do not cause an arbitrary jump.
+
+In navigation buffers: j/k move, Enter visits, h/l fold/unfold, q or Esc closes,
+Tab returns to the document, t selects tree/adapter, r refreshes, ? diagnostics.
+
+The links panel lists each link as "label  target  [kind]" with kinds web,
+doc, anchor, file, image and missing; long targets are clipped with ...
+Enter opens the link, o moves the reading cursor to it, q or Esc closes.
+Footnotes are not listed.
+
+The three layouts are integrated, separate, and ondemand. Narrow windows use
+a floating chooser instead of squeezing the document.
+
+COPYING                                                  *md-readable-copy*
+
+Normal y, linewise/visual/rectangular yanks and named registers copy source.
+Selecting part of a link label copies that text. Selecting the full label
+copies the original Markdown link. The ellipsis in a table cell represents
+the full source cell. Generated decoration alone has no source and leaves
+registers unchanged. Soft-wrapped/joined display lines retain source mappings.
+Reference-style links retain their original reference syntax; a reference
+definition outside the selection is not automatically appended.
+
+LINK MARKERS                                          *md-readable-link-icons*
+
+Labelled links get a marker after the label: external ↗, document →,
+same-page anchor #, other file ⧉. links.icons = 'ascii' uses ^ > # *,
+false disables them, and a table such as { external = '[web]' } overrides
+single kinds. Bare URLs and images are not marked (their text already says
+what they are). Markers are decoration: copying only a marker leaves
+registers unchanged, and copying the label with its marker copies the link.
+
+FOOTNOTES                                                *md-readable-footnotes*
+
+GFM footnotes render as [id] at the reference and as "[id] text" at the
+definition, after a "Footnotes" separator. :MdReadable open on a reference
+jumps to its note; on a note's [id] label it returns to the first reference.
+Copying either yields the original [^id] Markdown. Footnotes are not listed
+by :MdReadable links. Undefined references stay plain text.
+
+FOCUS AND APPEARANCE                                      *md-readable-focus*
+
+    :MdReadable focus on|off|toggle
+    :'<,'>MdReadable focus on     Fix focus to selected display lines
+    :MdReadable theme default|dark|light
+    :MdReadable expand           Expand content at the source position
+    :MdReadable tab [index]       Select/cycle a static content tab
+
+Focus follows Limelight's blank-line paragraph boundaries. A selected range
+is fixed only when used to invoke the command. Coefficient defaults to 0.5,
+paragraph span to 0. Focus and themes affect only reading windows.
+
+Headings use a separate highlight per level. H1 and H2 are followed by a
+display-only rule (= and - style), disabled with heading_rules = false. The
+outline panel shows # markers per level with the same highlights.
+
+HIGHLIGHTS                                           *md-readable-highlights*
+
+All groups are defined with default=true, so a colorscheme or user
+:highlight/nvim_set_hl() definition takes precedence. They are recomputed on
+ColorScheme. The dark/light presets override them only in reading windows;
+setup({ highlights = { Group = {...} } }) overrides them per reading window.
+
+    MdReadableHeading1..6   Heading text and H1/H2 rules. Uses
+                            @markup.heading.N.markdown when the colorscheme
+                            distinguishes levels, otherwise Title, Function,
+                            String, DiagnosticWarn, Constant, Comment (bold).
+    MdReadableLink          Link labels (link color + underline)
+    MdReadableLinkIcon      Link kind markers
+    MdReadableCode          Inline code (String with a subtle background)
+    MdReadableCodeBlock     Fenced/indented code (NormalFloat)
+    MdReadableFootnote      Footnote references and the notes section
+    MdReadableQuote, MdReadableRule, MdReadableMuted, MdReadableOmission,
+    MdReadableTableBorder, MdReadableTableHeader, MdReadableCallout,
+    MdReadableCheckbox, MdReadableTabActive, MdReadableBold,
+    MdReadableItalic, MdReadableStrike, MdReadableMinimapCurrent,
+    MdReadableMinimapCode
+    MdReadableCodeBlock, MdReadableCodeBlockLabel, MdReadableCodeBlock{Role}
+                            Code block panel; set through the code option.
+
+CODE BLOCKS                                         *md-readable-code-blocks*
+
+Code blocks are a full-width panel: a top row with the language in the
+code.label corner, "left" or "right", the code, and a bottom row. code.icons
+adds a language icon from "mini" (mini.icons) or "web-devicons"
+(nvim-web-devicons); nil, the default, shows none. The background is the page
+background shifted slightly toward gray.
+
+code.theme picks a palette for code blocks only, taken from Shiki:
+github-dark, github-light, ayu-dark, ayu-light, dracula, catppuccin,
+gruvbox-dark, gruvbox-light, tokyonight. Without it, code keeps the
+colorscheme's tree-sitter colors. code.colors sets single colors ("#rrggbb")
+on top: bg, fg, label, comment, keyword, string, number, constant, func,
+type, variable, parameter, property, operator, punctuation, tag.
+
+TABLES                                                   *md-readable-tables*
+
+    :MdReadable table format
+    :MdReadable table row-before [count]
+    :MdReadable table row-after [count]
+    :MdReadable table row-delete [count]
+    :MdReadable table col-before [count]
+    :MdReadable table col-after [count]
+    :MdReadable table col-delete [count]
+
+Edits change the original buffer, are undoable, and never save automatically.
+Headers and delimiter rows stay structurally consistent; invalid boundary
+operations are rejected. Use open on an omitted cell to read its full value.
+
+MINIMAP                                                  *md-readable-minimap*
+
+    :MdReadable minimap on|off|toggle|focus
+
+Opens with the reading view unless minimap.enable is false. Moving the cursor
+in the minimap scrolls the reading view (and the source window) along while
+the minimap keeps focus; Enter jumps there and returns to the reading view;
+q/Esc closes it. Heading rows use the MdReadableHeading{1-6} colors and code
+block rows use MdReadableMinimapCode. Braille and ASCII modes are available.
+minimap.width is the window width in cells, all of it used by the picture.
+
+IMAGES AND MERMAID                                       *md-readable-images*
+
+    :MdReadable images allow|deny
+    :checkhealth md-readable
+
+Compatible terminals display visible local images and Mermaid inline. Remote
+images are denied by default. Optional tools: ImageMagick/rsvg-convert/FFmpeg
+for conversion, curl for permitted downloads, installed mmdc for Mermaid.
+Tools are never automatically downloaded. Missing dependencies or errors keep
+alt text/code readable.
+Rows are reserved only for media that can be drawn: a missing local file,
+denied web image, or absent mmdc reserves none, and a failed download,
+conversion or display releases its rows. :MdReadable diagnostics lists the
+reasons; :MdReadable refresh retries failed items. WezTerm/Ghostty pixels and actual mmdc output still
+require environment verification; protocol/process contracts are tested.
+
+CONFIGURATION                                            *md-readable-setup*
+>
+    require('md-readable').setup({
+      layout = 'integrated',
+      width = 100,
+      keymaps = {},
+      use_default_keymaps = true,
+      heading_rules = true,
+      center = true,
+      links = { enable = true, icons = 'unicode' },
+      navigation = { auto_open = true, width = 28, min_body_width = 48 },
+      table = { enable = true, max_cell_width = 28 },
+      focus = { enable = true, coefficient = 0.5, span = 0, priority = 10 },
+      minimap = { enable = true, width = 12, mode = 'braille' },
+      images = { enable = true, remote = false, height = 10 },
+      mermaid = { enable = true, command = 'mmdc' },
+      code = { theme = nil, colors = {}, label = 'left', icons = nil },
+      float = { width = 0.85, height = 0.85, border = 'rounded' },
+    })
+<
+setup is optional. See |md-readable-keymaps| for keymaps.
+Each feature section has an enable switch:
+  links.enable    false shows link labels as plain text without highlights
+                  or kind markers; the link list and following still work.
+  table.enable    false shows tables as their Markdown source.
+  focus.enable    Start Focus mode when a reading view opens.
+  minimap.enable  Open the minimap when a reading view opens.
+  images.enable, mermaid.enable
+                  false turns image or Mermaid rendering off. The former
+                  `enabled` key is still accepted.
+width is the body width in every mode. A float is at most width + 4 columns
+wide (float.width is the upper fraction of the screen). With center=true a
+wider window gets a blank 'statuscolumn' margin that centers the body;
+Neovim limits that column to about 47 cells, so very wide windows keep the
+body slightly left of center.
+Neovim-exit reading-position persistence is intentionally not implemented.
+
+KEYMAPS                                                  *md-readable-keymaps*
+
+Reading buffers get buffer-local keymaps from the keymaps option. Defaults:
+
+    q          actions.close            Close the reading view
+    <CR>       actions.open             Open link, cell, tab or details
+    g?         actions.show_help        List the active keymaps
+    gs         actions.source           Jump to the source position
+    ]] [[      actions.heading_next/prev  Next / previous heading
+    ]p [p      actions.next_page/prev_page  Next / previous page
+    gn         actions.toggle_nav       Book navigation
+    gO         actions.outline          Page headings
+    gl         actions.links            Document links
+    g/         actions.search           Search source incl. omitted text
+    gz         actions.toggle_focus     Focus (n, x: focus selected lines)
+    go         actions.toggle_minimap   Minimap
+    za         actions.expand           Expand or collapse omitted content
+
+Also available: actions.select, actions.focus_minimap, actions.next_tab,
+actions.refresh, actions.diagnostics. Names accept - or _. A value is an
+action name, a function, false (disable), or a table:
+>
+    keymaps = {
+      [']]'] = { mode = 'n', 'actions.heading_next', desc = 'Next Heading' },
+      ['gz'] = { 'actions.toggle_focus', mode = { 'n', 'x' }, nowait = true },
+      ['<leader>x'] = function() vim.cmd('MdReadable theme dark') end,
+      ['q'] = false,
+    }
+<
+User entries replace defaults per key. use_default_keymaps=false keeps only
+the listed keys; keymaps=false installs none. y/Y, / ? n N and
+CTRL-O/CTRL-I are always installed and are not part of this table.
+
+PROVIDERS                                                *md-readable-providers*
+
+Configure adapters.adapter and adapters.root_dir to select a project
+explicitly. adapters.provider can be a user-configured Lua function, a JSON
+path, or the provider forms documented by providers/navigation.lua. It
+returns a NavigationSnapshot:
+>
+    require('md-readable').setup({ adapters = {
+      root_dir = '/path/to/docs',
+      provider = function(ctx)
+        return {
+          schemaVersion = 1, rootDir = ctx.root_dir, adapterId = 'custom',
+          orderOrigin = 'custom', diagnostics = {},
+          trees = {{ id = 'book', title = 'Book', items = {
+            { id = 'start', title = 'Start', children = {},
+              target = { type = 'document', path = 'start.md' } },
+          }}},
+        }
+      end,
+    }})
+<
+Snapshot paths are relative to rootDir. Categories may have children without
+a target. External targets use { type='external', url=... }; unavailable
+targets include a reason. Do not mutate a published snapshot in place.
+
+PICKERS                                                  *md-readable-pickers*
+>
+    local p = require('md-readable.integrations.telescope').previewer()
+    require('telescope.builtin').find_files({ previewer = p })
+
+    require('snacks').setup({ picker = {
+      preview = require('md-readable.integrations.snacks').preview(),
+    }})
+<
+Telescope extension: :Telescope md_readable find_files / live_grep
+Both integrations preserve selection actions. Unsupported or oversized files
+use the original previewer. Same-file grep results update preview positions.
+
+DEVELOPMENT                                              *md-readable-development*
+
+Run: nvim --headless -n -u NONE -i NONE -l tests/run.lua
+Specification: md-readable_design.md
+Verification: docs/verification.md
+License: MIT. Reference-derived sections retain their upstream notices.
+
+ vim:tw=78:ts=8:noet:ft=help:norl:

@@ -1,0 +1,96 @@
+---@meta
+-- Positions are zero-based UTF-8 byte columns, ranges are half open.
+---@class MdReadablePoint
+---@field row integer
+---@field byteColumn integer
+---@class MdReadableRange
+---@field start MdReadablePoint
+---@field end MdReadablePoint
+---@class MdReadableSegment
+---@field row integer Display row (0-based)
+---@field start_col integer Display start byte
+---@field end_col integer Display end byte (exclusive)
+---@field source_row integer Source row (0-based)
+---@field source_start integer Source start byte
+---@field source_end integer Source end byte (exclusive)
+---@field kind 'text'|'node'|'omission'
+---@field full_start? integer Entire source element start (links / omitted cells)
+---@field full_end? integer Entire source element end
+---@field node_complete? boolean False when a visible node is only a truncated label fragment
+---@class MdReadableRendered
+---@field lines string[]
+---@field segments MdReadableSegment[]
+---@field row_map table<integer, integer> 1-based display index to zero-based source row
+---@field source_rows? table<integer, integer[]> All contributing original rows for joined prose
+---@field highlights MdReadableRenderedHighlight[]
+---@field images MdReadableRenderedImage[]
+---@field cells? MdReadableRenderedCell[] Table cells with their full source text
+---@field controls? MdReadableRenderedControl[] Static details/tabs controls
+---@field code_blocks? MdReadableRenderedCodeBlock[]
+---@class MdReadableRenderedHighlight
+---@field row integer Display row (0-based)
+---@field start_col integer
+---@field end_col integer Exclusive
+---@field group string
+---@class MdReadableRenderedImage
+---@field kind 'image'|'mermaid'
+---@field row integer First reserved display row (0-based)
+---@field label_row integer Display row of the label line
+---@field source_row integer
+---@field width integer
+---@field height integer Reserved rows; 0 when it cannot be drawn
+---@field alt string
+---@field path? string Link target (images)
+---@field code? string Diagram source (mermaid)
+---@class MdReadableRenderedCodeBlock
+---@field row integer Header display row
+---@field end_row integer Display end row (exclusive)
+---@field source_row integer
+---@field body_start integer Source row
+---@field body_end integer Source row (exclusive)
+---@field language string
+---@class MdReadableDocument
+---@field lines string[] Original text including unsaved changes
+---@field blocks MdReadableBlock[]
+---@field headings MdReadableHeading[]
+---@field links MdReadableLink[]
+---@field tables MdReadableTable[]
+---@field footnotes? table<string, MdReadableFootnote> Keyed by normalized id
+---@field references? table<string, MdReadableReference> Keyed by normalized label (footnotes prefixed with ^)
+---@field changedtick integer
+---@field bufnr? integer
+---@field path? string
+---@alias MdReadableSessionMode "current"|"vert"|"float"
+-- Methods (refresh, jump_source, navigate, ...) are defined in reader/session.lua.
+---@class MdReadableSession
+---@field id integer
+---@field source_buf integer
+---@field source_win integer Window the reader was opened from
+---@field read_buf integer
+---@field read_win integer
+---@field mode MdReadableSessionMode
+---@field document MdReadableDocument
+---@field rendered MdReadableRendered
+---@field map MdReadableSourceMap
+---@field config MdReadableConfig Per-session copy; commands may change theme/images.remote
+---@field generation integer Bumped on each refresh and on close
+---@field closed boolean
+---@field expanded table<integer, boolean> Source row of omitted content/details to expanded state
+---@field tabs table<integer, integer> Source row of a tabs block to selected tab (1-based)
+---@field positions table<string, integer[]> Path to last {row, col} (0-based source)
+---@field attached table
+---@field group integer Autocommand group
+---@field busy? boolean Suppresses cursor synchronization while moving windows
+---@field pending? integer Debounce counter of scheduled refreshes
+---@field nav_result? MdReadableNavResult Last navigation load result
+---@field snapshot? MdReadableNavSnapshot
+---@field stale? boolean Snapshot kept although the last load failed
+---@field focus_enabled? boolean
+---@field yank_previous? table<string, table> Register name to getreginfo() before a yank
+---@field yank_register? string Register named for the pending yank
+---@field media_skipped? table<string, MdReadableImageProblem>
+---@field media_failures? table<string, MdReadableImageProblem>
+---@field tree_id? string Selected navigation tree
+---@field _navigation? MdReadableNavUiState Navigation panel state
+---@field _links_panel? MdReadableLinksUiPanel
+return {}
