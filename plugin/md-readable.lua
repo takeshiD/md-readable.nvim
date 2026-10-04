@@ -8,7 +8,7 @@ end, {
   nargs = "*",
   range = true,
   desc = "Read Markdown with source-aware navigation",
-  complete = function(lead)
-    return require("md-readable").complete(lead)
+  complete = function(lead, line, cursor)
+    return require("md-readable").complete(lead, line, cursor)
   end,
 })

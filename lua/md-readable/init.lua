@@ -1,4 +1,5 @@
 local M = {}
+local errors = require("md-readable.errors")
 local commands = {
   "vert",
   "float",
@@ -24,10 +25,26 @@ local commands = {
   "diagnostics",
   "select",
 }
+-- Fixed first arguments; used by completion and argument validation.
+local arguments = {
+  focus = { "on", "off", "toggle" },
+  theme = { "default", "dark", "light" },
+  minimap = { "on", "off", "toggle", "focus" },
+  table = { "format", "row-before", "row-after", "row-delete", "col-before", "col-after", "col-delete" },
+  images = { "allow", "deny" },
+}
+local function check_argument(command, value, required)
+  local allowed = arguments[command]
+  if (value == nil and required) or (value ~= nil and not vim.tbl_contains(allowed, value)) then
+    errors.user(
+      string.format("%s: expected %s%s", command, table.concat(allowed, " | "), value and (", got " .. value) or "")
+    )
+  end
+end
 local function session()
   local s = require("md-readable.reader.session").current()
   if not s then
-    error("Open a reading view with :MdReadable first")
+    errors.user("Open a reading view with :MdReadable first")
   end
   return s
 end
@@ -79,12 +96,12 @@ local function edit_table(s, action, count)
         lines, err = require("md-readable.table.edit").edit(tbl, action, index, count or 1)
       end
       if not lines then
-        error(err or "Cannot edit this table")
+        errors.user(err or "Cannot edit this table")
       end
       local before = vim.api.nvim_buf_get_lines(s.source_buf, tbl.start_row, tbl.end_row, false)
       if not vim.deep_equal(before, lines) then
         if not vim.bo[s.source_buf].modifiable then
-          error("Source buffer is not modifiable")
+          errors.user("Source buffer is not modifiable")
         end
         vim.api.nvim_buf_set_lines(s.source_buf, tbl.start_row, tbl.end_row, false, lines)
         s:refresh()
@@ -93,7 +110,7 @@ local function edit_table(s, action, count)
       return
     end
   end
-  error("Cursor is not in a Markdown table")
+  errors.user("Cursor is not in a Markdown table")
 end
 function M.action(command, args, opts)
   args, opts = args or {}, opts or {}
@@ -108,6 +125,15 @@ function M.action(command, args, opts)
   end
   if command == "source" then
     return require("md-readable.reader.session").source()
+  end
+  if not vim.tbl_contains(commands, command) then
+    errors.user("Unknown MdReadable command: " .. command)
+  end
+  if arguments[command] then
+    check_argument(command, args[1], command == "images")
+  end
+  if command == "table" and args[2] and not tonumber(args[2]) then
+    errors.user("table: count must be a number, got " .. args[2])
   end
   local s = session()
   if command == "refresh" then
@@ -170,27 +196,16 @@ function M.action(command, args, opts)
     local name = args[1] or "default"
     local applied, err = require("md-readable.ui.theme").apply(s.read_win, name, s.config)
     if not applied then
-      error(err)
+      errors.user(err)
     end
     s.config.theme = name
     require("md-readable.reader.focus").update(s)
   elseif command == "minimap" then
     local map = require("md-readable.minimap")
     local action = ({ on = "open", off = "close", focus = "focus", toggle = "toggle" })[args[1] or "toggle"]
-    if not action then
-      error("minimap: on | off | toggle | focus")
-    end
     map[action](s)
   elseif command == "table" then
     local action = (args[1] or "format"):gsub("-", "_")
-    if
-      not vim.tbl_contains(
-        { "format", "row_before", "row_after", "row_delete", "col_before", "col_after", "col_delete" },
-        action
-      )
-    then
-      error("table: format | row-before | row-after | row-delete | col-before | col-after | col-delete [count]")
-    end
     edit_table(s, action, tonumber(args[2]) or 1)
   elseif command == "expand" then
     local row = source_position(s)
@@ -205,9 +220,6 @@ function M.action(command, args, opts)
     end
     s:refresh()
   elseif command == "images" then
-    if args[1] ~= "allow" and args[1] ~= "deny" then
-      error("images: allow | deny")
-    end
     s.config.images.remote = args[1] == "allow"
     require("md-readable.providers.image").update(s)
   elseif command == "diagnostics" then
@@ -226,20 +238,31 @@ function M.action(command, args, opts)
       vim.cmd("copen")
     end
   else
-    error("Unknown MdReadable command: " .. command)
+    errors.user("Unknown MdReadable command: " .. command)
   end
 end
 function M.command(opts)
   local args = vim.deepcopy(opts.fargs)
   local command = table.remove(args, 1)
-  local ok, err = pcall(M.action, command, args, opts)
-  if not ok then
-    vim.notify("md-readable: " .. tostring(err), vim.log.levels.ERROR)
-  end
+  errors.report(M.action, command, args, opts)
 end
-function M.complete(lead)
+-- Completes the subcommand, then the fixed argument list of that subcommand.
+function M.complete(lead, line, cursor)
+  local before = (line or ""):sub(1, cursor or #(line or ""))
+  local words = vim.split(vim.trim(before:match("MdReadable!?%s+(.*)$") or ""), "%s+", { trimempty = true })
+  if lead ~= "" then
+    table.remove(words)
+  end
+  local candidates
+  if #words == 0 then
+    candidates = commands
+  elseif #words == 1 then
+    candidates = arguments[words[1]] or {}
+  else
+    candidates = {}
+  end
   return vim.tbl_filter(function(c)
     return c:sub(1, #lead) == lead
-  end, commands)
+  end, candidates)
 end
 return M

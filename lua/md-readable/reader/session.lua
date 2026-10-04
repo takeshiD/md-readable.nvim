@@ -307,7 +307,7 @@ end
 function M.open(mode)
   mode = mode or "current"
   if vim.o.columns < 16 or vim.o.lines < 6 then
-    error("Reading view needs at least 16 columns and 6 rows")
+    require("md-readable.errors").user("Reading view needs at least 16 columns and 6 rows")
   end
   local origin_win, origin_buf = vim.api.nvim_get_current_win(), vim.api.nvim_get_current_buf()
   local current = M.current()
