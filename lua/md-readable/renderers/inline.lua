@@ -39,7 +39,10 @@ function M.parse(line, row, links, opts, start_col, end_col)
     while i <= last do
       local c, link = line:sub(i, i), by_start[i]
       if link and link.range["end"].byteColumn <= last then
-        if link.kind == "unresolved" then
+        if link.kind == "footnote" then
+          -- Every displayed character maps to the whole [^id] reference.
+          add(piece("[" .. link.text .. "]", i - 1, link.range["end"].byteColumn, "MdReadableFootnote"))
+        elseif link.kind == "unresolved" then
           add(piece(line:sub(i, link.range["end"].byteColumn), i - 1, link.range["end"].byteColumn, "MdReadableMuted"))
         elseif link.kind == "image" then
           local item =

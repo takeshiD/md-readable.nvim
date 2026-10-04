@@ -184,6 +184,13 @@ function M.action(command, args, opts)
         return require("md-readable.ui.links").follow(s, link)
       end
     end
+    -- A footnote definition label returns to its first reference.
+    for _, note in pairs(s.document.footnotes or {}) do
+      local label = (s.document.lines[note.row + 1] or ""):match("^ ? ? ?%[%^[^%]]+%]:")
+      if row == note.row and label and col < #label and note.references[1] then
+        return s:jump_source(note.references[1].start.row, note.references[1].start.byteColumn)
+      end
+    end
     require("md-readable.ui.cell").open(s)
   elseif command == "search" then
     require("md-readable.reader.search").open(s, #args > 0 and table.concat(args, " ") or nil)

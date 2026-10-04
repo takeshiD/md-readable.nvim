@@ -295,6 +295,8 @@ interface DocumentOutline {
 
 リンク文字列、種別、解決済みターゲット、ソース範囲を保持する。inline linkに加えreference-style linkも解決する。
 
+GFMの脚注（`[^id]`参照と`[^id]: 本文`定義）はリンク参照定義と区別して解析し、リンク一覧には含めない。参照は`[id]`、定義は元の位置に`[id] 本文`として表示し、最初の定義の前に表示専用の`Footnotes`区切りを置く。定義の継続はインデントされた行（空行を挟む場合は4桁以上のインデント）までとする。参照・定義ともコピーすると元のMarkdownになり、`open`で参照と定義の間を移動する。未定義の`[^id]`は本文として表示する。
+
 種別は少なくとも `local document` / `same-page anchor` / `external URL` / `asset` / `unresolved` を区別する。行末に種別を短く表示し、色だけに依存しない。外部URLやassetは前後ページの読み順に混ぜない。
 
 ## 8. ナビゲーションUI

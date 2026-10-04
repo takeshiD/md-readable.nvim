@@ -12,8 +12,11 @@ end
 function M.references(lines)
   local result = {}
   for row, line in ipairs(lines) do
+    local footnote = line:match("^ ? ? ?%[%^([^%]%s]+)%]:")
     local id, target = line:match("^%s*%[([^%]]+)%]:%s*<?([^%s>]+)>?")
-    if id then
+    if footnote then
+      result["^" .. normalize(footnote)] = { footnote = true, id = footnote, row = row - 1 }
+    elseif id then
       result[normalize(id)] = { target = unescape(target), row = row - 1 }
     end
   end
@@ -56,7 +59,30 @@ function M.parse(line, row, references)
       local a = image and i + 1 or i
       local close = line:sub(a, a) == "[" and closing(line, a, "[", "]")
       local target, finish, unresolved, style
-      if close then
+      local footnote = not image and close and line:sub(a + 1, close - 1):match("^%^(%S+)$")
+      if footnote then
+        local after = line:sub(close + 1, close + 1)
+        local ref = references["^" .. normalize(footnote)]
+        if after == ":" and line:sub(1, i - 1):match("^ ? ? ?$") then
+          i = close + 1 -- Definition label; rendered by the footnote block.
+        elseif ref and ref.footnote and after ~= "(" and after ~= "[" then
+          result[#result + 1] = {
+            text = footnote,
+            target = "^" .. footnote,
+            kind = "footnote",
+            range = range(row, i - 1, close),
+            label_start = a,
+            label_end = close - 1,
+            style = "footnote",
+            definition_row = ref.row,
+          }
+          i = close + 1
+        else
+          footnote = nil
+        end
+      end
+      if footnote then -- Handled above.
+      elseif close then
         local after = line:sub(close + 1, close + 1)
         if after == "(" then
           finish = closing(line, close + 1, "(", ")")

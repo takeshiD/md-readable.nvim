@@ -40,7 +40,7 @@
 
 ### 初期の拡張記法
 
-標準Markdown/GFM相当の本文に加えて、GitHub形式のalert、Obsidian形式のcallout、HTMLの`details`/`summary`、Docusaurus形式の静的admonition、MkDocs形式の静的admonitionを初期対象とする。タブは静的なDocusaurus `Tabs`/`Tab`とMkDocs系の`===`見出しを対象にし、コードやコンポーネントは実行しない。
+標準Markdown/GFM相当の本文（GFM脚注を含む）に加えて、GitHub形式のalert、Obsidian形式のcallout、HTMLの`details`/`summary`、Docusaurus形式の静的admonition、MkDocs形式の静的admonitionを初期対象とする。タブは静的なDocusaurus `Tabs`/`Tab`とMkDocs系の`===`見出しを対象にし、コードやコンポーネントは実行しない。
 
 初期対応する構文と制限をfixture・helpに列挙する。未対応形式は原文を確認できるようにし、表示の細部は最初の実装を見て調整する。独自JavaScript、任意HTML/CSS、サイト固有コンポーネントの実行は行わない。
 

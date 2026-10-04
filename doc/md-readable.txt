@@ -58,6 +58,14 @@ registers unchanged. Soft-wrapped/joined display lines retain source mappings.
 Reference-style links retain their original reference syntax; a reference
 definition outside the selection is not automatically appended.
 
+FOOTNOTES                                                *md-readable-footnotes*
+
+GFM footnotes render as [id] at the reference and as "[id] text" at the
+definition, after a "Footnotes" separator. :MdReadable open on a reference
+jumps to its note; on a note's [id] label it returns to the first reference.
+Copying either yields the original [^id] Markdown. Footnotes are not listed
+by :MdReadable links. Undefined references stay plain text.
+
 FOCUS AND APPEARANCE                                      *md-readable-focus*
 
     :MdReadable focus on|off|toggle

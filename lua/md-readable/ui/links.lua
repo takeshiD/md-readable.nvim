@@ -1,5 +1,9 @@
 local M = {}
 function M.follow(session, link)
+  if link.kind == "footnote" then
+    session:jump_source(link.definition_row, 0)
+    return
+  end
   local resolved = require("md-readable.navigation.resolver").resolve(link.target, {
     path = vim.api.nvim_buf_get_name(session.source_buf),
     root_dir = session.snapshot and session.snapshot.rootDir,
@@ -21,7 +25,10 @@ function M.follow(session, link)
   end
 end
 function M.open(session)
-  vim.ui.select(session.document.links or {}, {
+  local links = vim.tbl_filter(function(link)
+    return link.kind ~= "footnote"
+  end, session.document.links or {})
+  vim.ui.select(links, {
     prompt = "Document links",
     format_item = function(item)
       return string.format("[%s] %s → %s", item.kind or "link", item.text or "", tostring(item.target))

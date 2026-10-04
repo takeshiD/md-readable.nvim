@@ -4,6 +4,10 @@ The executable fixtures live in `tests/test_navigation.lua`: each creates actual
 
 This implementation uses project-owned Lua parsers, with no vendored code or new runtime dependencies. It does not execute project JS/TS, Python, SSG builds, or MDX components. `require.resolve('literal')` is recognized lexically as the literal path; no module resolution executes.
 
+## Markdown body syntax
+
+Navigation input aside, the reading view renders CommonMark/GFM prose, tables, code, task lists, and the extensions listed in `docs/final-spec-review.md`. GFM footnotes are supported: a `[^id]` reference to a defined note renders as `[id]`, and each `[^id]: text` definition renders in place as `[id] text` after a display-only `Footnotes` separator. Indented continuation lines belong to the note; nested blocks (lists, code) inside a note are shown as joined text. Undefined references stay literal text, and footnotes are excluded from `:MdReadable links`. Tests: `tests/test_footnotes.lua`.
+
 ## Parser boundary
 
 YAML supports indentation-based maps/sequences, continued sequence maps, indentless sequences under mapping keys, ordered maps, quoted keys/scalars, comments outside strings, scalar booleans/numbers/null, and flow arrays/maps. It rejects tags, anchors, aliases, merge keys, duplicate keys, tabs in indentation, and multiple documents. Simple block strings are accepted; advanced YAML scalar folding/chomping is not a compatibility guarantee. Source rows are stored in ordered-map metatables and diagnostics.

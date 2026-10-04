@@ -67,10 +67,26 @@ function M.parse(lines, opts)
       end
     end
   end
+  -- Footnotes by normalized id: definition row and the rows referring to it.
+  local footnotes = {}
+  for key, ref in pairs(references) do
+    if ref.footnote then
+      footnotes[key:sub(2)] = { id = ref.id, row = ref.row, references = {} }
+    end
+  end
+  for _, link in ipairs(links) do
+    if link.kind == "footnote" then
+      local note = footnotes[link.target:sub(2):lower()]
+      if note then
+        note.references[#note.references + 1] = link.range
+      end
+    end
+  end
   return {
     lines = original,
     blocks = blocks,
     links = links,
+    footnotes = footnotes,
     tables = tables,
     references = references,
     headings = require("md-readable.document.outline").build(outline_blocks, original),

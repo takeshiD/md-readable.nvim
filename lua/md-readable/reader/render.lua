@@ -196,6 +196,44 @@ function M.render(document, opts)
       elseif block.type == "callout" or block.type == "details" or block.type == "tabs" then
         require("md-readable.renderers.extensions").render(block, ctx)
       elseif block.type == "frontmatter" or block.type == "reference" then -- Kept in source, intentionally absent from reading text.
+      elseif block.type == "footnote" then
+        local previous = block_index - 1
+        while blocks[previous] and blocks[previous].type == "blank" do
+          previous = previous - 1
+        end
+        if not blocks[previous] or blocks[previous].type ~= "footnote" then
+          local title = "── Footnotes "
+          local fill = math.max(0, math.min(width, 40) - vim.fn.strdisplaywidth(title))
+          ctx.emit({ { text = title .. string.rep("─", fill), group = "MdReadableMuted" } }, block.start_row, false)
+        end
+        local line = doc.lines[block.start_row + 1]
+        local label_start = #(line:match("^ ? ? ?") or "")
+        local pieces = {
+          {
+            text = "[" .. block.id .. "] ",
+            source_start = label_start,
+            source_end = block.label_end,
+            source_row = block.start_row,
+            group = "MdReadableFootnote",
+          },
+        }
+        for row = block.start_row, block.end_row - 1 do
+          local text = doc.lines[row + 1]
+          if text:match("%S") then
+            local first = row == block.start_row and block.text_col or #text:match("^%s*")
+            local last = #(text:gsub("%s+$", ""))
+            if row > block.start_row then
+              pieces[#pieces + 1] = { text = " " }
+            end
+            for _, piece in
+              ipairs(require("md-readable.renderers.inline").parse(text, row, doc.links, opts, first, last))
+            do
+              piece.source_row = row
+              pieces[#pieces + 1] = piece
+            end
+          end
+        end
+        ctx.emit(pieces, block.start_row, true)
       elseif block.type == "rule" then
         ctx.emit(
           { { text = string.rep("─", math.min(width, 40)), group = "MdReadableRule" } },

@@ -83,6 +83,36 @@ function M.scan(lines, start_row, end_row)
         }
       elseif line:match("^%s*$") then
         block = { type = "blank", start_row = row, end_row = row + 1 }
+      elseif line:match("^ ? ? ?%[%^[^%]%s]+%]:") then
+        -- Footnote definition. Indented lines continue it, as do blank lines
+        -- followed by a line indented by four spaces or a tab.
+        local finish = row + 1
+        while finish < limit do
+          local following = lines[finish + 1]
+          if following:match("^%s+%S") then
+            finish = finish + 1
+          elseif following:match("^%s*$") then
+            local after = finish + 1
+            while after < limit and lines[after + 1]:match("^%s*$") do
+              after = after + 1
+            end
+            if after < limit and (lines[after + 1]:match("^    %s*%S") or lines[after + 1]:match("^\t")) then
+              finish = after
+            else
+              break
+            end
+          else
+            break
+          end
+        end
+        block = {
+          type = "footnote",
+          id = line:match("^ ? ? ?%[%^([^%]]+)%]:"),
+          label_end = #line:match("^ ? ? ?%[%^[^%]]+%]:"),
+          text_col = #line:match("^ ? ? ?%[%^[^%]]+%]:%s*"),
+          start_row = row,
+          end_row = finish,
+        }
       elseif line:match("^%s*%[[^%]]+%]:") then
         block = { type = "reference", start_row = row, end_row = row + 1 }
       elseif
