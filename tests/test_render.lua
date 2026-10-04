@@ -14,7 +14,8 @@ return function(t)
     t.ok(contains(value.lines, "bold italic gone code"))
     t.ok(contains(value.lines, "☑ done"))
     t.ok(contains(value.lines, "│ quoted"))
-    t.eq("Setext", value.lines[#value.lines])
+    t.eq("Setext", value.lines[#value.lines - 1])
+    t.eq(string.rep("─", 80), value.lines[#value.lines])
     local groups = {}
     for _, h in ipairs(value.highlights) do
       groups[h.group] = true

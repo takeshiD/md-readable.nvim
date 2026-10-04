@@ -70,6 +70,32 @@ Focus follows Limelight's blank-line paragraph boundaries. A selected range
 is fixed only when used to invoke the command. Coefficient defaults to 0.5,
 paragraph span to 0. Focus and themes affect only reading windows.
 
+Headings use a separate highlight per level. H1 and H2 are followed by a
+display-only rule (= and - style), disabled with heading_rules = false. The
+outline panel shows # markers per level with the same highlights.
+
+HIGHLIGHTS                                           *md-readable-highlights*
+
+All groups are defined with default=true, so a colorscheme or user
+:highlight/nvim_set_hl() definition takes precedence. They are recomputed on
+ColorScheme. The dark/light presets override them only in reading windows;
+setup({ highlights = { Group = {...} } }) overrides them per reading window.
+
+    MdReadableHeading1..6   Heading text and H1/H2 rules. Uses
+                            @markup.heading.N.markdown when the colorscheme
+                            distinguishes levels, otherwise Title, Function,
+                            String, DiagnosticWarn, Constant, Comment (bold).
+    MdReadableLink          Link labels (link color + underline)
+    MdReadableLinkIcon      Link kind markers
+    MdReadableCode          Inline code (String with a subtle background)
+    MdReadableCodeBlock     Fenced/indented code (NormalFloat)
+    MdReadableFootnote      Footnote references and the notes section
+    MdReadableQuote, MdReadableRule, MdReadableMuted, MdReadableOmission,
+    MdReadableTableBorder, MdReadableTableHeader, MdReadableCallout,
+    MdReadableCheckbox, MdReadableTabActive, MdReadableBold,
+    MdReadableItalic, MdReadableStrike, MdReadableMinimapCurrent,
+    MdReadableGitAdd, MdReadableGitChange, MdReadableGitDelete
+
 TABLES                                                   *md-readable-tables*
 
     :MdReadable table format
@@ -111,6 +137,7 @@ CONFIGURATION                                            *md-readable-setup*
       layout = 'integrated',
       width = 100,
       keymaps = false,
+      heading_rules = true,
       navigation = { auto_open = true, width = 28, min_body_width = 48 },
       table = { max_cell_width = 28 },
       focus = { coefficient = 0.5, span = 0, priority = 10 },

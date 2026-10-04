@@ -222,7 +222,10 @@ local function rebuild(session, st, panel)
         }
         -- A following deeper heading makes this item expandable.
         local index = #lines + 1
-        add(string.rep("  ", depth + math.max(0, level - 1)) .. "# " .. heading.title, entry)
+        -- Level markers and per-level highlights distinguish the hierarchy.
+        local marker = string.rep("  ", depth + math.max(0, level - 1)) .. string.rep("#", level) .. " "
+        entry.marker_end, entry.group = #marker, "MdReadableHeading" .. math.min(level, 6)
+        add(marker .. heading.title, entry)
         if #parents > 0 then
           entries[parents[#parents].line].expandable = true
         end
@@ -288,6 +291,16 @@ local function rebuild(session, st, panel)
   vim.api.nvim_buf_clear_namespace(panel.buf, namespace, 0, -1)
   vim.api.nvim_buf_set_extmark(panel.buf, namespace, 0, 0, { end_row = 1, hl_group = "Title", hl_eol = true })
   vim.api.nvim_buf_set_extmark(panel.buf, namespace, 1, 0, { end_row = 2, hl_group = "Comment", hl_eol = true })
+  for i, entry in ipairs(entries) do
+    if entry.group then
+      local length = #lines[i]
+      local split = math.min(entry.marker_end, length)
+      vim.api.nvim_buf_set_extmark(panel.buf, namespace, i - 1, 0, { end_col = split, hl_group = "MdReadableMuted" })
+      if split < length then
+        vim.api.nvim_buf_set_extmark(panel.buf, namespace, i - 1, split, { end_col = length, hl_group = entry.group })
+      end
+    end
+  end
 end
 local function track(session, st, panel)
   local heading = current_heading(session)

@@ -1,9 +1,8 @@
 local M = {}
 local windows = {}
+local initialized = false
 local defaults = {
   MdReadableHeading = { link = "Title" },
-  MdReadableLink = { link = "Underlined" },
-  MdReadableCode = { link = "String" },
   MdReadableCodeBlock = { link = "NormalFloat" },
   MdReadableTableBorder = { link = "Comment" },
   MdReadableTableHeader = { bold = true },
@@ -17,30 +16,98 @@ local defaults = {
   MdReadableCheckbox = { link = "Special" },
   MdReadableOmission = { link = "Comment" },
   MdReadableCallout = { link = "Special" },
+  MdReadableLinkIcon = { link = "Comment" },
+  MdReadableFootnote = { link = "Special" },
   MdReadableMinimapCurrent = { link = "CursorLine" },
   MdReadableGitAdd = { link = "DiffAdd" },
   MdReadableGitChange = { link = "DiffChange" },
   MdReadableGitDelete = { link = "DiffDelete" },
 }
-for level = 1, 6 do
-  defaults["MdReadableHeading" .. level] = { link = "Title" }
-end
+-- Used when the colorscheme gives every Markdown heading level the same style
+-- (the built-in default does). Groups are chosen to differ in common schemes.
+local heading_fallbacks = { "Title", "Function", "String", "DiagnosticWarn", "Constant", "Comment" }
 local presets = {
-  dark = { fg = "#d5d8de", bg = "#20242c", accent = "#9cc4ef", muted = "#959fad", code = "#b8d7a3" },
-  light = { fg = "#30343b", bg = "#faf8f2", accent = "#205d96", muted = "#68717b", code = "#346534" },
+  dark = {
+    fg = "#d5d8de",
+    bg = "#20242c",
+    accent = "#9cc4ef",
+    muted = "#959fad",
+    code = "#b8d7a3",
+    link = "#79c0ff",
+    headings = { "#f2f4f8", "#9cc4ef", "#e5c890", "#d4a6e0", "#9fd5cf", "#959fad" },
+  },
+  light = {
+    fg = "#30343b",
+    bg = "#faf8f2",
+    accent = "#205d96",
+    muted = "#68717b",
+    code = "#346534",
+    link = "#0b62c4",
+    headings = { "#16191d", "#205d96", "#8a5a00", "#7a3e9d", "#1f6f6a", "#68717b" },
+  },
 }
 
-function M.setup()
-  for name, value in pairs(defaults) do
+local function resolve(name)
+  return vim.api.nvim_get_hl(0, { name = name, link = false })
+end
+local function blend(fg, bg, alpha)
+  local function channel(shift)
+    local a, b = math.floor(fg / shift) % 256, math.floor(bg / shift) % 256
+    return math.floor(a * alpha + b * (1 - alpha) + 0.5)
+  end
+  return channel(65536) * 65536 + channel(256) * 256 + channel(1)
+end
+
+-- Definitions derived from the active colorscheme.
+function M.highlights()
+  local result = vim.deepcopy(defaults)
+  local levels, distinct = {}, false
+  for level = 1, 6 do
+    levels[level] = resolve("@markup.heading." .. level .. ".markdown")
+    distinct = distinct or not vim.deep_equal(levels[1], levels[level])
+  end
+  for level = 1, 6 do
+    local value = distinct and (levels[level].fg or levels[level].bg) and levels[level]
+      or resolve(heading_fallbacks[level])
+    value = vim.deepcopy(value)
+    value.cterm, value.default = nil, nil
+    value.bold = true
+    if not value.fg and not value.bg then
+      value = { link = "Title" }
+    end
+    result["MdReadableHeading" .. level] = value
+  end
+  local link = resolve("@markup.link.label")
+  local fallback = resolve("Identifier")
+  result.MdReadableLink = { fg = link.fg or fallback.fg, underline = true }
+  if not result.MdReadableLink.fg then
+    result.MdReadableLink = { link = "Underlined" }
+  end
+  local normal, comment, str = resolve("Normal"), resolve("Comment"), resolve("String")
+  result.MdReadableCode = { fg = str.fg }
+  if comment.fg and normal.bg then
+    result.MdReadableCode.bg = blend(comment.fg, normal.bg, 0.2)
+  end
+  if not str.fg and not result.MdReadableCode.bg then
+    result.MdReadableCode = { link = "String" }
+  end
+  return result
+end
+
+local function define_global()
+  for name, value in pairs(M.highlights()) do
     vim.api.nvim_set_hl(0, name, vim.tbl_extend("force", value, { default = true }))
   end
+end
+
+function M.setup()
+  initialized = true
+  define_global()
   local group = vim.api.nvim_create_augroup("MdReadableThemes", { clear = true })
   vim.api.nvim_create_autocmd("ColorScheme", {
     group = group,
     callback = function()
-      for name, value in pairs(defaults) do
-        vim.api.nvim_set_hl(0, name, vim.tbl_extend("force", value, { default = true }))
-      end
+      define_global()
       for win, state in pairs(windows) do
         if vim.api.nvim_win_is_valid(win) then
           M.apply(win, state.name, state.opts)
@@ -59,6 +126,9 @@ function M.setup()
 end
 
 function M.apply(win, name, opts)
+  if not initialized then
+    M.setup()
+  end
   if not vim.api.nvim_win_is_valid(win) then
     return nil, "reading window is closed"
   end
@@ -77,21 +147,25 @@ function M.apply(win, name, opts)
   for group in pairs(state.groups or {}) do
     vim.api.nvim_set_hl(state.ns, group, {})
   end
-  local definitions = vim.deepcopy(defaults)
+  -- The default theme keeps the global MdReadable* groups, so user overrides
+  -- of those groups apply to reading windows too.
+  local definitions = {}
   local palette = presets[name]
   if palette then
+    definitions = M.highlights()
     definitions.Normal = { fg = palette.fg, bg = palette.bg }
     definitions.NormalNC = definitions.Normal
     definitions.NormalFloat = definitions.Normal
     definitions.EndOfBuffer = { fg = palette.bg, bg = palette.bg }
     definitions.MdReadableHeading = { fg = palette.accent, bold = true }
     for level = 1, 6 do
-      definitions["MdReadableHeading" .. level] = definitions.MdReadableHeading
+      definitions["MdReadableHeading" .. level] = { fg = palette.headings[level], bold = true }
     end
-    definitions.MdReadableLink = { fg = palette.accent, underline = true }
-    definitions.MdReadableCode = { fg = palette.code }
+    definitions.MdReadableLink = { fg = palette.link, underline = true }
+    definitions.MdReadableCode =
+      { fg = palette.code, bg = blend(tonumber(palette.muted:sub(2), 16), tonumber(palette.bg:sub(2), 16), 0.15) }
     definitions.MdReadableCodeBlock = { fg = palette.code, bg = palette.bg }
-    for _, group in ipairs({ "Quote", "Rule", "Omission", "TableBorder" }) do
+    for _, group in ipairs({ "Quote", "Rule", "Omission", "TableBorder", "Muted", "LinkIcon" }) do
       definitions["MdReadable" .. group] = { fg = palette.muted }
     end
   end
@@ -111,6 +185,10 @@ function M.close(win)
   local state = windows[win]
   if state and vim.api.nvim_win_is_valid(win) then
     vim.api.nvim_win_set_hl_ns(win, state.previous_ns)
+  end
+  -- The namespace is keyed by window id and reused if the window reads again.
+  for group in pairs(state and state.groups or {}) do
+    vim.api.nvim_set_hl(state.ns, group, {})
   end
   windows[win] = nil
 end

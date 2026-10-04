@@ -4,6 +4,7 @@ M.defaults = {
   debounce = 100,
   keymaps = false,
   theme = "default",
+  heading_rules = true,
   layout = "integrated",
   navigation = { auto_open = true, width = 28, min_body_width = 48 },
   table = { max_cell_width = 28 },
