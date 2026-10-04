@@ -1,4 +1,6 @@
 local M = {}
+--- Show the full source text of the table cell under the cursor in a float.
+---@param session MdReadableSession
 function M.open(session)
   local pos = vim.api.nvim_win_get_cursor(session.read_win)
   local value

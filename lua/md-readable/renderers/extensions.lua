@@ -1,4 +1,20 @@
 local M = {}
+--- Shared state handed to block renderers by reader/render.lua.
+---@class MdReadableRenderContext
+---@field document MdReadableDocument Document being rendered (nested for container bodies)
+---@field opts MdReadableRenderOptions
+---@field result MdReadableRendered
+---@field emit fun(pieces:MdReadableRenderPiece[], source_row:integer, wrap?:boolean):integer Returns the first display row
+---@field body fun(start_row:integer, end_row:integer, indent?:integer, strip_quote?:boolean) Renders source rows [start_row, end_row)
+---@class MdReadableRenderedControl
+---@field row integer Display row
+---@field source_row integer Block start row
+---@field kind 'tabs'|'details'
+---@field labels? string[] Tab titles
+---@field active? integer Selected tab (1-based)
+---@field expanded? boolean Details state
+---@param block MdReadableBlockCallout|MdReadableBlockDetails|MdReadableBlockTabs
+---@param ctx MdReadableRenderContext
 function M.render(block, ctx)
   if block.type == "tabs" then
     local active = (ctx.opts.tabs or {})[block.start_row] or 1

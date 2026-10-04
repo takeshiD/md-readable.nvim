@@ -1,22 +1,31 @@
 -- User-facing failures are raised as tables so command handlers can show the
 -- message alone, while unexpected Lua errors keep their location and traceback.
 local M = {}
+---@class MdReadableUserError
+---@field message string
 local UserError = {}
 UserError.__index = UserError
 UserError.__tostring = function(err)
   return err.message
 end
 
+---@param message any Raised as an MdReadableUserError; never returns
 function M.user(message)
   error(setmetatable({ message = tostring(message) }, UserError), 0)
 end
 
+---@param err any
+---@return boolean
 function M.is_user(err)
   return getmetatable(err) == UserError
 end
 
 -- Runs fn and reports failures with vim.notify. User errors show only their
 -- message; internal errors also record the traceback in :messages.
+---@param fn function
+---@param ... any Arguments for fn
+---@return boolean ok
+---@return any? err
 function M.report(fn, ...)
   local args = vim.F.pack_len(...)
   local trace

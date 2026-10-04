@@ -1,11 +1,15 @@
 local M = {}
 -- A fresh previewer owns its cancellation/cleanup state. Requiring this module
 -- does not require Telescope; only explicitly constructing a previewer does.
+---@param opts? MdReadablePreviewOptions
+---@return table previewer Telescope buffer previewer
 function M.previewer(opts)
   opts = opts or {}
   local engine = require("md-readable.integrations.preview").new(opts)
   return require("telescope.previewers").new_buffer_previewer({
     title = "Markdown Preview",
+    ---@param self table Telescope previewer
+    ---@param entry table Telescope entry
     define_preview = function(self, entry)
       local path = entry.path or entry.filename or (type(entry.value) == "string" and entry.value or nil)
       local buf, win = self.state.bufnr, self.state.winid
@@ -31,6 +35,9 @@ function M.previewer(opts)
     end,
   })
 end
+---@param name string Telescope builtin picker name
+---@param opts? table Picker options
+---@return any
 function M.picker(name, opts)
   local picker = require("telescope.builtin")[name]
   assert(type(picker) == "function", "Unknown Telescope picker: " .. tostring(name))

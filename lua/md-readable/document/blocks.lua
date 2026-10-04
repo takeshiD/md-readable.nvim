@@ -1,8 +1,42 @@
 local M = { extensions = {} }
+---@class MdReadableBlockBase
+---@field type string
+---@field start_row integer
+---@field end_row integer Exclusive
+---@class MdReadableBlockFrontmatter : MdReadableBlockBase
+---@field type 'frontmatter'
+---@class MdReadableBlockCode : MdReadableBlockBase
+---@field type 'code'
+---@field body_start integer
+---@field body_end integer Exclusive
+---@field language string
+---@field info? string Fence info string
+---@field indent? integer Indented code: columns stripped from each body row
+---@class MdReadableBlockHeading : MdReadableBlockBase
+---@field type 'heading'
+---@field level integer 1-6
+---@field text string
+---@field text_col integer Byte column where the title text starts
+---@field heading? MdReadableHeading Set by the outline builder
+---@class MdReadableBlockFootnote : MdReadableBlockBase
+---@field type 'footnote'
+---@field id string
+---@field label_end integer Byte column after "[^id]:"
+---@field text_col integer
+---@class MdReadableBlockPlain : MdReadableBlockBase
+---@field type 'blank'|'reference'|'rule'|'quote'|'list'|'paragraph'
+---@alias MdReadableBlock MdReadableBlockFrontmatter|MdReadableBlockCode|MdReadableBlockHeading|MdReadableBlockFootnote|MdReadableBlockPlain|MdReadableBlockCallout|MdReadableBlockDetails|MdReadableBlockTabs|MdReadableTable|MdReadableBlockBase
+--- Extension parsers see the block's source rows [row, limit); nil means "not mine".
+---@alias MdReadableBlockParser fun(lines:string[], row:integer, limit:integer):MdReadableBlock?
+---@param parser MdReadableBlockParser
 function M.register(parser)
   M.extensions[#M.extensions + 1] = parser
 end
 
+---@param lines string[]
+---@param start_row? integer 0-based; defaults to 0
+---@param end_row? integer Exclusive; defaults to #lines
+---@return MdReadableBlock[]
 function M.scan(lines, start_row, end_row)
   local result, row = {}, start_row or 0
   local limit = end_row or #lines

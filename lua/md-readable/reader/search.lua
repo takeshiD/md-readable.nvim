@@ -1,8 +1,16 @@
 local M = {}
+---@class MdReadableSearchMatch
+---@field row integer 0-based source row
+---@field col integer 0-based byte column
+---@field text string Whole source line
+---@param session MdReadableSession
+---@param pattern string Vim regex
+---@return MdReadableSearchMatch[]? matches
+---@return string? err
 function M.find(session, pattern)
   local ok, regex = pcall(vim.regex, pattern)
   if not ok then
-    return nil, regex
+    return nil, regex --[[@as string]]
   end
   local matches = {}
   for row, line in ipairs(vim.api.nvim_buf_get_lines(session.source_buf, 0, -1, false)) do
@@ -12,12 +20,15 @@ function M.find(session, pattern)
       if not first then
         break
       end
+      ---@cast final integer
       matches[#matches + 1] = { row = row - 1, col = offset + first, text = line }
       offset = offset + math.max(final, first + 1)
     end
   end
   return matches
 end
+---@param session MdReadableSession
+---@param pattern? string Prompts when nil
 function M.open(session, pattern)
   if not pattern then
     vim.ui.input({ prompt = "Search Markdown source: " }, function(value)
@@ -46,6 +57,7 @@ function M.open(session, pattern)
       return
     end
     session.expanded[item.row] = true
+    ---@param blocks MdReadableBlock[]
     local function reveal(blocks)
       for _, block in ipairs(blocks) do
         if item.row >= block.start_row and item.row < block.end_row then

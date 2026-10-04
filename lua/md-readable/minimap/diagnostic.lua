@@ -1,6 +1,13 @@
 local M = {}
+---@type table<MdReadableSession, MdReadableMinimapDiagnosticState>
 local states = setmetatable({}, { __mode = "k" })
 
+---@class MdReadableMinimapDiagnosticState
+---@field publish MdReadableMinimapPublish
+---@field group integer Autocommand group id
+---@param buf integer
+---@param severity? vim.diagnostic.SeverityFilter
+---@return MdReadableMinimapItem[]
 function M.collect(buf, severity)
   local items = {}
   if not vim.api.nvim_buf_is_valid(buf) then
@@ -18,6 +25,7 @@ function M.collect(buf, severity)
   return items
 end
 
+---@param session MdReadableSession
 function M.update(session)
   local state = states[session]
   if not state or session.closed then
@@ -27,6 +35,8 @@ function M.update(session)
   state.publish(session, "diagnostic", M.collect(session.source_buf, config.severity))
 end
 
+---@param session MdReadableSession
+---@param publish MdReadableMinimapPublish
 function M.attach(session, publish)
   M.close(session)
   local state =
@@ -50,6 +60,7 @@ function M.attach(session, publish)
   M.update(session)
 end
 
+---@param session MdReadableSession
 function M.close(session)
   local state = states[session]
   if not state then

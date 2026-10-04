@@ -1,12 +1,26 @@
 local M = {}
+---@class MdReadableFootnote
+---@field id string Id as written in the definition
+---@field row integer Definition row (0-based)
+---@field references MdReadableRange[] Places referring to it
+---@class MdReadableParseOptions
+---@field changedtick? integer
+---@field bufnr? integer
+---@field path? string
+---@param parser MdReadableBlockParser
 function M.register(parser)
   require("md-readable.document.blocks").register(parser)
 end
+---@param lines string[]
+---@param opts? MdReadableParseOptions
+---@return MdReadableDocument
 function M.parse(lines, opts)
   opts = opts or {}
   local original = vim.deepcopy(lines)
   local blocks = require("md-readable.document.blocks").scan(original)
   local links, tables, excluded, outline_blocks = {}, {}, {}, {}
+  ---@param items MdReadableBlock[]
+  ---@param source_lines string[] Lines the blocks were scanned from (container prefixes removed)
   local function collect(items, source_lines)
     for _, block in ipairs(items) do
       outline_blocks[#outline_blocks + 1] = block
@@ -49,6 +63,7 @@ function M.parse(lines, opts)
     end
   end
   -- Definitions inside code/frontmatter must not resolve prose links.
+  ---@param items MdReadableBlock[]
   local function blank_code(items)
     for _, block in ipairs(items) do
       if block.type == "code" or block.type == "frontmatter" then

@@ -1,5 +1,10 @@
 local C = require("md-readable.adapters.common")
 local M = {}
+-- Shared with Zensical, whose [project] table uses the MkDocs keys.
+---@param s MdReadableNavState
+---@param config table
+---@param path string Root-relative config file
+---@return MdReadableNavResult
 function M.from_config(s, config, path)
   local base = config.docs_dir or "docs"
   if config.INHERIT then
@@ -24,6 +29,8 @@ function M.from_config(s, config, path)
   end
   return s:finish({ { id = "main", title = config.site_name or "Contents", items = items } }, origin)
 end
+---@param ctx MdReadableNavContext
+---@return MdReadableNavResult
 function M.parse(ctx)
   local s = C.context(ctx, "mkdocs")
   local path = ctx.config_path or "mkdocs.yml"

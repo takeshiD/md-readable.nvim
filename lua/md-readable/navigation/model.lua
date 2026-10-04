@@ -1,12 +1,93 @@
 local M = {}
+-- NavigationSnapshot (design document camelCase fields). Paths are root-relative unless noted.
+---@alias MdReadableNavOrderOrigin "declared"|"generated"|"inferred"|"custom"
+---@alias MdReadableNavSeverity "error"|"warning"|"info"
+---@alias MdReadableNavStatus "ok"|"partial"|"error"|"unsupported"|"ambiguous"|"none"
+---@class MdReadableNavSource
+---@field path string
+---@field row? integer 0-based; absent for a whole file
+---@field byteColumn? integer 0-based byte column
+---@class MdReadableNavDiagnostic
+---@field severity MdReadableNavSeverity
+---@field code string
+---@field message string
+---@field source? MdReadableNavSource
+---@field nodeId? string
+---@class MdReadableNavDocumentTarget
+---@field type "document"
+---@field path string Normalized root-relative path
+---@field anchor? string
+---@class MdReadableNavExternalTarget
+---@field type "external"
+---@field url string
+---@class MdReadableNavUnavailableTarget
+---@field type "unavailable"
+---@field raw string Original spelling
+---@field reason string
+---@alias MdReadableNavTarget MdReadableNavDocumentTarget|MdReadableNavExternalTarget|MdReadableNavUnavailableTarget
+---@class MdReadableNavNode
+---@field id string
+---@field title string
+---@field target? MdReadableNavTarget Absent for plain groups
+---@field children MdReadableNavNode[]
+---@field source? MdReadableNavSource
+---@field position? number Adapter sort position (math.huge when unset)
+---@field sort_key? string Adapter sort tie-breaker
+---@class MdReadableNavTree
+---@field id string
+---@field title string
+---@field items MdReadableNavNode[]
+---@class MdReadableNavSnapshot
+---@field schemaVersion 1
+---@field rootDir string Absolute
+---@field adapterId string
+---@field orderOrigin MdReadableNavOrderOrigin
+---@field trees MdReadableNavTree[]
+---@field diagnostics MdReadableNavDiagnostic[]
+---@class MdReadableNavResult
+---@field status MdReadableNavStatus
+---@field snapshot? MdReadableNavSnapshot
+---@field diagnostics MdReadableNavDiagnostic[]
+---@field dependencies? string[] Absolute paths that invalidate the snapshot
+---@field candidates? MdReadableNavCandidate[]
+-- Reader returns text or lines; nil when unavailable.
+---@alias MdReadableNavReader fun(path:string):(string|string[]|nil)
+---@alias MdReadableNavProvider string|table|MdReadableNavProviderCallback
+-- User `adapters` options.
+---@class MdReadableNavOptions
+---@field adapter? string Force an adapter id
+---@field root_dir? string Absolute project root (disables upward search)
+---@field config_path? string Root-relative config file
+---@field provider? MdReadableNavProvider
+---@field read? MdReadableNavReader
+---@field list? fun(dir:string):string[] Absolute paths of files under dir
+---@field max_depth? integer Upward search limit
+---@field stop_dir? string
+---@field docs_dir? string
+---@field sidebar_path? string|false
+---@class MdReadableNavContext: MdReadableNavOptions
+---@field root_dir string
+---@field path string Absolute path of the current document
+---@class MdReadableNavAdapter
+---@field parse fun(ctx:MdReadableNavContext):MdReadableNavResult
+---@param snapshot any
+---@return boolean valid
+---@return MdReadableNavDiagnostic[] diagnostics
 function M.validate(snapshot)
   local diagnostics = {}
+  ---@param code string
+  ---@param message string
+  ---@param id? string
   local function err(code, message, id)
     diagnostics[#diagnostics + 1] = { severity = "error", code = code, message = message, nodeId = id }
   end
+  ---@param v any
+  ---@return boolean
   local function str(v)
     return type(v) == "string" and v ~= ""
   end
+  ---@param v any
+  ---@return boolean
   local function array(v)
     return type(v) == "table" and vim.islist(v)
   end
@@ -43,6 +124,7 @@ function M.validate(snapshot)
       end
       tree_ids[tree.id] = true
       local ids, active = {}, {}
+      ---@param nodes any
       local function visit(nodes)
         if not array(nodes) then
           err("node-children", "items and children must be arrays")

@@ -1,11 +1,16 @@
 local L = require("md-readable.parsers.literal")
 local M = {}
+---@param input string|string[]
+---@param path? string For diagnostics
+---@return table? value Ordered object; nil on error
+---@return MdReadableParseDiagnostic[]
 function M.parse(input, path)
-  local text = type(input) == "table" and table.concat(input, "\n") or input
+  local text = type(input) == "table" and table.concat(input, "\n") or input --[[@as string]]
   local p = L.reader(text or "", "toml")
   local root, current = L.object(), nil
   current = root
   local ok, err = pcall(function()
+    ---@return string[]
     local function keypath()
       local keys = { p:key() }
       while p:take(".") do
@@ -13,6 +18,9 @@ function M.parse(input, path)
       end
       return keys
     end
+    ---@param keys string[]
+    ---@param stop integer Number of keys to walk
+    ---@return table
     local function container(keys, stop)
       local node = root
       for i = 1, stop do

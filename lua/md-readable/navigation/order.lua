@@ -1,4 +1,9 @@
 local M = {}
+---@alias MdReadableNavAvailable fun(path:string, node:MdReadableNavNode):boolean
+---@param tree MdReadableNavTree
+---@param root_dir? string
+---@param available? MdReadableNavAvailable Defaults to a readable-file check
+---@return MdReadableNavNode[]
 function M.reading_order(tree, root_dir, available)
   available = available
     or function(path)
@@ -12,6 +17,12 @@ function M.reading_order(tree, root_dir, available)
   end
   return out
 end
+---@param tree MdReadableNavTree
+---@param node_id string
+---@param direction "previous"|"prev"|"next"|integer
+---@param root_dir? string
+---@param available? MdReadableNavAvailable
+---@return MdReadableNavNode?
 function M.adjacent(tree, node_id, direction, root_dir, available)
   local order = M.reading_order(tree, root_dir, available)
   local delta = (direction == "previous" or direction == "prev" or direction == -1) and -1 or 1

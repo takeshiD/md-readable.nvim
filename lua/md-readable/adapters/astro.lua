@@ -2,6 +2,14 @@ local C = require("md-readable.adapters.common")
 local L = require("md-readable.parsers.literal")
 local Static = require("md-readable.parsers.sidebar_static")
 local M = {}
+---@class MdReadableNavAstroDoc
+---@field path string Root-relative
+---@field slug string
+---@field relative string Path below the docs directory without extension
+---@field title string
+---@field metadata table Frontmatter
+---@param ctx MdReadableNavContext
+---@return MdReadableNavResult
 function M.parse(ctx)
   local s = C.context(ctx, "astro")
   local config_path = ctx.config_path
@@ -82,6 +90,9 @@ function M.parse(ctx)
       by_slug[slug] = doc
     end
   end
+  ---@param slug string
+  ---@param label? string
+  ---@return MdReadableNavNode
   local function document(slug, label)
     slug = slug:gsub("^/", ""):gsub("/$", "")
     local doc = by_slug[slug]
@@ -101,6 +112,7 @@ function M.parse(ctx)
     node.sort_key = doc.relative
     return node
   end
+  ---@type fun(directory?:string):MdReadableNavNode[]
   local auto
   auto = function(directory)
     directory = C.normalize(directory or "")
@@ -130,6 +142,7 @@ function M.parse(ctx)
     end)
     return out
   end
+  ---@type fun(items?:table):MdReadableNavNode[]
   local convert
   convert = function(items)
     local out = {}

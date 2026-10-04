@@ -1,8 +1,22 @@
 -- Static data reader. No load(), shell, JavaScript runtime, or project code execution.
 local M = {}
+---@alias MdReadableParseMode "js"|"toml"|"yaml"
+-- Parser diagnostics always carry a source.
+---@class MdReadableParseDiagnostic: MdReadableNavDiagnostic
+---@field source {path:string, row:integer}
+-- Metatable of an ordered object.
+---@class MdReadableParseObjectMeta
+---@field __keys any[] Keys in insertion order
+---@field __positions table<any, integer> Key to 0-based source row
+---@return table # Empty ordered object
 function M.object()
   return setmetatable({}, { __keys = {}, __positions = {} })
 end
+-- Errors on a duplicate key of an ordered object.
+---@param t table
+---@param key any
+---@param value any
+---@param row? integer 0-based source row
 function M.put(t, key, value, row)
   local mt = getmetatable(t)
   if mt and mt.__keys then
@@ -14,6 +28,8 @@ function M.put(t, key, value, row)
   end
   t[key] = value
 end
+---@param t any
+---@return any[] # Insertion order for ordered objects, otherwise sorted by tostring
 function M.keys(t)
   local mt = type(t) == "table" and getmetatable(t)
   if mt and mt.__keys then
@@ -25,9 +41,15 @@ function M.keys(t)
   end)
   return keys
 end
+---@param t any
+---@return boolean # True for list tables that are not ordered objects
 function M.is_array(t)
   return type(t) == "table" and not (getmetatable(t) and getmetatable(t).__keys) and vim.islist(t)
 end
+---@param message any
+---@param path? string
+---@param row? integer 0-based
+---@return MdReadableParseDiagnostic
 function M.error(message, path, row)
   return {
     severity = "error",
@@ -36,7 +58,14 @@ function M.error(message, path, row)
     source = { path = path or "", row = row or 0 },
   }
 end
+---@param text string
+---@param mode? MdReadableParseMode Defaults to "js"
+---@return MdReadableParseReader
 function M.reader(text, mode)
+  ---@class MdReadableParseReader
+  ---@field text string
+  ---@field pos integer 1-based byte offset of the next character
+  ---@field mode MdReadableParseMode
   local p = { text = text, pos = 1, mode = mode or "js" }
   function p:skip()
     while true do
@@ -60,13 +89,17 @@ function M.reader(text, mode)
       end
     end
   end
+  ---@return integer # 0-based row of pos
   function p:row()
     return select(2, self.text:sub(1, self.pos - 1):gsub("\n", ""))
   end
+  ---@return string # Next non-blank character, "" at the end
   function p:peek()
     self:skip()
     return self.text:sub(self.pos, self.pos)
   end
+  ---@param s string
+  ---@return boolean # Consumed s
   function p:take(s)
     self:skip()
     if self.text:sub(self.pos, self.pos + #s - 1) == s then
@@ -75,6 +108,7 @@ function M.reader(text, mode)
     end
     return false
   end
+  ---@return string
   function p:string()
     local q, out = self:peek(), {}
     self.pos = self.pos + 1
@@ -111,6 +145,7 @@ function M.reader(text, mode)
     end
     error("unterminated string", 0)
   end
+  ---@return string
   function p:key()
     local c = self:peek()
     if c == '"' or c == "'" then
@@ -123,6 +158,7 @@ function M.reader(text, mode)
     self.pos = self.pos + #key
     return key
   end
+  ---@return any
   function p:value()
     local c = self:peek()
     if c == '"' or c == "'" then
@@ -226,6 +262,11 @@ function M.reader(text, mode)
   end
   return p
 end
+---@param text string
+---@param mode? MdReadableParseMode
+---@param path? string For diagnostics
+---@return any value nil on error
+---@return MdReadableParseDiagnostic[]
 function M.parse(text, mode, path)
   local p = M.reader(text, mode)
   local ok, value = pcall(function()

@@ -1,17 +1,44 @@
 local M = {}
+---@alias MdReadableRenderPieceKind 'text'|'node'|'omission'
+--- A run of display text; source columns are absolute bytes in the source line.
+---@class MdReadableRenderPiece
+---@field text string
+---@field group? string Highlight group
+---@field kind? MdReadableRenderPieceKind Defaults to 'text'
+---@field source_start? integer Absent for decoration
+---@field source_end? integer Exclusive
+---@field source_row? integer Overrides the emitted row's source row (joined prose)
+---@field full_start? integer Entire source element start (links / omitted cells)
+---@field full_end? integer
+---@field node_complete? boolean False for a truncated label fragment
+---@alias MdReadableLinkIconSet table<MdReadableLinkKind, string>
+---@param text string
+---@param a integer
+---@param b integer
+---@param group? string
+---@param kind? MdReadableRenderPieceKind
+---@return MdReadableRenderPiece
 local function piece(text, a, b, group, kind)
   return { text = text, source_start = a, source_end = b, group = group, kind = kind or "text" }
 end
+--- UTF-8 character starting at byte `i` (1-based).
+---@param text string
+---@param i integer
+---@return string
 local function char_at(text, i)
   return text:match("^[%z\1-\127\194-\244][\128-\191]*", i) or text:sub(i, i)
 end
 M.char_at = char_at
 
 -- Link kind markers appended after labelled links. No Nerd Font is needed.
+---@type table<string, MdReadableLinkIconSet>
 M.icon_sets = {
   unicode = { external = "↗", document = "→", anchor = "#", asset = "⧉" },
   ascii = { external = "^", document = ">", anchor = "#", asset = "*" },
 }
+---@param opts MdReadableRenderOptions
+---@param kind MdReadableLinkKind
+---@return string?
 function M.icon(opts, kind)
   local setting = (opts.links or {}).icons
   local set = type(setting) == "table" and vim.tbl_extend("force", M.icon_sets.unicode, setting) or M.icon_sets[setting]
@@ -19,6 +46,13 @@ function M.icon(opts, kind)
 end
 
 -- Pieces use absolute source byte columns; decoration has no source columns.
+---@param line string
+---@param row integer 0-based source row
+---@param links? MdReadableLink[]
+---@param opts? MdReadableRenderOptions
+---@param start_col? integer 0-based; defaults to 0
+---@param end_col? integer Exclusive; defaults to #line
+---@return MdReadableRenderPiece[]
 function M.parse(line, row, links, opts, start_col, end_col)
   opts, start_col, end_col = opts or {}, start_col or 0, end_col or #line
   local by_start = {}
@@ -28,6 +62,7 @@ function M.parse(line, row, links, opts, start_col, end_col)
     end
   end
   local result = {}
+  ---@param item MdReadableRenderPiece
   local function add(item)
     local previous = result[#result]
     if
@@ -44,7 +79,11 @@ function M.parse(line, row, links, opts, start_col, end_col)
       result[#result + 1] = item
     end
   end
+  ---@type fun(first:integer, last:integer, group?:string)
   local parse
+  ---@param first integer 1-based
+  ---@param last integer 1-based, inclusive
+  ---@param group? string
   parse = function(first, last, group)
     local i = first
     while i <= last do

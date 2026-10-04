@@ -1,6 +1,10 @@
 local M = {}
 local cache = require("md-readable.image.cache")
 
+---@param url string
+---@param opts? MdReadableConfigImages
+---@param callback fun(path:string?,err:string?)
+---@return fun() cancel
 function M.fetch(url, opts, callback)
   opts = opts or {}
   if not opts.remote then
@@ -68,7 +72,7 @@ function M.fetch(url, opts, callback)
   end)
   if not ok then
     cache.remove(temp)
-    callback(nil, process)
+    callback(nil, process --[[@as string]])
   end
   return function()
     cancelled = true

@@ -16,8 +16,18 @@
 -- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 -- THE SOFTWARE.
 local M = {}
+---@class MdReadableFocusRange
+---@field start_row integer 0-based display row
+---@field end_row integer Exclusive
+---@class MdReadableFocusState
+---@field win integer
+---@field range? MdReadableFocusRange Fixed range; nil follows the cursor paragraph
+---@field matches integer[] matchadd() ids
+---@field group? integer Autocommand group
+---@type table<MdReadableSession, MdReadableFocusState>
 local states = setmetatable({}, { __mode = "k" })
 
+---@param state MdReadableFocusState
 local function clear(state)
   if vim.api.nvim_win_is_valid(state.win) then
     for _, id in ipairs(state.matches or {}) do
@@ -29,6 +39,9 @@ end
 
 -- Returns inclusive one-based boundaries, as Limelight does. Zero means the
 -- search reached the file boundary. Search restores both cursor and viewport.
+---@param win integer
+---@param opts? MdReadableConfigFocus|MdReadableUserConfigFocus
+---@return integer[] bounds {first, last}
 function M.bounds(win, opts)
   opts = opts or {}
   return vim.api.nvim_win_call(win, function()
@@ -52,6 +65,9 @@ function M.bounds(win, opts)
   end)
 end
 
+---@param win integer
+---@param opts MdReadableConfigFocus|MdReadableUserConfigFocus
+---@return string color "#rrggbb"
 local function color(win, opts)
   if opts.color then
     return opts.color
@@ -72,6 +88,7 @@ local function color(win, opts)
   return string.format("#%06x", result)
 end
 
+---@param session MdReadableSession
 function M.update(session)
   local state = states[session]
   if not state then
@@ -98,6 +115,10 @@ function M.update(session)
   end)
 end
 
+---@param session MdReadableSession
+---@param enabled? boolean nil toggles
+---@param range? MdReadableFocusRange
+---@return boolean enabled
 function M.set(session, enabled, range)
   if enabled == nil then
     enabled = states[session] == nil
@@ -143,6 +164,7 @@ function M.set(session, enabled, range)
   return true
 end
 
+---@param session MdReadableSession
 function M.close(session)
   local state = states[session]
   if not state then

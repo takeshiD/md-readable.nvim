@@ -1,6 +1,20 @@
 local M = {}
+---@class MdReadableParseSummaryItem
+---@field kind "heading"|"link"|"text"
+---@field title string
+---@field children MdReadableParseSummaryItem[]
+---@field level? integer heading
+---@field first? boolean heading: appears before any other content
+---@field target? string link
+---@field link_title? string link: quoted title
+---@field numbered? boolean
+---@field source? MdReadableNavSource
+---@param input string|string[]
+---@param path string For sources and diagnostics
+---@return MdReadableParseSummaryItem[]
+---@return MdReadableNavDiagnostic[]
 function M.parse(input, path)
-  local lines = type(input) == "string" and vim.split(input, "\n", { plain = true }) or input
+  local lines = type(input) == "string" and vim.split(input, "\n", { plain = true }) or input --[[@as string[] ]]
   local items, diagnostics, stack = {}, {}, {}
   local saw_content = false
   for i, line in ipairs(lines or {}) do

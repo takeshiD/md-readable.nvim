@@ -2,6 +2,24 @@ local M = {}
 local dots = { { 1, 2, 4, 64 }, { 8, 16, 32, 128 } }
 
 -- Independent of buffers/windows: compress the rendered document, not the source.
+---@alias MdReadableMinimapMode "braille"|"ascii"
+---@class MdReadableMinimapOptions
+---@field width? integer Cells
+---@field height? integer Rows
+---@field mode? MdReadableMinimapMode
+---@field tabstop? integer
+---@class MdReadableMinimapRendered
+---@field lines string[]
+---@field display_to_mini table<integer, integer> 1-based display row to 0-based minimap row
+---@field mini_to_display table<integer, integer> 1-based minimap row to 0-based display row
+---@class MdReadableMinimapItem Annotation over source rows, published by a provider
+---@field start_row integer 0-based source row
+---@field end_row integer 0-based, exclusive
+---@field kind "add"|"change"|"delete"|"diagnostic"|string
+---@field severity? integer vim.diagnostic.severity; lower wins on collisions
+---@param lines string[] Rendered (display) lines
+---@param opts? MdReadableMinimapOptions
+---@return MdReadableMinimapRendered
 function M.render(lines, opts)
   opts = opts or {}
   local width, height = math.max(1, opts.width or 12), math.max(1, opts.height or 24)
@@ -54,6 +72,10 @@ function M.render(lines, opts)
 end
 
 -- Independent provider lanes retain Git and diagnostic information on collisions.
+---@param items? MdReadableMinimapItem[]
+---@param map MdReadableSourceMap
+---@param rendered MdReadableMinimapRendered
+---@return table<integer, MdReadableMinimapItem> projected 0-based minimap row to item
 function M.annotations(items, map, rendered)
   local projected = {}
   for _, item in ipairs(items or {}) do

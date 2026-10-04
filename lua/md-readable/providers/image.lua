@@ -3,12 +3,24 @@ local cache = require("md-readable.image.cache")
 local capabilities = require("md-readable.image.capabilities")
 local convert = require("md-readable.image.convert")
 local display = require("md-readable.image.display")
+---@class MdReadableImageState
+---@field cancel fun()[]
+---@field epoch integer Bumped on each redraw; stale callbacks compare against it
+---@field group? integer Autocommand group
+---@field signature? string Inputs of the last redraw
+---@class MdReadableImageProblem
+---@field label string
+---@field message string
+---@type table<MdReadableSession, MdReadableImageState>
 local states = setmetatable({}, { __mode = "k" })
 
+---@return boolean supported
+---@return string? reason
 function M.capabilities()
   return capabilities.get()
 end
 
+---@param state MdReadableImageState
 local function clear(state)
   for _, cancel in ipairs(state.cancel or {}) do
     pcall(cancel)
@@ -16,6 +28,11 @@ local function clear(state)
   state.cancel = {}
 end
 
+---@param session MdReadableSession
+---@param target string
+---@return string? path Absolute path or URL
+---@return boolean remote
+---@return string? err
 function M.resolve(session, target)
   if target:match("^https?://") then
     return target, true
@@ -34,15 +51,24 @@ end
 
 -- Stable identity of a media item; local images include the file identity so
 -- a fixed or replaced file is retried.
+---@param session MdReadableSession
+---@param descriptor MdReadableRenderedImage
+---@return string
 function M.key(session, descriptor)
   if descriptor.kind == "mermaid" then
     return "mermaid\0"
-      .. (type(descriptor.code) == "table" and table.concat(descriptor.code, "\n") or descriptor.code or "")
+      .. (
+        type(descriptor.code) == "table" and table.concat(descriptor.code --[[@as string[] ]], "\n")
+        or descriptor.code
+        or ""
+      )
   end
   local path, remote = M.resolve(session, descriptor.path or "")
   return "image\0" .. tostring(path or descriptor.path) .. "\0" .. (path and not remote and cache.identity(path) or "")
 end
 
+---@param descriptor MdReadableRenderedImage
+---@return string
 local function label(descriptor)
   if descriptor.kind == "mermaid" then
     return "Mermaid diagram (line " .. ((descriptor.source_row or 0) + 1) .. ")"
@@ -51,6 +77,9 @@ local function label(descriptor)
 end
 
 -- Reason a descriptor cannot be drawn, known before starting any work.
+---@param session MdReadableSession
+---@param descriptor MdReadableRenderedImage
+---@return string?
 function M.unavailable(session, descriptor)
   if descriptor.kind == "mermaid" then
     return require("md-readable.providers.mermaid").unavailable(session, descriptor)
@@ -63,11 +92,13 @@ function M.unavailable(session, descriptor)
     return not (session.config.images or {}).remote and "web images are denied; use :MdReadable images allow" or nil
   end
   local identity, missing = cache.identity(path)
-  return not identity and missing or nil
+  return not identity and missing --[[@as string]] or nil
 end
 
 -- Returns the render-time predicate deciding which media reserve rows.
 -- Known failures (static or from an earlier attempt) reserve none.
+---@param session MdReadableSession
+---@return fun(descriptor:MdReadableRenderedImage):boolean
 function M.reserver(session)
   session.media_skipped = {}
   return function(descriptor)
@@ -83,6 +114,9 @@ function M.reserver(session)
 end
 
 -- Records a failed attempt and re-renders so the item's rows are released.
+---@param session MdReadableSession
+---@param descriptor MdReadableRenderedImage
+---@param err? string
 local function fail(session, descriptor, err)
   session.media_failures = session.media_failures or {}
   local key = M.key(session, descriptor)
@@ -99,10 +133,12 @@ local function fail(session, descriptor, err)
   end
 end
 
+---@param session MdReadableSession
 function M.forget(session)
   session.media_failures = nil
 end
 
+---@param session MdReadableSession
 function M.update(session)
   local opts = session.config.images or {}
   if
@@ -170,6 +206,7 @@ function M.update(session)
   state.signature, state.epoch = signature, state.epoch + 1
   clear(state)
   local epoch = state.epoch
+  ---@return boolean
   local function fresh()
     return states[session] == state and state.epoch == epoch and not session.closed
   end
@@ -182,6 +219,8 @@ function M.update(session)
       and descriptor.row < info.botline
       and descriptor.row + descriptor.height > info.topline - 1
     if visible then
+      ---@param path? string
+      ---@param err? string
       local function show(path, err)
         if not fresh() then
           return
@@ -224,6 +263,8 @@ function M.update(session)
 end
 
 -- Media problems as "label: message", from this render and earlier attempts.
+---@param session MdReadableSession
+---@return string[]
 function M.errors(session)
   local merged, result = {}, {}
   for key, item in pairs(session.media_failures or {}) do
@@ -239,6 +280,7 @@ function M.errors(session)
   return result
 end
 
+---@param session MdReadableSession
 function M.close(session)
   local state = states[session]
   if not state then

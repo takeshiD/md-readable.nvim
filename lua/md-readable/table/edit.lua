@@ -1,5 +1,12 @@
 local M = {}
 
+--- Edit a copy of `tbl` and return its formatted Markdown lines.
+---@param tbl MdReadableTable
+---@param action string "row_before"|"row_after"|"row_delete"|"col_before"|"col_after"|"col_delete"
+---@param index integer Row index (0 = header) for row actions, column (1-based) for column actions
+---@param count? integer Defaults to 1
+---@return string[]? lines
+---@return string? err
 function M.edit(tbl, action, index, count)
   count = count or 1
   if type(count) ~= "number" or count < 1 or count % 1 ~= 0 then

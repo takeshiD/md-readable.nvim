@@ -2,6 +2,13 @@
 -- Ordered maps retain keys/source rows in a metatable, without polluting values.
 local L = require("md-readable.parsers.literal")
 local M = {}
+---@class MdReadableParseYamlToken
+---@field indent integer Leading spaces
+---@field text string Trimmed, comment stripped
+---@field row integer 0-based
+---@field raw string Original line
+---@param s string
+---@return string
 local function strip_comment(s)
   local quote, escape
   for i = 1, #s do
@@ -22,6 +29,9 @@ local function strip_comment(s)
   end
   return s
 end
+---@param s string
+---@return string? key
+---@return string? value
 local function pair(s)
   local quote, depth, escape = nil, 0, false
   for i = 1, #s do
@@ -45,8 +55,13 @@ local function pair(s)
     end
   end
 end
+---@param input string|string[]
+---@param path? string For diagnostics
+---@return any value nil on error
+---@return MdReadableParseDiagnostic[]
 function M.parse(input, path)
-  local lines = type(input) == "string" and vim.split(input, "\n", { plain = true }) or input
+  local lines = type(input) == "string" and vim.split(input, "\n", { plain = true }) or input --[[@as string[] ]]
+  ---@type MdReadableParseYamlToken[], integer
   local tokens, row = {}, 0
   local ok, value = pcall(function()
     for i, line in ipairs(lines or {}) do
@@ -64,7 +79,10 @@ function M.parse(input, path)
       end
     end
     local pos = 1
+    ---@type fun(indent:integer):table
     local parse_block
+    ---@param s string
+    ---@return any
     local function scalar(s)
       if s:match("^[!&*]") or s:match("^<<") then
         error("YAML tags, anchors, aliases and merges require an explicit provider", 0)
@@ -87,6 +105,9 @@ function M.parse(input, path)
       end
       return tonumber(s) or s
     end
+    ---@param s string
+    ---@param indent integer
+    ---@return any
     local function parse_value(s, indent)
       if s == "" then
         if tokens[pos] and tokens[pos].indent > indent then
@@ -109,6 +130,10 @@ function M.parse(input, path)
       end
       return scalar(s)
     end
+    ---@param out table
+    ---@param s string
+    ---@param indent integer
+    ---@param source_row integer 0-based
     local function add_pair(out, s, indent, source_row)
       local key, val = pair(s)
       if not key then
@@ -118,9 +143,9 @@ function M.parse(input, path)
         error("YAML merge keys are unsupported", 0)
       end
       if key:sub(1, 1) == '"' or key:sub(1, 1) == "'" then
-        key = scalar(key)
+        key = scalar(key) --[[@as string]]
       end
-      L.put(out, key, parse_value(val, indent), source_row)
+      L.put(out, key, parse_value(val --[[@as string]], indent), source_row)
     end
     parse_block = function(indent)
       local sequence = tokens[pos].text:match("^%-%s") or tokens[pos].text == "-"

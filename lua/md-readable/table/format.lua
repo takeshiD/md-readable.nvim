@@ -2,6 +2,11 @@ local M = {}
 
 -- Preserve the Markdown spelling (escapes, inline code and tabs) while measuring
 -- padding in terminal cells. A tab's width depends on the preceding columns.
+---@param text string
+---@param width integer Target display width
+---@param alignment? MdReadableTableAlignment
+---@param column integer Display column where the text starts (for tabs)
+---@return string
 local function padded(text, width, alignment, column)
   local used = vim.fn.strdisplaywidth(text, column)
   local left = alignment == "right" and math.max(0, width - used)
@@ -15,6 +20,8 @@ local function padded(text, width, alignment, column)
   return string.rep(" ", left) .. text .. string.rep(" ", right)
 end
 
+---@param tbl MdReadableTable
+---@return string[] lines Empty for a table without rows or columns
 function M.format(tbl)
   local columns = #(tbl.alignments or {})
   for _, row in ipairs(tbl.rows) do

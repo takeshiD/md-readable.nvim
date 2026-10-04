@@ -1,7 +1,40 @@
 local M = {}
+---@class MdReadableBlockCallout : MdReadableBlockBase
+---@field type 'callout'
+---@field kind string Lower-cased for GitHub alerts
+---@field title string
+---@field body_start integer
+---@field body_end integer Exclusive
+---@field strip_quote? boolean Body rows keep their "> " prefix
+---@field indent? integer Body rows are indented by this many columns
+---@class MdReadableBlockDetails : MdReadableBlockBase
+---@field type 'details'
+---@field title string
+---@field body_start integer
+---@field body_end integer Exclusive
+---@field open boolean Initially expanded
+---@field summary_row? integer Row holding <summary>
+---@field kind? string Admonition kind ("???" blocks)
+---@field indent? integer
+---@class MdReadableBlockTab
+---@field title string
+---@field id string
+---@field start_row integer
+---@field body_start integer
+---@field body_end integer Exclusive
+---@field indent? integer
+---@class MdReadableBlockTabs : MdReadableBlockBase
+---@field type 'tabs'
+---@field tabs MdReadableBlockTab[]
+---@param value? string
+---@return string?
 local function title(value)
   return value and value:match("^%s*[\"']?(.-)[\"']?%s*$")
 end
+---@param lines string[]
+---@param row integer 0-based
+---@param limit? integer Exclusive end row
+---@return (MdReadableBlockCallout|MdReadableBlockDetails|MdReadableBlockTabs)?
 function M.parse(lines, row, limit)
   local line, n = lines[row + 1], math.min(limit or #lines, #lines)
   local kind, label = line:match("^%s*>%s*%[!([%w_-]+)%][+-]?%s*(.*)$")

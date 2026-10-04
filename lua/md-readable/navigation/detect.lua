@@ -1,6 +1,15 @@
 local C = require("md-readable.adapters.common")
 local Registry = require("md-readable.adapters.registry")
 local M = {}
+---@class MdReadableNavCandidate
+---@field root_dir string Absolute
+---@field adapter_id string
+---@field config_path? string Root-relative config file
+---@field evidence? string[]
+---@field priority? integer Higher is nearer to the start directory
+---@param path string Absolute
+---@param opts MdReadableNavOptions
+---@return boolean
 local function exists(path, opts)
   if opts.read then
     return opts.read(path) ~= nil
@@ -11,6 +20,9 @@ local function exists(path, opts)
   end
   return vim.fn.filereadable(path) == 1
 end
+---@param path string File or directory
+---@param opts? MdReadableNavOptions
+---@return MdReadableNavCandidate[]
 function M.candidates(path, opts)
   opts = opts or {}
   local start = opts.root_dir or (vim.fn.isdirectory(path) == 1 and path or vim.fs.dirname(path))
@@ -64,6 +76,9 @@ function M.candidates(path, opts)
   end
   return summary_fallback or {}
 end
+---@param path string Absolute path of the current document
+---@param opts? MdReadableNavOptions
+---@return MdReadableNavResult
 function M.load(path, opts)
   opts = opts or {}
   if opts.provider then

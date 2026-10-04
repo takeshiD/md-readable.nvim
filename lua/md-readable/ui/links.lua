@@ -10,6 +10,16 @@ local tags = {
   unresolved = "missing",
 }
 
+---@class MdReadableLinksUiPanel Stored as session._links_panel
+---@field buf integer
+---@field win integer
+---@field entries table<integer, MdReadableLink> 1-based buffer line to link
+---@class MdReadableLinksUiMark Byte offsets of one row's highlight boundaries
+---@field label integer End of the label
+---@field target integer End of the target
+---@field tag integer Start of the kind tag
+---@param session MdReadableSession
+---@param link MdReadableLink
 function M.follow(session, link)
   if link.kind == "footnote" then
     session:jump_source(link.definition_row, 0)
@@ -36,6 +46,7 @@ function M.follow(session, link)
   end
 end
 
+---@param session MdReadableSession
 function M.close(session)
   local panel = session._links_panel
   session._links_panel = nil
@@ -49,6 +60,11 @@ end
 
 -- Rows are "label  target  [kind]" clipped to width. Returns the lines, the
 -- link of each row and the byte offsets used for highlighting.
+---@param links MdReadableLink[]
+---@param width integer Display cells
+---@return string[] lines
+---@return table<integer, MdReadableLink> entries 1-based line to link
+---@return table<integer, MdReadableLinksUiMark> marks 1-based line to offsets
 function M.rows(links, width)
   local clip = require("md-readable.ui.navigation").clip
   local lines, entries, marks = { "Links", "Enter open  o show in text  q close" }, {}, {}
@@ -71,6 +87,8 @@ function M.rows(links, width)
 end
 
 -- Floating list with the outline panel's look and keys.
+---@param session MdReadableSession
+---@return integer win
 function M.open(session)
   M.close(session)
   local links = vim.tbl_filter(function(link)
@@ -101,6 +119,9 @@ function M.open(session)
   vim.api.nvim_buf_set_extmark(buf, namespace, 0, 0, { end_row = 1, hl_group = "Title", hl_eol = true })
   vim.api.nvim_buf_set_extmark(buf, namespace, 1, 0, { end_row = 2, hl_group = "Comment", hl_eol = true })
   for row, mark in pairs(marks) do
+    ---@param a integer
+    ---@param b integer
+    ---@param group string
     local function hl(a, b, group)
       vim.api.nvim_buf_set_extmark(buf, namespace, row - 1, a, { end_col = b, hl_group = group })
     end
@@ -109,9 +130,13 @@ function M.open(session)
     hl(mark.tag, #lines[row], "MdReadableLinkIcon")
   end
   vim.api.nvim_win_set_cursor(win, { math.min(3, #lines), 0 })
+  ---@return MdReadableLink?
   local function selected()
     return entries[vim.api.nvim_win_get_cursor(win)[1]]
   end
+  ---@param lhs string
+  ---@param rhs function
+  ---@param desc string
   local function key(lhs, rhs, desc)
     vim.keymap.set("n", lhs, rhs, { buffer = buf, silent = true, nowait = true, desc = desc })
   end

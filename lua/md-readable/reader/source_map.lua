@@ -1,9 +1,23 @@
 local M = {}
+-- Maps display positions to source positions and back; rows/cols are 0-based.
+---@class MdReadableSourceMap
+---@field source string[] Source lines
+---@field rendered MdReadableRendered
+---@field display table<integer, MdReadableSegment[]> Display row to segments sorted by start_col
+---@field original table<integer, MdReadableSegment[]> Source row to segments
+---@field rows table<integer, integer> Source row to first display row
 local Map = {}
 Map.__index = Map
+---@param n number
+---@param lo number
+---@param hi number
+---@return number
 local function clamp(n, lo, hi)
   return math.max(lo, math.min(n, hi))
 end
+---@param source_lines string[]
+---@param rendered MdReadableRendered
+---@return MdReadableSourceMap
 function M.new(source_lines, rendered)
   local self = setmetatable({ source = source_lines, rendered = rendered, display = {}, original = {}, rows = {} }, Map)
   for _, segment in ipairs(rendered.segments or {}) do
@@ -24,6 +38,10 @@ function M.new(source_lines, rendered)
   end
   return self
 end
+---@param row integer Display row
+---@param col integer Display byte column
+---@return integer row Source row
+---@return integer col Source byte column
 function Map:to_source(row, col)
   local segments = self.display[row] or {}
   local best
@@ -50,6 +68,10 @@ function Map:to_source(row, col)
   end
   return 0, 0
 end
+---@param row integer Source row
+---@param col? integer Source byte column
+---@return integer row Display row
+---@return integer col Display byte column
 function Map:to_display(row, col)
   col = col or 0
   local candidates = self.original[row] or {}
@@ -81,6 +103,15 @@ function Map:to_display(row, col)
   end
   return best or 0, 0
 end
+-- Source text for a display selection; ec is exclusive.
+---@param sr integer Start display row
+---@param sc integer Start display column
+---@param er integer End display row
+---@param ec integer End display column (exclusive)
+---@param mode "char"|"line"|"block"
+---@param columns? table<integer, integer[]> Block mode: display row to {first, last} (last exclusive)
+---@return string? text nil when nothing maps to source
+---@return string? regtype setreg() type
 function Map:copy(sr, sc, er, ec, mode, columns)
   if er < sr or (er == sr and ec < sc) then
     sr, sc, er, ec = er, ec, sr, sc
@@ -88,6 +119,8 @@ function Map:copy(sr, sc, er, ec, mode, columns)
   local ranges = {}
   local last = er - (ec == 0 and er > sr and mode ~= "block" and 1 or 0)
   local groups = {}
+  ---@param s MdReadableSegment
+  ---@return string
   local function key(s)
     return s.source_row .. ":" .. s.full_start .. ":" .. s.full_end
   end
@@ -107,6 +140,9 @@ function Map:copy(sr, sc, er, ec, mode, columns)
       end
     end
   end
+  ---@param row integer Source row
+  ---@param first integer
+  ---@param final integer Exclusive
   local function add(row, first, final)
     if final <= first then
       return

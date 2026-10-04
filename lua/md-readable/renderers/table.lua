@@ -1,5 +1,24 @@
 local M = {}
 local inline = require("md-readable.renderers.inline")
+---@class MdReadableRenderedCell
+---@field row integer Display row
+---@field start_col integer Display start byte
+---@field end_col integer Display end byte (exclusive)
+---@field source_row integer
+---@field source_start integer Source cell start byte
+---@field source_end integer Source cell end byte (exclusive)
+---@field text string Full cell source text
+---@field omitted boolean Display was clipped
+---@field column integer 1-based
+---@field table_start integer Source start row of the table
+---@class MdReadableRenderTableCell
+---@field cell MdReadableTableCell
+---@field a integer Display start byte
+---@field b integer Display end byte (exclusive)
+---@field omitted boolean
+---@field c integer Column (1-based)
+---@param pieces MdReadableRenderPiece[]
+---@return string
 local function display(pieces)
   local text = {}
   for _, item in ipairs(pieces) do
@@ -7,6 +26,12 @@ local function display(pieces)
   end
   return table.concat(text)
 end
+--- Clip pieces to `width` display cells, ending with an omission marker.
+---@param pieces MdReadableRenderPiece[]
+---@param width integer
+---@param cell MdReadableTableCell
+---@return MdReadableRenderPiece[] pieces
+---@return boolean clipped
 local function clipped(pieces, width, cell)
   if vim.fn.strdisplaywidth(display(pieces)) <= width then
     return pieces, false
@@ -37,6 +62,8 @@ local function clipped(pieces, width, cell)
   -- Selecting every retained fragment is not the same as selecting a complete
   -- label. Preserve that distinction before the omitted tail is discarded.
   local original, retained = {}, {}
+  ---@param item MdReadableRenderPiece
+  ---@return string
   local function key(item)
     return tostring(item.full_start) .. ":" .. tostring(item.full_end)
   end
@@ -66,6 +93,10 @@ local function clipped(pieces, width, cell)
   }
   return result, true
 end
+---@param ctx MdReadableRenderContext
+---@param row MdReadableTableRow
+---@param cell MdReadableTableCell
+---@return MdReadableRenderPiece[]
 local function cell_pieces(ctx, row, cell)
   return inline.parse(
     ctx.document.lines[row.source_row + 1],
@@ -76,6 +107,15 @@ local function cell_pieces(ctx, row, cell)
     cell.end_col
   )
 end
+---@param ctx MdReadableRenderContext
+---@param display_row integer
+---@param row MdReadableTableRow
+---@param cell MdReadableTableCell
+---@param a integer Display start byte
+---@param b integer Display end byte (exclusive)
+---@param omitted boolean
+---@param column integer
+---@param block MdReadableTable
 local function metadata(ctx, display_row, row, cell, a, b, omitted, column, block)
   ctx.result.cells[#ctx.result.cells + 1] = {
     row = display_row,
@@ -90,6 +130,8 @@ local function metadata(ctx, display_row, row, cell, a, b, omitted, column, bloc
     table_start = block.start_row,
   }
 end
+---@param block MdReadableTable
+---@param ctx MdReadableRenderContext
 function M.render(block, ctx)
   local cols, width = #block.alignments, math.max(ctx.opts.width or 80, 4)
   local max_cell = ((ctx.opts.table or {}).max_cell_width or 32)
@@ -120,6 +162,7 @@ function M.render(block, ctx)
     return
   end
   local budget = width - cols * 3 - 1
+  ---@return integer
   local function total()
     local sum = 0
     for _, w in ipairs(widths) do

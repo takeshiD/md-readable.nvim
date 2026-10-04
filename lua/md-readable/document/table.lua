@@ -1,6 +1,21 @@
 local M = {}
+---@alias MdReadableTableAlignment 'left'|'center'|'right'|'none'
+---@class MdReadableTableCell
+---@field text string Trimmed cell text
+---@field start_col? integer Source start byte (0-based); absent for cells added by edits
+---@field end_col? integer Source end byte (exclusive)
+---@class MdReadableTableRow
+---@field source_row? integer Absent for rows added by edits
+---@field cells MdReadableTableCell[]
+---@class MdReadableTable : MdReadableBlockBase
+---@field type 'table'
+---@field rows MdReadableTableRow[] Header first; the delimiter row is not included
+---@field alignments MdReadableTableAlignment[]
+---@field prefix string Container prefix (indent, "> ") repeated on every row
 
 -- Byte coordinates refer to the original line, before whitespace trimming.
+---@param line string
+---@return MdReadableTableCell[]?
 function M.cells(line)
   local cuts, code, i = {}, nil, 1
   while i <= #line do
@@ -43,7 +58,14 @@ function M.cells(line)
   return result
 end
 
+---@param lines string[]
+---@param start_row integer 0-based header row
+---@return MdReadableTable?
 function M.parse(lines, start_row)
+  ---@param line string
+  ---@return MdReadableTableCell[]? cells
+  ---@return string prefix
+  ---@return integer depth Blockquote nesting
   local function contextual_cells(line)
     local prefix = line:match("^%s*") or ""
     local depth = 0

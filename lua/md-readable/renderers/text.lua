@@ -1,6 +1,14 @@
 local M = {}
+--- Pieces for one source row of a heading, quote, list or plain block.
+---@param block MdReadableBlock
+---@param document MdReadableDocument
+---@param row integer 0-based
+---@param opts? MdReadableRenderOptions
+---@return MdReadableRenderPiece[]
 function M.pieces(block, document, row, opts)
   local line, pieces, start = document.lines[row + 1], {}, 0
+  ---@param text string
+  ---@param group string
   local function prefix(text, group)
     pieces[#pieces + 1] = { text = text, group = group }
   end

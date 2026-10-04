@@ -1,6 +1,22 @@
 local M = {}
+---@class MdReadableThemeWindowState
+---@field ns integer Highlight namespace of the window
+---@field previous_ns integer Namespace restored on close (-1 for global)
+---@field name? string Theme name
+---@field opts? MdReadableConfig
+---@field groups? table<string, vim.api.keyset.highlight> Groups defined in `ns`
+---@class MdReadableThemePalette
+---@field fg string "#rrggbb"
+---@field bg string
+---@field accent string
+---@field muted string
+---@field code string
+---@field link string
+---@field headings string[] One color per heading level
+---@type table<integer, MdReadableThemeWindowState>
 local windows = {}
 local initialized = false
+---@type table<string, vim.api.keyset.highlight>
 local defaults = {
   MdReadableHeading = { link = "Title" },
   MdReadableCodeBlock = { link = "NormalFloat" },
@@ -26,6 +42,7 @@ local defaults = {
 -- Used when the colorscheme gives every Markdown heading level the same style
 -- (the built-in default does). Groups are chosen to differ in common schemes.
 local heading_fallbacks = { "Title", "Function", "String", "DiagnosticWarn", "Constant", "Comment" }
+---@type table<string, MdReadableThemePalette>
 local presets = {
   dark = {
     fg = "#d5d8de",
@@ -47,10 +64,18 @@ local presets = {
   },
 }
 
+---@param name string
+---@return vim.api.keyset.get_hl_info
 local function resolve(name)
   return vim.api.nvim_get_hl(0, { name = name, link = false })
 end
+---@param fg integer 0xRRGGBB
+---@param bg integer 0xRRGGBB
+---@param alpha number Weight of `fg` in [0, 1]
+---@return integer
 local function blend(fg, bg, alpha)
+  ---@param shift integer
+  ---@return integer
   local function channel(shift)
     local a, b = math.floor(fg / shift) % 256, math.floor(bg / shift) % 256
     return math.floor(a * alpha + b * (1 - alpha) + 0.5)
@@ -59,6 +84,7 @@ local function blend(fg, bg, alpha)
 end
 
 -- Definitions derived from the active colorscheme.
+---@return table<string, vim.api.keyset.highlight>
 function M.highlights()
   local result = vim.deepcopy(defaults)
   local levels, distinct = {}, false
@@ -125,6 +151,11 @@ function M.setup()
   })
 end
 
+---@param win integer
+---@param name? string "default", "dark" or "light"
+---@param opts? MdReadableConfig
+---@return integer? ns
+---@return string? err
 function M.apply(win, name, opts)
   if not initialized then
     M.setup()
@@ -181,6 +212,7 @@ function M.apply(win, name, opts)
   return state.ns
 end
 
+---@param win integer
 function M.close(win)
   local state = windows[win]
   if state and vim.api.nvim_win_is_valid(win) then

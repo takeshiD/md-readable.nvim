@@ -1,6 +1,11 @@
 local M = {}
 local cache = require("md-readable.image.cache")
 
+---@param path string
+---@param output string
+---@param opts? MdReadableConfigImages
+---@return string[]? args
+---@return string? err
 function M.command(path, output, opts)
   opts = opts or {}
   local extension = path:lower():match("%.([%w]+)$")
@@ -43,11 +48,16 @@ function M.command(path, output, opts)
   return { tool, path .. "[0]", "-resize", "2048x2048>", "PNG:" .. output }
 end
 
+-- Calls back with a PNG path: the original file, or a cached conversion.
+---@param path string
+---@param opts? MdReadableConfigImages
+---@param callback fun(png:string?,err:string?)
+---@return fun() cancel
 function M.ensure(path, opts, callback)
   opts = opts or {}
   local identity, stat = cache.identity(path)
   if not identity then
-    callback(nil, stat)
+    callback(nil, stat --[[@as string]])
     return function() end
   end
   if stat.size > (opts.max_bytes or 20 * 1024 * 1024) then
@@ -55,6 +65,8 @@ function M.ensure(path, opts, callback)
     return function() end
   end
   local cancelled, process, output = false, nil, nil
+  ---@param result? string
+  ---@param err? string
   local function finish(result, err)
     if not cancelled then
       callback(result, err)
@@ -107,7 +119,7 @@ function M.ensure(path, opts, callback)
     if ok then
       process = result
     else
-      finish(nil, result)
+      finish(nil, result --[[@as string]])
     end
   end)
   return function()

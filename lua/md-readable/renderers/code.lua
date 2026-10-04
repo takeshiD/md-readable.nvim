@@ -1,6 +1,9 @@
 local M = {}
 -- The UI can also inspect code_blocks to attach a language-specific highlighter.
 -- A missing parser/query simply leaves the code's plain-text highlight in place.
+---@param lines string[] Code body
+---@param language string Fence language ("" for none)
+---@return MdReadableRenderedHighlight[] highlights Rows relative to the body
 function M.highlights(lines, language)
   if language == "" or not vim.treesitter then
     return {}
@@ -15,6 +18,7 @@ function M.highlights(lines, language)
       return {}
     end
     local highlights = {}
+    ---@diagnostic disable-next-line: param-type-mismatch
     for _, tree in ipairs(parser:parse()) do
       for id, node in query:iter_captures(tree:root(), source, 0, #lines) do
         local sr, sc, er, ec = node:range()

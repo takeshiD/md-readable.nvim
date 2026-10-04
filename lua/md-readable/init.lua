@@ -1,5 +1,10 @@
 local M = {}
 local errors = require("md-readable.errors")
+---@class MdReadableCommandOpts
+---@field range? integer Number of range items given (0, 1 or 2)
+---@field line1? integer First line of the range (1-based)
+---@field line2? integer Last line of the range (1-based, inclusive)
+---@type string[]
 local commands = {
   "vert",
   "float",
@@ -26,6 +31,7 @@ local commands = {
   "select",
 }
 -- Fixed first arguments; used by completion and argument validation.
+---@type table<string, string[]>
 local arguments = {
   focus = { "on", "off", "toggle" },
   theme = { "default", "dark", "light" },
@@ -33,6 +39,9 @@ local arguments = {
   table = { "format", "row-before", "row-after", "row-delete", "col-before", "col-after", "col-delete" },
   images = { "allow", "deny" },
 }
+---@param command string
+---@param value? string
+---@param required? boolean
 local function check_argument(command, value, required)
   local allowed = arguments[command]
   if (value == nil and required) or (value ~= nil and not vim.tbl_contains(allowed, value)) then
@@ -41,20 +50,29 @@ local function check_argument(command, value, required)
     )
   end
 end
+---@return MdReadableSession
 local function session()
   local s = require("md-readable.reader.session").current()
   if not s then
     errors.user("Open a reading view with :MdReadable first")
   end
+  ---@cast s MdReadableSession
   return s
 end
+---@param opts? MdReadableUserConfig
 function M.setup(opts)
   require("md-readable.config").setup(opts)
   require("md-readable.ui.theme").setup()
 end
+---@param mode? MdReadableSessionMode
+---@return MdReadableSession
 function M.open(mode)
   return require("md-readable.reader.session").open(mode)
 end
+-- Source cursor, from the source window when it is current, else mapped from the reader.
+---@param s MdReadableSession
+---@return integer row 0-based source row
+---@return integer col 0-based source byte column
 local function source_position(s)
   if
     vim.api.nvim_get_current_win() == s.source_win
@@ -67,6 +85,9 @@ local function source_position(s)
   local pos = vim.api.nvim_win_get_cursor(s.read_win)
   return s.map:to_source(pos[1] - 1, pos[2])
 end
+---@param s MdReadableSession
+---@param action string "format" or a table.edit action ("row_before", ...)
+---@param count? integer
 local function edit_table(s, action, count)
   local row, col = source_position(s)
   for _, tbl in ipairs(s.document.tables or {}) do
@@ -98,6 +119,7 @@ local function edit_table(s, action, count)
       if not lines then
         errors.user(err or "Cannot edit this table")
       end
+      ---@cast lines string[]
       local before = vim.api.nvim_buf_get_lines(s.source_buf, tbl.start_row, tbl.end_row, false)
       if not vim.deep_equal(before, lines) then
         if not vim.bo[s.source_buf].modifiable then
@@ -112,6 +134,10 @@ local function edit_table(s, action, count)
   end
   errors.user("Cursor is not in a Markdown table")
 end
+---@param command? string Subcommand; empty opens the current-window reader
+---@param args? string[]
+---@param opts? MdReadableCommandOpts|vim.api.keyset.create_user_command.command_args
+---@return any
 function M.action(command, args, opts)
   args, opts = args or {}, opts or {}
   if not command or command == "" then
@@ -250,12 +276,17 @@ function M.action(command, args, opts)
     errors.user("Unknown MdReadable command: " .. command)
   end
 end
+---@param opts vim.api.keyset.create_user_command.command_args
 function M.command(opts)
   local args = vim.deepcopy(opts.fargs)
   local command = table.remove(args, 1)
   errors.report(M.action, command, args, opts)
 end
 -- Completes the subcommand, then the fixed argument list of that subcommand.
+---@param lead string
+---@param line? string
+---@param cursor? integer
+---@return string[]
 function M.complete(lead, line, cursor)
   local before = (line or ""):sub(1, cursor or #(line or ""))
   local words = vim.split(vim.trim(before:match("MdReadable!?%s+(.*)$") or ""), "%s+", { trimempty = true })

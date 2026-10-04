@@ -1,4 +1,9 @@
 local M = {}
+---@param lines string[]
+---@param path string
+---@return table? metadata nil when unclosed
+---@return MdReadableParseDiagnostic[]
+---@return integer end_row 1-based row of the closing delimiter; 0 without frontmatter
 function M.parse(lines, path)
   if lines[1] ~= "---" and lines[1] ~= "+++" then
     return {}, {}, 0

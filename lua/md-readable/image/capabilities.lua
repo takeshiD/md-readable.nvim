@@ -1,5 +1,9 @@
 local M = {}
 
+---@param env table<string,string?>
+---@param attached boolean
+---@return boolean supported
+---@return string? reason
 function M.detect(env, attached)
   if not attached then
     return false, "inline images require an attached terminal UI"
@@ -17,6 +21,8 @@ function M.detect(env, attached)
   return true
 end
 
+---@return boolean supported
+---@return string? reason
 function M.get()
   if not vim.api.nvim_ui_send then
     return false, "inline images require Neovim 0.12 or newer"

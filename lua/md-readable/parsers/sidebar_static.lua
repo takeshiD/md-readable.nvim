@@ -2,8 +2,13 @@
 -- literal declarations; project imports, functions and expressions never run.
 local L = require("md-readable.parsers.literal")
 local M = {}
+-- Parses a literal or a module whose default export is a literal binding.
+---@param input string|string[]
+---@param path? string For diagnostics
+---@return any value nil on error
+---@return MdReadableParseDiagnostic[]
 function M.parse(input, path)
-  local text = type(input) == "table" and table.concat(input, "\n") or input
+  local text = type(input) == "table" and table.concat(input, "\n") or input --[[@as string]]
   local p, bindings = L.reader(text, "js"), {}
   local ok, result = pcall(function()
     if p:peek() == "{" or p:peek() == "[" then
@@ -86,8 +91,14 @@ function M.parse(input, path)
 end
 -- Lexically locate a property or call without matching comments/string contents.
 -- This supports literal sidebar options inside normal framework config wrappers.
+---@param input string|string[]
+---@param name string Property or function name
+---@param kind "property"|"call" `name: value` or `name(value)`
+---@param path? string For diagnostics
+---@return any value nil when absent or on error
+---@return MdReadableParseDiagnostic[]
 function M.extract(input, name, kind, path)
-  local text = type(input) == "table" and table.concat(input, "\n") or input
+  local text = type(input) == "table" and table.concat(input, "\n") or input --[[@as string]]
   local p = L.reader(text, "js")
   local ok, value = pcall(function()
     while p:peek() ~= "" do

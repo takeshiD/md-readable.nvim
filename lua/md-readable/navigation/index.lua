@@ -1,6 +1,20 @@
 local M = {}
+---@class MdReadableNavIndex
+---@field by_id table<string, MdReadableNavNode>
+---@field by_path table<string, MdReadableNavNode[]> Root-relative document path to nodes
+---@field parent table<string, string> Node id to parent node id
+---@field order MdReadableNavNode[] Depth-first pre-order
+---@class MdReadableNavCurrentContext
+---@field index? MdReadableNavIndex
+---@field tree? MdReadableNavTree Used when index is absent
+---@field selected_id? string
+---@field history? table<string, string> Path to last selected node id
+---@param tree MdReadableNavTree
+---@return MdReadableNavIndex
 function M.build(tree)
   local out, visited = { by_id = {}, by_path = {}, parent = {}, order = {} }, {}
+  ---@param nodes? MdReadableNavNode[]
+  ---@param parent? string
   local function visit(nodes, parent)
     for _, node in ipairs(nodes or {}) do
       if not visited[node] then
@@ -20,6 +34,9 @@ function M.build(tree)
   visit(tree.items)
   return out
 end
+---@param path string Root-relative document path
+---@param context? MdReadableNavCurrentContext
+---@return MdReadableNavNode?
 function M.resolve_current(path, context)
   context = context or {}
   local index = context.index or M.build(context.tree)
@@ -32,6 +49,9 @@ function M.resolve_current(path, context)
   end
   return nodes[1]
 end
+---@param index MdReadableNavIndex
+---@param node_id? string
+---@return MdReadableNavNode[] # Root first
 function M.breadcrumbs(index, node_id)
   local out, seen = {}, {}
   while node_id and index.by_id[node_id] and not seen[node_id] do

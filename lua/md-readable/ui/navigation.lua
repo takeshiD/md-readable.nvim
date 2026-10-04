@@ -5,9 +5,58 @@ local M = {}
 local namespace = vim.api.nvim_create_namespace("md-readable-navigation")
 local next_id = 0
 
+---@alias MdReadableNavUiPanelKind "book"|"outline"
+---@class MdReadableNavUiEntry One panel row
+---@field kind "label"|"heading"|"node"
+---@field heading? MdReadableHeading
+---@field node? MdReadableNavNode
+---@field id? string Node id or heading key
+---@field parent? string Parent entry id
+---@field expandable? boolean
+---@field marker_end? integer Byte length of the level marker
+---@field group? string Highlight group after the marker
+---@class MdReadableNavUiPanel
+---@field buf integer
+---@field win integer
+---@field kind MdReadableNavUiPanelKind
+---@field floating boolean
+---@field entries MdReadableNavUiEntry[] Indexed by 1-based buffer line
+---@field cache_key? string
+---@field current_mark? integer Extmark id of the current-position highlight
+---@class MdReadableNavUiPager Prev/next line floating over the reading window
+---@field buf integer
+---@field win integer
+---@field text? string
+---@class MdReadableNavUiState Stored as session._navigation
+---@field id integer
+---@field collapsed table<string, boolean> Collapsed ids of the active tree
+---@field collapsed_trees table<string, table<string, boolean>> Tree id to collapsed ids
+---@field history table<string, table<string, string>> Tree id to path to chosen node id
+---@field panels table<MdReadableNavUiPanelKind, MdReadableNavUiPanel>
+---@field order MdReadableNavNode[] Reading order of the active tree
+---@field open boolean
+---@field revision integer
+---@field snapshot? MdReadableNavSnapshot
+---@field tree_id? string
+---@field tree? MdReadableNavTree
+---@field index? MdReadableNavIndex
+---@field current? MdReadableNavNode
+---@field relative_path? string
+---@field previous? MdReadableNavNode
+---@field next? MdReadableNavNode
+---@field pager? MdReadableNavUiPager
+---@field updating? boolean
+---@field group? integer Autocommand group id
+---@field available_width? integer
+---@field lines? integer Editor height when the layout was chosen
+---@param win? integer
+---@return boolean?
 local function valid(win)
   return win and vim.api.nvim_win_is_valid(win)
 end
+---@param text? string
+---@param width integer Display cells
+---@return string
 local function clip(text, width)
   text = tostring(text or ""):gsub("[\r\n\t]", " ")
   if vim.fn.strdisplaywidth(text) <= width then
@@ -25,6 +74,8 @@ local function clip(text, width)
   end
   return out .. "..."
 end
+---@param session MdReadableSession
+---@return MdReadableNavUiState
 local function state(session)
   if not session._navigation then
     next_id = next_id + 1
@@ -41,6 +92,8 @@ local function state(session)
   end
   return session._navigation
 end
+---@param session MdReadableSession
+---@return string
 local function current_path(session)
   return session.document and session.document.path
     or (session.source_buf and vim.api.nvim_buf_is_valid(session.source_buf) and vim.api.nvim_buf_get_name(
@@ -48,6 +101,8 @@ local function current_path(session)
     ))
     or ""
 end
+---@param session MdReadableSession
+---@param st MdReadableNavUiState
 local function refresh_model(session, st)
   local snapshot = session.snapshot
   local wanted = session.tree_id
@@ -62,6 +117,7 @@ local function refresh_model(session, st)
       end
     end
     if st.tree then
+      ---@cast snapshot -nil
       session.tree_id = st.tree.id
       st.tree_id = st.tree.id
       st.collapsed_trees[st.tree_id] = st.collapsed_trees[st.tree_id] or {}
@@ -94,6 +150,9 @@ local function refresh_model(session, st)
     end
   end
 end
+---@param session MdReadableSession
+---@return integer row 0-based source row under the reading cursor
+---@return integer? col Source byte column (only with a source map)
 local function source_row(session)
   if not valid(session.read_win) then
     return 0
@@ -104,12 +163,19 @@ local function source_row(session)
   end
   return cursor[1] - 1
 end
+---@param heading MdReadableHeading
+---@return integer row 0-based
 local function heading_row(heading)
+  ---@diagnostic disable-next-line: undefined-field
   return heading.range and heading.range.start.row or heading.start_row or heading.row or 0
 end
+---@param heading MdReadableHeading
+---@return string
 local function heading_key(heading)
   return "heading:" .. tostring(heading.id or heading_row(heading))
 end
+---@param session MdReadableSession
+---@return MdReadableHeading?
 local function current_heading(session)
   local row, selected = source_row(session), nil
   for _, heading in ipairs(session.document and session.document.headings or {}) do
@@ -121,16 +187,20 @@ local function current_heading(session)
   end
   return selected
 end
+---@param buf integer
+---@param lines string[]
 local function write(buf, lines)
   vim.bo[buf].modifiable = true
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, #lines > 0 and lines or { "" })
   vim.bo[buf].modifiable = false
 end
+---@param session MdReadableSession
 local function focus_reader(session)
   if valid(session.read_win) then
     vim.api.nvim_set_current_win(session.read_win)
   end
 end
+---@param panel? MdReadableNavUiPanel|MdReadableNavUiPager
 local function destroy(panel)
   if not panel then
     return
@@ -142,6 +212,7 @@ local function destroy(panel)
     pcall(vim.api.nvim_buf_delete, panel.buf, { force = true })
   end
 end
+---@param win integer
 local function options(win)
   for name, value in pairs({
     number = false,
@@ -158,6 +229,7 @@ local function options(win)
   end
   vim.api.nvim_set_option_value("winhighlight", "Normal:Normal,CursorLine:Visual", { win = win })
 end
+---@return integer buf
 local function create_buffer()
   local buf = vim.api.nvim_create_buf(false, true)
   vim.bo[buf].buftype = "nofile"
@@ -166,12 +238,17 @@ local function create_buffer()
   vim.bo[buf].filetype = "md-readable-nav"
   return buf
 end
+---@param panel MdReadableNavUiPanel
+---@return MdReadableNavUiEntry?
 local function panel_entry(panel)
   if not valid(panel.win) then
     return
   end
   return panel.entries and panel.entries[vim.api.nvim_win_get_cursor(panel.win)[1]]
 end
+---@param session MdReadableSession
+---@param st MdReadableNavUiState
+---@param panel MdReadableNavUiPanel
 local function rebuild(session, st, panel)
   local width = vim.api.nvim_win_get_width(panel.win)
   local key = table.concat({
@@ -188,6 +265,8 @@ local function rebuild(session, st, panel)
   end
   panel.cache_key = key
   local lines, entries = {}, {}
+  ---@param text string
+  ---@param entry? MdReadableNavUiEntry
   local function add(text, entry)
     lines[#lines + 1] = clip(text, width)
     entries[#lines] = entry or { kind = "label" }
@@ -200,6 +279,8 @@ local function rebuild(session, st, panel)
     add("[!] Partial navigation; ? details")
   end
   local headings = session.document and session.document.headings or {}
+  ---@param depth integer
+  ---@param parent? string
   local function add_headings(depth, parent)
     local parents, hidden_level = {}, nil
     for heading_index, heading in ipairs(headings) do
@@ -239,6 +320,9 @@ local function rebuild(session, st, panel)
   if panel.kind == "outline" then
     add_headings(0)
   elseif st.tree then
+    ---@param nodes MdReadableNavNode[]
+    ---@param depth integer
+    ---@param parent? string
     local function visit(nodes, depth, parent)
       for _, node in ipairs(nodes) do
         local current = st.current and st.current.id == node.id
@@ -302,6 +386,9 @@ local function rebuild(session, st, panel)
     end
   end
 end
+---@param session MdReadableSession
+---@param st MdReadableNavUiState
+---@param panel MdReadableNavUiPanel
 local function track(session, st, panel)
   local heading = current_heading(session)
   local id = heading and heading_key(heading)
@@ -332,6 +419,9 @@ local function track(session, st, panel)
     end
   end
 end
+---@param session MdReadableSession
+---@param st MdReadableNavUiState
+---@param panel MdReadableNavUiPanel
 local function activate(session, st, panel)
   local entry = panel_entry(panel)
   if not entry then
@@ -365,6 +455,10 @@ local function activate(session, st, panel)
     st.panels[panel.kind] = nil
   end
 end
+---@param session MdReadableSession
+---@param st MdReadableNavUiState
+---@param panel MdReadableNavUiPanel
+---@param expand boolean
 local function fold(session, st, panel, expand)
   local entry = panel_entry(panel)
   if not entry then
@@ -383,6 +477,12 @@ local function fold(session, st, panel, expand)
     end
   end
 end
+---@param session MdReadableSession
+---@param st MdReadableNavUiState
+---@param kind MdReadableNavUiPanelKind
+---@param floating boolean
+---@param focus? boolean
+---@return MdReadableNavUiPanel
 local function create_panel(session, st, kind, floating, focus)
   local buf, previous = create_buffer(), vim.api.nvim_get_current_win()
   local cfg = session.config.navigation or {}
@@ -411,6 +511,9 @@ local function create_panel(session, st, kind, floating, focus)
   options(win)
   local panel = { buf = buf, win = win, kind = kind, floating = floating, entries = {} }
   st.panels[kind] = panel
+  ---@param lhs string
+  ---@param rhs function
+  ---@param description string
   local function key(lhs, rhs, description)
     vim.keymap.set("n", lhs, rhs, { buffer = buf, silent = true, nowait = true, desc = description })
   end
@@ -465,6 +568,8 @@ local function create_panel(session, st, kind, floating, focus)
   end
   return panel
 end
+---@param session MdReadableSession
+---@param st MdReadableNavUiState
 local function pager(session, st)
   if not valid(session.read_win) or not st.tree then
     destroy(st.pager)
@@ -511,6 +616,7 @@ local function pager(session, st)
     st.pager.text = text
   end
 end
+---@param session MdReadableSession
 function M.update(session)
   local st = state(session)
   if st.updating or not st.open then
@@ -533,6 +639,9 @@ function M.update(session)
   pager(session, st)
   st.updating = false
 end
+---@param session MdReadableSession
+---@param opts? {user?: boolean} user: opened by an explicit command
+---@return integer? win Book panel window
 function M.open(session, opts)
   opts = opts or {}
   if session.closed or not valid(session.read_win) then
@@ -599,6 +708,7 @@ function M.open(session, opts)
   M.update(session)
   return st.panels.book and st.panels.book.win
 end
+---@param session MdReadableSession
 function M.close(session)
   local st = session._navigation
   if not st then
@@ -616,6 +726,7 @@ function M.close(session)
     st.group = nil
   end
 end
+---@param session MdReadableSession
 function M.toggle(session)
   local st = state(session)
   if st.panels.book and valid(st.panels.book.win) then
@@ -624,10 +735,12 @@ function M.toggle(session)
   else
     local win = M.open(session, { user = true })
     if valid(win) then
+      ---@cast win -nil
       vim.api.nvim_set_current_win(win)
     end
   end
 end
+---@param session MdReadableSession
 function M.outline(session)
   local st = state(session)
   st.open = true
@@ -639,6 +752,9 @@ function M.outline(session)
   end
   M.update(session)
 end
+---@param session MdReadableSession
+---@param direction "prev"|"previous"|"next"
+---@return boolean moved
 function M.move(session, direction)
   local st = state(session)
   refresh_model(session, st)
@@ -656,11 +772,14 @@ function M.move(session, direction)
   M.update(session)
   return true
 end
+---@param session MdReadableSession
 function M.select(session)
   local result = session.nav_result
   if result and result.status == "ambiguous" and result.candidates then
     vim.ui.select(result.candidates, {
       prompt = "Navigation project",
+      ---@param item MdReadableNavCandidate
+      ---@return string
       format_item = function(item)
         return item.adapter_id .. " — " .. item.root_dir .. " (" .. table.concat(item.evidence or {}, ", ") .. ")"
       end,
@@ -677,6 +796,8 @@ function M.select(session)
   else
     vim.ui.select(session.snapshot and session.snapshot.trees or {}, {
       prompt = "Navigation tree",
+      ---@param tree MdReadableNavTree
+      ---@return string
       format_item = function(tree)
         return tree.title
       end,

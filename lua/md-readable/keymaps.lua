@@ -1,6 +1,24 @@
 -- Buffer-local keymaps of reading buffers. A spec is an action name, a
 -- function, false, or { action_or_function, mode = ..., desc = ..., <map opts> }.
 local M = {}
+---@class MdReadableKeymapEntry
+---@field [1]? string|function Action name or callback
+---@field callback? string|function Overrides [1]
+---@field mode? string|string[] Defaults to "n"
+---@field desc? string
+---@alias MdReadableKeymapSpec string|function|false|MdReadableKeymapEntry
+---@class MdReadableKeymap
+---@field lhs string
+---@field mode string|string[]
+---@field callback function
+---@field desc string
+---@field action? string Normalized action name when given by name
+---@field opts table<string, any> Remaining vim.keymap.set options
+---@class MdReadableKeymapItem
+---@field lhs string
+---@field mode string Comma-separated modes
+---@field desc string
+---@type table<string, MdReadableKeymapSpec>
 M.defaults = {
   ["q"] = "actions.close",
   ["<CR>"] = "actions.open",
@@ -21,6 +39,10 @@ M.defaults = {
 local reserved = { mode = true, desc = true, callback = true, buffer = true }
 
 -- Returns { lhs, mode, callback, desc, opts } or nil plus an error message.
+---@param lhs string
+---@param spec MdReadableKeymapSpec
+---@return MdReadableKeymap? map
+---@return string? err
 function M.resolve(lhs, spec)
   if spec == false then
     return nil
@@ -55,6 +77,9 @@ function M.resolve(lhs, spec)
 end
 
 -- Combines defaults with the user's table. false/nil disables a key.
+---@param user? boolean|table<string, MdReadableKeymapSpec>
+---@param use_defaults? boolean
+---@return table<string, MdReadableKeymapSpec>
 function M.merge(user, use_defaults)
   local result = {}
   if user == false then
@@ -62,7 +87,7 @@ function M.merge(user, use_defaults)
   end
   if use_defaults ~= false then
     for lhs, spec in pairs(M.defaults) do
-      result[lhs] = vim.deepcopy(spec)
+      result[lhs] = vim.deepcopy(spec --[[@as table]])
     end
   end
   if type(user) == "table" then
@@ -82,6 +107,8 @@ function M.merge(user, use_defaults)
   return result
 end
 
+---@param buf integer
+---@param keymaps? table<string, MdReadableKeymapSpec>
 function M.attach(buf, keymaps)
   for lhs, spec in pairs(keymaps or {}) do
     local map = M.resolve(lhs, spec)
@@ -92,12 +119,14 @@ function M.attach(buf, keymaps)
   end
 end
 
+---@param keymaps? table<string, MdReadableKeymapSpec>
+---@return MdReadableKeymapItem[]
 function M.list(keymaps)
   local items = {}
   for lhs, spec in pairs(keymaps or {}) do
     local map = M.resolve(lhs, spec)
     if map then
-      local mode = type(map.mode) == "table" and table.concat(map.mode, ",") or map.mode
+      local mode = type(map.mode) == "table" and table.concat(map.mode --[[@as string[] ]], ",") or map.mode
       items[#items + 1] = { lhs = lhs, mode = mode, desc = map.desc }
     end
   end
@@ -114,6 +143,8 @@ function M.list(keymaps)
   return items
 end
 
+---@return integer win
+---@return integer buf
 function M.help()
   local s = require("md-readable.reader.session").current()
   local items = M.list(s and s.config.keymaps or require("md-readable.config").get().keymaps)

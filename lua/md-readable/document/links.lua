@@ -1,14 +1,41 @@
 local M = {}
+---@alias MdReadableLinkKind 'footnote'|'image'|'unresolved'|'anchor'|'external'|'asset'|'document'
+---@alias MdReadableLinkStyle 'inline'|'reference'|'footnote'|'autolink'|'bare'
+---@class MdReadableLink
+---@field text string Label text as written
+---@field target string Unescaped target; footnotes use "^id"
+---@field kind MdReadableLinkKind
+---@field range MdReadableRange Whole link source
+---@field label_start integer Label start byte (0-based)
+---@field label_end integer Label end byte (exclusive)
+---@field style MdReadableLinkStyle
+---@field definition_row? integer Footnote definition row (footnotes only)
+---@class MdReadableReference
+---@field row integer Definition row (0-based)
+---@field target? string Link reference definitions only
+---@field footnote? boolean
+---@field id? string Footnote id as written
+---@param value string
+---@return string
 local function normalize(value)
   return value:lower():gsub("%s+", " "):match("^%s*(.-)%s*$")
 end
+---@param value string
+---@return string
 local function unescape(value)
   return (value:gsub("\\([%p])", "%1"))
 end
+---@param row integer
+---@param a integer
+---@param b integer
+---@return MdReadableRange
 local function range(row, a, b)
   return { start = { row = row, byteColumn = a }, ["end"] = { row = row, byteColumn = b } }
 end
 
+--- Keys are normalized labels; footnote definitions are keyed "^" .. id.
+---@param lines string[]
+---@return table<string, MdReadableReference>
 function M.references(lines)
   local result = {}
   for row, line in ipairs(lines) do
@@ -23,6 +50,12 @@ function M.references(lines)
   return result
 end
 
+--- Index of the bracket closing the one at `start` (1-based), skipping escapes.
+---@param text string
+---@param start integer
+---@param opening string
+---@param ending string
+---@return integer?
 local function closing(text, start, opening, ending)
   local depth, i = 1, start + 1
   while i <= #text do
@@ -43,6 +76,10 @@ local function closing(text, start, opening, ending)
   end
 end
 
+---@param line string
+---@param row integer 0-based
+---@param references? table<string, MdReadableReference>
+---@return MdReadableLink[]
 function M.parse(line, row, references)
   references = references or {}
   local result, i = {}, 1
@@ -59,6 +96,7 @@ function M.parse(line, row, references)
       local a = image and i + 1 or i
       local close = line:sub(a, a) == "[" and closing(line, a, "[", "]")
       local target, finish, unresolved, style
+      ---@type string|false|nil
       local footnote = not image and close and line:sub(a + 1, close - 1):match("^%^(%S+)$")
       if footnote then
         local after = line:sub(close + 1, close + 1)
@@ -66,6 +104,7 @@ function M.parse(line, row, references)
         if after == ":" and line:sub(1, i - 1):match("^ ? ? ?$") then
           i = close + 1 -- Definition label; rendered by the footnote block.
         elseif ref and ref.footnote and after ~= "(" and after ~= "[" then
+          ---@cast close integer
           result[#result + 1] = {
             text = footnote,
             target = "^" .. footnote,
@@ -103,6 +142,7 @@ function M.parse(line, row, references)
           end
         end
         if target then
+          ---@cast finish integer
           target = unescape(target)
           local kind = image and "image"
             or unresolved and "unresolved"

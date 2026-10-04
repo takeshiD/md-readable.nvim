@@ -1,4 +1,8 @@
 local M = {}
+-- Byte just after the UTF-8 character starting at col.
+---@param line string
+---@param col integer 0-based byte column
+---@return integer
 local function char_end(line, col)
   if col >= #line then
     return #line
@@ -6,6 +10,7 @@ local function char_end(line, col)
   local byte = line:byte(col + 1)
   return math.min(#line, col + (byte < 128 and 1 or byte < 224 and 2 or byte < 240 and 3 or 4))
 end
+---@param session MdReadableSession
 function M.capture(session)
   local reg = vim.v.register
   session.yank_previous = {}
@@ -14,11 +19,14 @@ function M.capture(session)
   end
   session.yank_register = reg
 end
+---@param session MdReadableSession
 local function restore(session)
   for name, value in pairs(session.yank_previous or {}) do
     pcall(vim.fn.setreg, name, value)
   end
 end
+---@param session MdReadableSession
+---@param event table vim.v.event of TextYankPost
 function M.handle(session, event)
   if event.operator ~= "y" or not session.map then
     return
@@ -80,6 +88,7 @@ function M.handle(session, event)
   end
   session.yank_previous, session.yank_register = nil, nil
 end
+---@param session MdReadableSession
 function M.attach(session)
   for _, mode in ipairs({ "n", "x" }) do
     vim.keymap.set(mode, "y", function()

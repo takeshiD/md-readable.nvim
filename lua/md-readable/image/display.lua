@@ -18,8 +18,19 @@
 local M = {}
 local cache = require("md-readable.image.cache")
 local next_id = 1000000
+---@class MdReadableImageGeometry
+---@field row integer Screen row (1-based)
+---@field col integer Screen column (1-based)
+---@field columns integer Cells wide
+---@field rows integer Cells tall
+---@field x integer Source crop x (pixels)
+---@field y integer Source crop y (pixels)
+---@field width integer Source crop width (pixels)
+---@field height integer Source crop height (pixels)
+---@type table<integer, true>
 local active = {}
 
+---@param data string
 local function send(data)
   if vim.env.TMUX then
     data = "\27Ptmux;" .. data:gsub("\27", "\27\27") .. "\27\\"
@@ -27,10 +38,15 @@ local function send(data)
   vim.api.nvim_ui_send(data)
 end
 
+---@param data string PNG bytes
+---@return integer? width
+---@return integer|string height_or_err
 function M.dimensions(data)
   if data:sub(1, 8) ~= "\137PNG\13\10\26\10" or #data < 24 then
     return nil, "invalid PNG data"
   end
+  ---@param at integer
+  ---@return integer
   local function integer(at)
     local a, b, c, d = data:byte(at, at + 3)
     return ((a * 256 + b) * 256 + c) * 256 + d
@@ -42,6 +58,11 @@ function M.dimensions(data)
   return width, height
 end
 
+---@param win integer
+---@param descriptor MdReadableRenderedImage
+---@param pixel_width integer
+---@param pixel_height integer
+---@return MdReadableImageGeometry?
 function M.geometry(win, descriptor, pixel_width, pixel_height)
   if not vim.api.nvim_win_is_valid(win) then
     return nil
@@ -85,6 +106,10 @@ function M.geometry(win, descriptor, pixel_width, pixel_height)
   }
 end
 
+---@param id integer Kitty image and placement id
+---@param data string PNG bytes
+---@param geometry MdReadableImageGeometry
+---@return string
 function M.protocol(id, data, geometry)
   local encoded, packets = vim.base64.encode(data), {}
   for first = 1, #encoded, 4096 do
@@ -109,6 +134,13 @@ function M.protocol(id, data, geometry)
   return "\27[s\27[" .. geometry.row .. ";" .. geometry.col .. "H" .. table.concat(packets) .. "\27[u"
 end
 
+---@param path string PNG file
+---@param win integer
+---@param descriptor MdReadableRenderedImage
+---@param opts? MdReadableConfigImages
+---@param callback? fun(id:integer?,err:string?)
+---@return integer id
+---@return fun() cancel
 function M.show(path, win, descriptor, opts, callback)
   next_id = next_id + 1
   local id = next_id
@@ -128,11 +160,11 @@ function M.show(path, win, descriptor, opts, callback)
     if not width then
       active[id] = nil
       if callback then
-        callback(nil, height)
+        callback(nil, height --[[@as string]])
       end
       return
     end
-    local geometry = M.geometry(win, descriptor, width, height)
+    local geometry = M.geometry(win, descriptor, width, height --[[@as integer]])
     if not geometry then
       active[id] = nil
       if callback then
@@ -151,6 +183,7 @@ function M.show(path, win, descriptor, opts, callback)
   end
 end
 
+---@param id? integer
 function M.delete(id)
   if not id or not active[id] then
     return

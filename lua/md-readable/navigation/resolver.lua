@@ -1,5 +1,26 @@
 local C = require("md-readable.adapters.common")
+---@class MdReadableNavResolverModule
+---@field anchor_resolvers table<string, MdReadableNavAnchorResolver> Adapter id to custom resolver
 local M = { anchor_resolvers = {} }
+---@alias MdReadableNavAnchorResolver fun(anchor:string, headings?:MdReadableHeading[]):integer?
+---@class MdReadableNavResolveContext
+---@field path? string Absolute path of the current document
+---@field root_dir? string Absolute
+---@field snapshot? MdReadableNavSnapshot
+---@field headings? MdReadableHeading[] Headings of `path` (MdReadableDocument.headings)
+---@field adapter? string
+---@field read? fun(path:string):string[]?
+---@class MdReadableNavResolved
+---@field type "document"|"external"|"asset"|"unresolved"
+---@field path? string Absolute
+---@field anchor? string
+---@field url? string
+---@field row? integer 0-based anchor row
+---@field reason? string
+---@field raw? any Original target
+---@param adapter string
+---@param callback MdReadableNavAnchorResolver
+---@return fun() unregister
 function M.register_anchor_resolver(adapter, callback)
   M.anchor_resolvers[adapter] = callback
   return function()
@@ -8,18 +29,28 @@ function M.register_anchor_resolver(adapter, callback)
     end
   end
 end
+---@param anchor string
+---@param headings? MdReadableHeading[]
+---@param adapter? string
+---@return integer? row 0-based
 function M.anchor(anchor, headings, adapter)
   local custom = M.anchor_resolvers[adapter]
   if custom then
     return custom(anchor, headings)
   end
   for _, heading in ipairs(headings or {}) do
+    -- `slug` and `row` are accepted from headings built outside the parser.
+    ---@diagnostic disable-next-line: undefined-field
     if heading.id == anchor or heading.slug == anchor then
+      ---@diagnostic disable-next-line: undefined-field
       return heading.range and heading.range.start.row or heading.start_row or heading.row
     end
   end
 end
 -- Resolved document/asset paths are absolute. Snapshot paths remain relative.
+---@param raw string|MdReadableNavTarget|table|nil
+---@param ctx? MdReadableNavResolveContext
+---@return MdReadableNavResolved
 function M.resolve(raw, ctx)
   ctx = ctx or {}
   local forced_path
@@ -57,6 +88,8 @@ function M.resolve(raw, ctx)
   if not path then
     return { type = "unresolved", raw = raw, reason = "No source document path" }
   end
+  ---@param p string
+  ---@return string[]?
   local function read(p)
     if ctx.read then
       return ctx.read(p)

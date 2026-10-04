@@ -1,5 +1,7 @@
 local L = require("md-readable.parsers.literal")
 local M = {}
+---@param path string
+---@return string # Without "." / resolvable ".." parts or a trailing slash
 function M.normalize(path)
   local absolute, parts = path:sub(1, 1) == "/", {}
   for part in path:gsub("\\", "/"):gmatch("[^/]+") do
@@ -11,12 +13,18 @@ function M.normalize(path)
   end
   return (absolute and "/" or "") .. table.concat(parts, "/")
 end
+---@param a string
+---@param b string Absolute b replaces a
+---@return string
 function M.join(a, b)
   if b:sub(1, 1) == "/" then
     return M.normalize(b)
   end
   return M.normalize((a ~= "" and a .. "/" or "") .. b)
 end
+---@param root string
+---@param path string
+---@return string # path unchanged when outside root
 function M.relative(root, path)
   root, path = M.normalize(root), M.normalize(path)
   if path:sub(1, #root + 1) == root .. "/" then
@@ -24,18 +32,38 @@ function M.relative(root, path)
   end
   return path
 end
+---@param s string Percent-encoded
+---@return string
 function M.decode(s)
   return (s:gsub("%%(%x%x)", function(hex)
     return string.char(tonumber(hex, 16))
   end))
 end
+---@param raw string Link target; the query is dropped
+---@return string path
+---@return string? anchor
 function M.split_target(raw)
   local path, anchor = raw:match("^(.-)#(.*)$")
   path = (path or raw):gsub("%?.*$", "")
   return M.decode(path), anchor and M.decode(anchor) or nil
 end
+---@param ctx MdReadableNavContext
+---@param id string Adapter id
+---@return MdReadableNavState
 function M.context(ctx, id)
+  ---@class MdReadableNavState
+  ---@field ctx MdReadableNavContext
+  ---@field id string Adapter id
+  ---@field diagnostics MdReadableNavDiagnostic[]
+  ---@field dependencies string[] Absolute paths, in first-read order
+  ---@field dependency_set table<string, true>
+  ---@field counter integer Last generated node number
   local state = { ctx = ctx, id = id, diagnostics = {}, dependencies = {}, dependency_set = {}, counter = 0 }
+  ---@param code string
+  ---@param message string
+  ---@param path? string Root-relative source file
+  ---@param row? integer 0-based
+  ---@param severity? MdReadableNavSeverity Defaults to "warning"
   function state:diagnostic(code, message, path, row, severity)
     self.diagnostics[#self.diagnostics + 1] = {
       severity = severity or "warning",
@@ -44,12 +72,16 @@ function M.context(ctx, id)
       source = path and { path = path, row = row or 0 } or nil,
     }
   end
+  ---@param path string Absolute
   function state:depend(path)
     if not self.dependency_set[path] then
       self.dependency_set[path] = true
       self.dependencies[#self.dependencies + 1] = path
     end
   end
+  ---@param path string Root-relative
+  ---@param optional? boolean Suppress the missing-file diagnostic
+  ---@return string[]?
   function state:read(path, optional)
     local full = M.join(ctx.root_dir, path)
     self:depend(full)
@@ -72,6 +104,10 @@ function M.context(ctx, id)
     end
     return lines
   end
+  ---@param path string Root-relative
+  ---@param format "json"|"yaml"|"toml"
+  ---@param optional? boolean
+  ---@return table?
   function state:data(path, format, optional)
     local lines = self:read(path, optional)
     if not lines then
@@ -95,6 +131,9 @@ function M.context(ctx, id)
     end
     return value
   end
+  ---@param raw any Link spelling from configuration
+  ---@param base? string Root-relative directory for relative links
+  ---@return MdReadableNavTarget
   function state:target(raw, base)
     if type(raw) ~= "string" or raw == "" then
       return { type = "unavailable", raw = tostring(raw or ""), reason = "No local document (draft)" }
@@ -113,6 +152,12 @@ function M.context(ctx, id)
     end
     return { type = "document", path = path, anchor = anchor }
   end
+  ---@param title any
+  ---@param target? MdReadableNavTarget
+  ---@param children? MdReadableNavNode[]
+  ---@param source? MdReadableNavSource
+  ---@param id? string Defaults to "<adapter>:<counter>"
+  ---@return MdReadableNavNode
   function state:node(title, target, children, source, id)
     self.counter = self.counter + 1
     return {
@@ -123,6 +168,9 @@ function M.context(ctx, id)
       source = source,
     }
   end
+  ---@param trees? MdReadableNavTree[] nil reports failure
+  ---@param origin? MdReadableNavOrderOrigin Defaults to "declared"
+  ---@return MdReadableNavResult
   function state:finish(trees, origin)
     if not trees then
       local status = "error"
@@ -160,6 +208,11 @@ function M.context(ctx, id)
       dependencies = self.dependencies,
     }
   end
+  ---@param path string Root-relative SUMMARY.md
+  ---@param base string Root-relative directory for links
+  ---@param title? string
+  ---@param tree_id? string
+  ---@return MdReadableNavTree?
   function state:summary(path, base, title, tree_id)
     local lines = self:read(path)
     if not lines then
@@ -167,6 +220,8 @@ function M.context(ctx, id)
     end
     local raw, diagnostics = require("md-readable.parsers.summary").parse(lines, path)
     vim.list_extend(self.diagnostics, diagnostics)
+    ---@param nodes MdReadableParseSummaryItem[]
+    ---@return MdReadableNavNode[]
     local function convert(nodes)
       local out, group = {}, nil
       for _, item in ipairs(nodes) do
@@ -192,8 +247,16 @@ function M.context(ctx, id)
   end
   return state
 end
+-- MkDocs-style nav: a sequence of paths and single-key {title = path|nav} maps.
+---@param state MdReadableNavState
+---@param data any
+---@param base string Root-relative docs directory
+---@param source? MdReadableNavSource
+---@return MdReadableNavNode[]
 function M.nav(state, data, base, source)
   local out = {}
+  ---@param title? string
+  ---@param value any
   local function add(title, value)
     if type(value) == "string" then
       out[#out + 1] = state:node(title or value, state:target(value, base), {}, source)
@@ -230,6 +293,9 @@ function M.nav(state, data, base, source)
   end
   return out
 end
+---@param state MdReadableNavState
+---@param dir string Root-relative
+---@return string[] # Sorted root-relative .md/.mdx paths
 function M.files(state, dir)
   local full = M.join(state.ctx.root_dir, dir)
   state:depend(full)

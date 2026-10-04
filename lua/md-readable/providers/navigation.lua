@@ -1,4 +1,10 @@
+---@alias MdReadableNavProviderCallback fun(ctx:MdReadableNavContext):(MdReadableNavSnapshot|{snapshot:MdReadableNavSnapshot,dependencies?:string[]})
+---@class MdReadableNavProviderModule
+---@field registered table<string, MdReadableNavProviderCallback>
 local M = { registered = {} }
+---@param id string
+---@param callback MdReadableNavProviderCallback
+---@return fun() unregister
 function M.register(id, callback)
   assert(type(id) == "string" and type(callback) == "function", "register(id, callback) requires a name and function")
   M.registered[id] = callback
@@ -8,6 +14,10 @@ function M.register(id, callback)
     end
   end
 end
+-- provider: a callback, a snapshot table, a JSON path (string or {path=...}), or a registered id (string or {id=...}).
+---@param provider MdReadableNavProvider
+---@param ctx MdReadableNavContext
+---@return MdReadableNavResult
 function M.load(provider, ctx)
   local result, ok
   if type(provider) == "function" then
@@ -19,7 +29,7 @@ function M.load(provider, ctx)
     path = require("md-readable.adapters.common").join(ctx.root_dir, path)
     ok, result = pcall(function()
       local lines = ctx.read and ctx.read(path) or vim.fn.readfile(path)
-      return vim.json.decode(type(lines) == "table" and table.concat(lines, "\n") or lines)
+      return vim.json.decode(type(lines) == "table" and table.concat(lines, "\n") or lines --[[@as string]])
     end)
   else
     local id = type(provider) == "table" and provider.id or provider
@@ -41,6 +51,7 @@ function M.load(provider, ctx)
   if not valid then
     return { status = "error", diagnostics = diagnostics }
   end
+  ---@cast snapshot MdReadableNavSnapshot
   return {
     status = #snapshot.diagnostics > 0 and "partial" or "ok",
     snapshot = snapshot,

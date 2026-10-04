@@ -1,8 +1,13 @@
 local C = require("md-readable.adapters.common")
 local M = {}
+---@param ctx MdReadableNavContext
+---@return MdReadableNavResult
 function M.parse(ctx)
   local s = C.context(ctx, "gitbook")
   local trees = {}
+  ---@param directory any Root-relative space directory; non-string when not synced
+  ---@param key string Tree id
+  ---@param title string
   local function space(directory, key, title)
     if type(directory) ~= "string" then
       s:diagnostic("unsynced-space", "Space is not synced locally: " .. title)
@@ -14,6 +19,7 @@ function M.parse(ctx)
       return
     end
     local config_path = C.join(directory, ".gitbook.yaml")
+    ---@type table?
     local cfg = {}
     if s:read(config_path, true) then
       cfg = s:data(config_path, "yaml")
@@ -21,6 +27,7 @@ function M.parse(ctx)
         return
       end
     end
+    ---@cast cfg -nil
     local base = C.join(directory, cfg.root or "")
     local tree = s:summary(C.join(base, (cfg.structure or {}).summary or "SUMMARY.md"), base, title, key)
     if tree then
@@ -53,6 +60,7 @@ function M.parse(ctx)
       s:diagnostic("site-structure", "gitbook-docs.yaml requires site.structure", site_path, 0, "error")
       return s:finish()
     end
+    ---@param items? table[]
     local function visit(items)
       for _, item in ipairs(items or {}) do
         if item.type == "space" then
@@ -66,6 +74,8 @@ function M.parse(ctx)
     end
     visit(config.site and config.site.structure)
   else
+    -- vim.fs.dirname() returns a string for a string argument.
+    ---@diagnostic disable-next-line: param-type-mismatch
     local directory = ctx.config_path and C.relative(ctx.root_dir, vim.fs.dirname(ctx.config_path)) or ""
     if directory == "." then
       directory = ""

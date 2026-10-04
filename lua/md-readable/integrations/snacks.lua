@@ -1,9 +1,14 @@
 local M = {}
 -- Use as Snacks.picker.files({ preview = require(...).preview() }) or as
 -- picker.preview in Snacks setup. Context reset may replace its scratch buffer.
+---@param opts? MdReadablePreviewOptions
+---@return fun(ctx:table):any preview Snacks picker preview function
 function M.preview(opts)
   opts = opts or {}
+  ---@type table<integer, MdReadablePreviewEngine> Preview window to engine
   local engines = {}
+  ---@param ctx table Snacks preview context
+  ---@return any
   return function(ctx)
     local core = require("md-readable.integrations.preview")
     local util = require("snacks.picker.util")

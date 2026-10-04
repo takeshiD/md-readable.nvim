@@ -1,5 +1,7 @@
 local C = require("md-readable.adapters.common")
 local M = {}
+---@param ctx MdReadableNavContext
+---@return MdReadableNavResult
 function M.parse(ctx)
   local s = C.context(ctx, "mdbook")
   local config = s:data(ctx.config_path or "book.toml", "toml")

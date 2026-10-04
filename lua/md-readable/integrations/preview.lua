@@ -2,6 +2,25 @@ local M = {}
 local uv = vim.uv or vim.loop
 local next_id = 0
 local images = { png = true, jpg = true, jpeg = true, gif = true, webp = true, svg = true, avif = true, bmp = true }
+---@alias MdReadablePreviewKind "markdown"|"image"
+---@class MdReadablePreviewOptions
+---@field config? MdReadableConfig Defaults to the current plugin options
+---@field max_lines? integer
+---@field max_bytes? integer
+---@field debounce? integer Milliseconds
+---@field on_render? fun(session:MdReadablePreviewSession)
+---@class MdReadablePreviewSession Minimal session for one rendered preview
+---@field id string
+---@field source_buf integer Scratch buffer holding the previewed lines
+---@field read_buf integer
+---@field read_win integer
+---@field document MdReadableDocument
+---@field rendered MdReadableRendered
+---@field config MdReadableConfig
+---@field generation integer
+---@field closed boolean
+---@param path? string
+---@return MdReadablePreviewKind?
 function M.kind(path)
   if type(path) ~= "string" then
     return nil
@@ -12,17 +31,23 @@ function M.kind(path)
   end
   return images[extension] and "image" or nil
 end
+---@return table? media Image provider module
 local function provider()
   local ok, value = pcall(require, "md-readable.providers.image")
   return ok and value or nil
 end
+---@param opts MdReadablePreviewOptions
+---@return MdReadableConfig
 local function config(opts)
   if opts.config then
-    return vim.deepcopy(opts.config)
+    return vim.deepcopy(opts.config --[[@as MdReadableConfig]])
   end
   local ok, module = pcall(require, "md-readable.config")
   return ok and module.get() or { images = { enabled = false }, table = { max_cell_width = 28 } }
 end
+---@param media? table
+---@param configuration MdReadableConfig
+---@return boolean
 local function capable(media, configuration)
   if not media or (configuration.images or {}).enabled == false then
     return false
@@ -36,13 +61,24 @@ local function capable(media, configuration)
   end
   return value == true
 end
+---@param opts? MdReadablePreviewOptions
+---@return boolean
 M.capable = function(opts)
   return capable(provider(), config(opts or {}))
 end
 
+---@param opts? MdReadablePreviewOptions
+---@return MdReadablePreviewEngine
 function M.new(opts)
   opts = opts or {}
   next_id = next_id + 1
+  ---@class MdReadablePreviewEngine
+  ---@field generation integer Bumped on every clear; stale callbacks compare it
+  ---@field closed boolean
+  ---@field id string
+  ---@field ns integer
+  ---@field timer? uv.uv_timer_t Debounce timer
+  ---@field session? MdReadablePreviewSession
   local self = {
     generation = 0,
     closed = false,
@@ -79,12 +115,19 @@ function M.new(opts)
       cleanup_id = nil
     end
   end
+  ---@param path? string
+  ---@param buf integer Preview buffer
+  ---@param win integer Preview window
+  ---@param position? integer[] {1-based row, 0-based byte column} in the source
+  ---@param fallback? fun() Shows the picker's default preview
+  ---@return boolean handled
   function self:show(path, buf, win, position, fallback)
     self:clear()
     self.closed = false
     local generation, kind = self.generation, M.kind(path)
     local configuration, media = config(opts), provider()
     local media_enabled = capable(media, configuration)
+    ---@return boolean
     local function current()
       return not self.closed
         and self.generation == generation
@@ -105,6 +148,7 @@ function M.new(opts)
       end
       return false
     end
+    ---@cast path -nil
     if cleanup_id then
       pcall(vim.api.nvim_del_autocmd, cleanup_id)
     end
@@ -116,6 +160,7 @@ function M.new(opts)
         self:close()
       end,
     })
+    ---@param lines string[]
     local function apply(lines)
       if not current() then
         return
@@ -188,6 +233,7 @@ function M.new(opts)
         vim.cmd("normal! zz")
       end)
       if media_enabled then
+        ---@cast media -nil
         local session = self.session
         vim.schedule(function()
           if current() and self.session == session then
@@ -225,6 +271,7 @@ function M.new(opts)
             stat_error
             or not stat
             or stat.type ~= "file"
+            ---@diagnostic disable-next-line: ambiguity-1
             or stat.size > (opts.max_bytes or 1024 * 1024)
             or self.generation ~= generation
           then

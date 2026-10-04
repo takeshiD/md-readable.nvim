@@ -8,6 +8,10 @@ end, {
   nargs = "*",
   range = true,
   desc = "Read Markdown with source-aware navigation",
+  ---@param lead string
+  ---@param line string
+  ---@param cursor integer
+  ---@return string[]
   complete = function(lead, line, cursor)
     return require("md-readable").complete(lead, line, cursor)
   end,

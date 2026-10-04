@@ -1,12 +1,26 @@
 local M = {}
+---@type table<MdReadableSession, MdReadableMinimapGitState>
 local states = setmetatable({}, { __mode = "k" })
 
+---@class MdReadableMinimapGitState
+---@field publish MdReadableMinimapPublish
+---@field generation integer
+---@field timer uv.uv_timer_t Debounce timer
+---@field group integer Autocommand group id
+---@field process? vim.SystemObj Running git command
+---@field watcher? uv.uv_fs_poll_t Git index watcher
+---@field root? string Repository top level
+---@param index string Indexed text
+---@param source string Buffer text
+---@param row_count integer
+---@return MdReadableMinimapItem[]
 function M.diff(index, source, row_count)
   local items = {}
   local ok, hunks = pcall(vim.diff, index, source, { result_type = "indices", algorithm = "histogram" })
   if not ok then
     return items
   end
+  ---@cast hunks integer[][]
   for _, hunk in ipairs(hunks) do
     local old_count, start, count = hunk[2], hunk[3], hunk[4]
     local row = count == 0 and math.max(0, math.min(start, row_count - 1)) or math.max(0, start - 1)
@@ -19,6 +33,7 @@ function M.diff(index, source, row_count)
   return items
 end
 
+---@param handle? uv.uv_timer_t|uv.uv_fs_poll_t
 local function stop(handle)
   if handle and not handle:is_closing() then
     handle:stop()
@@ -26,6 +41,9 @@ local function stop(handle)
   end
 end
 
+---@param session MdReadableSession
+---@param state MdReadableMinimapGitState
+---@param generation integer
 local function run(session, state, generation)
   if states[session] ~= state or session.closed or not vim.api.nvim_buf_is_valid(session.source_buf) then
     return
@@ -34,6 +52,7 @@ local function run(session, state, generation)
   local tick = vim.api.nvim_buf_get_changedtick(buf)
   local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
   local source = table.concat(lines, "\n") .. (vim.bo[buf].endofline and "\n" or "")
+  ---@return boolean
   local function fresh()
     return states[session] == state
       and not session.closed
@@ -42,6 +61,7 @@ local function run(session, state, generation)
       and vim.api.nvim_buf_is_valid(buf)
       and vim.api.nvim_buf_get_changedtick(buf) == tick
   end
+  ---@param items MdReadableMinimapItem[]
   local function publish(items)
     if fresh() then
       state.publish(session, "git", items)
@@ -51,6 +71,8 @@ local function run(session, state, generation)
     publish({})
     return
   end
+  ---@param args string[]
+  ---@param callback fun(result:vim.SystemCompleted)
   local function command(args, callback)
     if not fresh() then
       return
@@ -105,6 +127,7 @@ local function run(session, state, generation)
       if index_result.code == 0 then
         local index_path = index_result.stdout:gsub("[\r\n]+$", "")
         local watcher = vim.uv.new_fs_poll()
+        ---@diagnostic disable-next-line: need-check-nil
         local ok = watcher:start(index_path, 1000, function()
           vim.schedule(function()
             if states[session] == state then
@@ -123,6 +146,7 @@ local function run(session, state, generation)
   end)
 end
 
+---@param session MdReadableSession
 function M.update(session)
   local state = states[session]
   if not state then
@@ -142,6 +166,8 @@ function M.update(session)
   end)
 end
 
+---@param session MdReadableSession
+---@param publish MdReadableMinimapPublish
 function M.attach(session, publish)
   M.close(session)
   local state = {
@@ -175,6 +201,7 @@ function M.attach(session, publish)
   M.update(session)
 end
 
+---@param session MdReadableSession
 function M.close(session)
   local state = states[session]
   if not state then

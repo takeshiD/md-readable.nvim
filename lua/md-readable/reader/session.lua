@@ -1,21 +1,39 @@
+---@class MdReadableSessionModule
+---@field sessions table<integer, MdReadableSession> Open sessions by id
+---@field next_id integer
+---@field watchers table<integer, true> Source buffers with an nvim_buf_attach watcher
 local M = { sessions = {}, next_id = 0, watchers = {} }
+---@class MdReadableSession
 local Session = {}
 Session.__index = Session
 local ns = vim.api.nvim_create_namespace("md-readable.render")
+---@param win? integer
+---@return boolean?
 local function valid(win)
   return win and vim.api.nvim_win_is_valid(win)
 end
+---@param win integer
+---@param buf integer
 local function switch_buffer(win, buf)
   vim.api.nvim_win_call(win, function()
     vim.cmd("keepjumps keepalt hide buffer " .. tostring(buf))
   end)
 end
+-- Calls an optional module function; missing modules or functions are ignored.
+---@param name string Module name below "md-readable."
+---@param action string
+---@param ... any
+---@return any
 local function service(name, action, ...)
   local ok, module = pcall(require, "md-readable." .. name)
   if ok and module[action] then
     return module[action](...)
   end
 end
+-- Sets the cursor clamped to the buffer; row and col are 0-based.
+---@param win integer
+---@param row integer
+---@param col? integer
 local function cursor(win, row, col)
   if not valid(win) then
     return
@@ -25,9 +43,12 @@ local function cursor(win, row, col)
   local line = vim.api.nvim_buf_get_lines(buf, row, row + 1, false)[1] or ""
   vim.api.nvim_win_set_cursor(win, { row + 1, math.max(0, math.min(col or 0, #line)) })
 end
+---@return table<integer, MdReadableSession>
 function M.all()
   return M.sessions
 end
+-- Session whose reader, source, navigation panel or minimap window is current.
+---@return MdReadableSession?
 function M.current()
   local win = vim.api.nvim_get_current_win()
   for _, s in pairs(M.sessions) do
@@ -54,6 +75,8 @@ function M.current()
     end
   end
 end
+---@param row integer 0-based source row
+---@param col? integer 0-based source byte column
 function Session:jump_source(row, col)
   local display_row, display_col = self.map:to_display(row, col or 0)
   self.busy = true
@@ -72,6 +95,7 @@ function Session:jump_source(row, col)
   service("reader.focus", "update", self)
   service("minimap", "update", self)
 end
+---@param from integer Window the cursor moved in
 function Session:sync(from)
   if self.busy or self.closed or not self.map then
     return
@@ -115,6 +139,7 @@ function Session:load_navigation()
       self.snapshot, self.stale = nil, false
     end
   else
+    ---@diagnostic disable-next-line: missing-fields -- diagnostic without severity/code
     self.nav_result = { status = "error", diagnostics = { { message = tostring(result) } } }
   end
 end
@@ -135,7 +160,7 @@ function Session:refresh()
       path = vim.api.nvim_buf_get_name(self.source_buf),
     })
   document.changedtick = vim.api.nvim_buf_get_changedtick(self.source_buf)
-  local opts = vim.deepcopy(self.config)
+  local opts = vim.deepcopy(self.config) --[[@as MdReadableRenderOptions]]
   opts.tabstop = vim.bo[self.source_buf].tabstop
   vim.bo[self.read_buf].tabstop = opts.tabstop
   local total = vim.api.nvim_win_get_width(self.read_win)
@@ -200,6 +225,8 @@ function Session:schedule()
     end
   end, self.config.debounce)
 end
+---@param key string Raw jump key (CTRL-O or CTRL-I)
+---@param count? integer
 function Session:native_jump(key, count)
   local position = vim.api.nvim_win_get_cursor(self.read_win)
   local row, col = self.map:to_source(position[1] - 1, position[2])
@@ -254,6 +281,9 @@ function Session:attach_source()
     end,
   })
 end
+---@param path string
+---@param anchor? string
+---@return boolean? ok false when the anchor is unresolved
 function Session:navigate(path, anchor)
   if self.closed then
     return
@@ -316,6 +346,8 @@ function Session:navigate(path, anchor)
   self:jump_source(dest[1], dest[2])
   return true
 end
+---@param mode? MdReadableSessionMode
+---@return MdReadableSession
 function M.open(mode)
   mode = mode or "current"
   if vim.o.columns < 16 or vim.o.lines < 6 then
@@ -389,6 +421,7 @@ function M.open(mode)
   vim.wo[win].signcolumn = "no"
   vim.wo[win].foldcolumn = "0"
   vim.wo[win].conceallevel = 0
+  ---@type MdReadableSession
   local self = setmetatable({
     id = M.next_id,
     source_buf = origin_buf,
@@ -535,6 +568,7 @@ function M.open(mode)
   end
   return self
 end
+---@param self? MdReadableSession Defaults to the current session
 function M.source(self)
   self = self or M.current()
   if not self then
@@ -549,6 +583,7 @@ function M.source(self)
   end
   cursor(self.source_win, row, col)
 end
+---@param self? MdReadableSession Defaults to the current session
 function M.close(self)
   self = self or M.current()
   if not self or self.closed then

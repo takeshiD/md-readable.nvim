@@ -1,7 +1,15 @@
 local M = {}
 local cache = require("md-readable.image.cache")
+---@class MdReadableMermaidJob
+---@field cancel? fun()
+---@type table<MdReadableSession, table<MdReadableMermaidJob, true>>
 local jobs = setmetatable({}, { __mode = "k" })
 
+---@param source string Input .mmd file
+---@param output string Output .png file
+---@param opts? MdReadableConfigMermaid
+---@return string[]? args
+---@return string? err
 function M.command(source, output, opts)
   opts = opts or {}
   local command = opts.command or "mmdc"
@@ -30,6 +38,10 @@ function M.command(source, output, opts)
   }
 end
 
+---@param session MdReadableSession
+---@param code string
+---@return string? path
+---@return string? err
 local function cache_target(session, code)
   local opts = session.config.mermaid or {}
   local key = table.concat({
@@ -44,11 +56,18 @@ local function cache_target(session, code)
   return cache.path(key, ".png", session.config.images or {})
 end
 
+---@param descriptor MdReadableRenderedImage
+---@return string
 local function source(descriptor)
-  return type(descriptor.code) == "table" and table.concat(descriptor.code, "\n") or descriptor.code or ""
+  return type(descriptor.code) == "table" and table.concat(descriptor.code --[[@as string[] ]], "\n")
+    or descriptor.code
+    or ""
 end
 
 -- Reason the diagram cannot be drawn without starting a job, or nil.
+---@param session MdReadableSession
+---@param descriptor MdReadableRenderedImage
+---@return string?
 function M.unavailable(session, descriptor)
   local opts = session.config.mermaid or {}
   if opts.enabled == false then
@@ -62,6 +81,10 @@ function M.unavailable(session, descriptor)
   return err
 end
 
+---@param session MdReadableSession
+---@param descriptor MdReadableRenderedImage
+---@param callback fun(path:string?,err:string?)
+---@return fun() cancel
 function M.render(session, descriptor, callback)
   local opts = session.config.mermaid or {}
   if opts.enabled == false then
@@ -125,7 +148,7 @@ function M.render(session, descriptor, callback)
     process = result
   else
     cleanup()
-    callback(nil, result)
+    callback(nil, result --[[@as string]])
   end
   entry.cancel = function()
     cancelled = true
@@ -137,6 +160,7 @@ function M.render(session, descriptor, callback)
   return entry.cancel
 end
 
+---@param session MdReadableSession
 function M.close(session)
   local pending = jobs[session]
   jobs[session] = nil

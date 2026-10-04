@@ -1,11 +1,33 @@
 local M = {}
 local render = require("md-readable.minimap.render")
+---@type table<MdReadableSession, MdReadableMinimapState>
 local states = setmetatable({}, { __mode = "k" })
 local namespace = vim.api.nvim_create_namespace("MdReadableMinimap")
 local symbols = { add = "+", change = "~", delete = "-" }
 local diagnostic_symbols = { "E", "W", "I", "H" }
 local diagnostic_groups = { "DiagnosticError", "DiagnosticWarn", "DiagnosticInfo", "DiagnosticHint" }
 
+---@alias MdReadableMinimapPublish fun(session:MdReadableSession, provider_id:string, items?:MdReadableMinimapItem[])
+---@class MdReadableMinimapMarker
+---@field row integer 0-based minimap row
+---@field col integer 0-based byte column
+---@field group string
+---@class MdReadableMinimapState
+---@field win integer
+---@field buf integer
+---@field providers table<string, MdReadableMinimapItem[]> Provider id to items
+---@field source_buf integer
+---@field float boolean Placed beside a floating reading window
+---@field original_width integer Reading window width before opening
+---@field reserved_width? integer Reading float width while the minimap is open
+---@field group? integer Autocommand group id
+---@field rendered? MdReadableMinimapRendered
+---@field markers? MdReadableMinimapMarker[]
+---@field signature? string
+---@field annotation_revision? integer
+---@param session MdReadableSession
+---@param state MdReadableMinimapState
+---@return boolean?
 local function valid(session, state)
   return state
     and not session.closed
@@ -14,6 +36,8 @@ local function valid(session, state)
     and vim.api.nvim_buf_is_valid(state.buf)
 end
 
+---@param session MdReadableSession
+---@param state MdReadableMinimapState
 local function current(session, state)
   if not valid(session, state) or not state.rendered then
     return
@@ -40,10 +64,13 @@ local function current(session, state)
   end
 end
 
+---@param session MdReadableSession
+---@return MdReadableMinimapState?
 function M.get(session)
   return states[session]
 end
 
+---@param session MdReadableSession
 function M.update(session)
   local state = states[session]
   if not state then
@@ -127,6 +154,9 @@ function M.update(session)
   current(session, state)
 end
 
+---@param session MdReadableSession
+---@param provider_id string
+---@param items? MdReadableMinimapItem[]
 function M.set_annotations(session, provider_id, items)
   local state = states[session]
   if not state then
@@ -137,6 +167,9 @@ function M.set_annotations(session, provider_id, items)
   M.update(session)
 end
 
+---@param session MdReadableSession
+---@return integer? win
+---@return string? err
 function M.open(session)
   if states[session] then
     return states[session].win
@@ -177,7 +210,7 @@ function M.open(session)
       vim.api.nvim_win_set_config(session.read_win, { width = available })
     end
     vim.api.nvim_buf_delete(buf, { force = true })
-    return nil, win
+    return nil, win --[[@as string]]
   end
   local state = {
     win = win,
@@ -256,6 +289,9 @@ function M.open(session)
   return win
 end
 
+---@param session MdReadableSession
+---@return integer? win
+---@return string? err
 function M.focus(session)
   local win, err = M.open(session)
   if win then
@@ -264,6 +300,7 @@ function M.focus(session)
   return win, err
 end
 
+---@param session MdReadableSession
 function M.close(session)
   local state = states[session]
   if not state then
@@ -290,6 +327,9 @@ function M.close(session)
   end
 end
 
+---@param session MdReadableSession
+---@return integer|false|nil win False when closed
+---@return string? err
 function M.toggle(session)
   if states[session] then
     M.close(session)

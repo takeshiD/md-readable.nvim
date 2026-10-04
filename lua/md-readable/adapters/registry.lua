@@ -1,4 +1,5 @@
 local M = {}
+---@type MdReadableNavRegistryEntry[]
 M.entries = {
   { id = "mdbook", files = { "book.toml" } },
   { id = "honkit", files = { "book.json", "book.js" } },
@@ -8,6 +9,11 @@ M.entries = {
   { id = "docusaurus", files = { "docusaurus.config.ts", "docusaurus.config.js", "docusaurus.config.mjs" } },
   { id = "astro", files = { "astro.config.mjs", "astro.config.ts", "astro.config.js" } },
 }
+---@class MdReadableNavRegistryEntry
+---@field id string Adapter module name under md-readable.adapters
+---@field files string[] Root-relative config files that identify the generator
+---@param id? string
+---@return MdReadableNavAdapter?
 function M.get(id)
   for _, entry in ipairs(M.entries) do
     if entry.id == id then

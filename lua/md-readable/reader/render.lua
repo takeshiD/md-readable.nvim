@@ -1,4 +1,21 @@
+---@alias MdReadableBlockRenderer fun(block:MdReadableBlock, ctx:MdReadableRenderContext)
+---@class MdReadableRenderMediaOptions
+---@field enabled? boolean false reserves no rows for media
+---@field image_height? integer Rows reserved per image or diagram
+---@field reserve? fun(descriptor:MdReadableRenderedImage):boolean false when the media cannot be drawn
+-- Render options: a (partial) configuration plus per-session state.
+---@class MdReadableRenderOptions: MdReadableUserConfig
+---@field tabstop? integer
+---@field expanded? table<integer, boolean> See MdReadableSession.expanded
+---@field tabs? table<integer, integer> See MdReadableSession.tabs
+---@field media? MdReadableRenderMediaOptions
+---@field image_height? integer Overrides media.image_height
+---@field max_url_width? integer
+---@class MdReadableRenderModule
+---@field renderers table<string, MdReadableBlockRenderer> Custom renderers by block type
 local M = { renderers = {} }
+---@param kind string Block type
+---@param renderer MdReadableBlockRenderer
 function M.register(kind, renderer)
   M.renderers[kind] = renderer
 end
@@ -8,8 +25,12 @@ end
 -- source_rows lists every original row contributing to each display line, while
 -- row_map retains the first contributor. node_complete=false prevents copying a
 -- truncated visible link label as though its omitted tail had been selected.
+---@param document MdReadableDocument
+---@param opts? MdReadableRenderOptions
+---@return MdReadableRendered
 function M.render(document, opts)
   opts = opts or {}
+  ---@type MdReadableRendered
   local result = {
     lines = {},
     segments = {},
@@ -21,12 +42,16 @@ function M.render(document, opts)
     controls = {},
     code_blocks = {},
   }
+  ---@type MdReadableRenderContext
+  ---@diagnostic disable-next-line: missing-fields -- emit and body are assigned below
   local ctx = { document = document, opts = opts, result = result }
   local width = math.max(1, opts.width or 80)
   local media = opts.media or {}
   local image_height = media.enabled == false and 0 or (opts.image_height or media.image_height or 8)
   -- Records a media descriptor and reserves its rows only when it can be
   -- drawn; media.reserve rejects known failures (missing file, no mmdc, ...).
+  ---@param descriptor table MdReadableRenderedImage without row, width and height
+  ---@param source_row integer
   local function add_media(descriptor, source_row)
     descriptor.row, descriptor.width = #result.lines, width
     descriptor.height = image_height
@@ -38,10 +63,19 @@ function M.render(document, opts)
       ctx.emit({}, source_row, false)
     end
   end
+  -- Adds or extends a segment; display columns a..b map to source_a..source_b.
+  ---@param item MdReadableRenderPiece
+  ---@param row integer Display row (0-based)
+  ---@param a integer
+  ---@param b integer Exclusive
+  ---@param source_row integer
+  ---@param source_a? integer nil for decoration (no segment)
+  ---@param source_b? integer
   local function add_segment(item, row, a, b, source_row, source_a, source_b)
     if source_a == nil then
       return
     end
+    ---@cast source_b integer
     local previous = result.segments[#result.segments]
     local kind = item.kind or "text"
     if
@@ -73,6 +107,10 @@ function M.render(document, opts)
       }
     end
   end
+  ---@param pieces MdReadableRenderPiece[]
+  ---@param source_row integer
+  ---@param wrap? boolean false keeps the pieces on one display line
+  ---@return integer first_row First emitted display row (0-based)
   function ctx.emit(pieces, source_row, wrap)
     local first_row, line, cells, row = #result.lines, "", 0, #result.lines
     local contributors, seen = {}, {}
@@ -127,6 +165,8 @@ function M.render(document, opts)
     flush()
     return first_row
   end
+  ---@param char string
+  ---@return boolean
   local function cjk(char)
     local cp = vim.fn.char2nr(char)
     return (cp >= 0x2E80 and cp <= 0xA4CF)
@@ -136,6 +176,11 @@ function M.render(document, opts)
       or (cp >= 0xFF00 and cp <= 0xFFEF)
       or (cp >= 0x20000 and cp <= 0x323AF)
   end
+  ---@param doc MdReadableDocument
+  ---@param row integer
+  ---@return MdReadableRenderPiece[] pieces
+  ---@return boolean hard Ends with a hard line break
+  ---@return string text Visible text
   local function paragraph_pieces(doc, row)
     local line = doc.lines[row + 1]
     local slashes = line:match("(\\+)$") or ""
@@ -150,7 +195,12 @@ function M.render(document, opts)
     end
     return pieces, hard, table.concat(visible)
   end
+  ---@type fun(blocks:MdReadableBlock[], doc:MdReadableDocument)
   local render_blocks
+  ---@param start_row integer
+  ---@param end_row integer Exclusive
+  ---@param indent? integer Leading columns removed from each row
+  ---@param strip_quote? boolean Remove blockquote markers
   function ctx.body(start_row, end_row, indent, strip_quote)
     local parent_document = ctx.document
     local lines = parent_document.lines
@@ -186,6 +236,8 @@ function M.render(document, opts)
   end
   render_blocks = function(blocks, doc)
     local consumed = {}
+    ---@param block? MdReadableBlock
+    ---@return boolean
     local function joinable(block)
       if not block or block.type ~= "paragraph" then
         return false

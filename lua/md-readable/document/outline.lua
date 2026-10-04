@@ -1,4 +1,17 @@
 local M = {}
+---@class MdReadableHeading
+---@field id string Unique slug (GitHub style)
+---@field title string Plain title without inline markup
+---@field level integer 1-6
+---@field start_row integer
+---@field range MdReadableRange Heading rows
+---@field sectionRange MdReadableRange Up to the next heading of the same or higher level
+---@field children MdReadableHeading[]
+---@field parent? string Parent heading id
+--- Also links each heading block to its entry through `block.heading`.
+---@param blocks MdReadableBlock[]
+---@param lines string[]
+---@return MdReadableHeading[]
 function M.build(blocks, lines)
   local result, stack, seen = {}, {}, {}
   for _, block in ipairs(blocks) do
