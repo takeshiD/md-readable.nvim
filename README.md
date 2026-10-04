@@ -52,7 +52,23 @@ Load this repository with your plugin manager. For example, while this implement
 {
   "takeshiD/md-readable.nvim",
   branch = "feat/readable-implementation",
-  opts = {},
+  cmd = "MdReadable",
+  -- Keys that open a reading view (no global keymaps are installed, so map them here)
+  keys = {
+    { "<leader>mr", "<cmd>MdReadable<cr>", ft = "markdown", desc = "Reader: current window" },
+    { "<leader>mv", "<cmd>MdReadable vert<cr>", ft = "markdown", desc = "Reader: vertical split" },
+    { "<leader>mf", "<cmd>MdReadable float<cr>", ft = "markdown", desc = "Reader: float" },
+  },
+  opts = {
+    -- Reading-buffer keymaps, merged per key with the defaults
+    keymaps = {
+      ["]]"] = { mode = "n", "actions.heading_next", desc = "Next Heading" },
+      ["[["] = { mode = "n", "actions.heading_prev", desc = "Previous Heading" },
+      ["go"] = { mode = "n", "actions.toggle_minimap", desc = "Toggle Minimap" },
+      ["g?"] = { mode = "n", "actions.show_help", desc = "Show Help" },
+      ["za"] = false, -- disable a default key
+    },
+  },
 }
 ```
 
@@ -66,7 +82,7 @@ Open a Markdown file and run one of:
 :MdReadable close
 ```
 
-Setup is optional. Assign commands to your own keys or autocmds; the plugin does not install global keymaps. In reading buffers, `y` copies source Markdown and Ctrl-O/Ctrl-I use the original-document jumplist. `/`, `?`, `n`, and `N` search the displayed text.
+Setup is optional. See [Keymaps](#keymaps) for reading-buffer keys; every action is also available as a command.
 
 | Command after `MdReadable` | Action |
 | --- | --- |
@@ -94,7 +110,8 @@ require("md-readable").setup({
   width = 100, -- body width; floats are at most width + 4 columns
   center = true, -- center the body in wider windows
   links = { icons = "unicode" }, -- "ascii", false, or a table of markers per kind
-  keymaps = false, -- true adds q and Enter only in reading buffers
+  keymaps = {}, -- reading-buffer keymaps; see Keymaps below
+  use_default_keymaps = true,
   table = { max_cell_width = 28 },
   focus = { coefficient = 0.5, span = 0 },
   minimap = { width = 14, mode = "braille", git = true, diagnostic = true },
@@ -107,6 +124,45 @@ require("md-readable").setup({
 At narrow widths, navigation uses a floating chooser to preserve the reading area. Nerd Font glyphs are not required; an ASCII minimap mode is available. Git annotations compare the index with the original buffer, including unsaved changes. Diagnostics come from Neovim's standard diagnostic API.
 
 Dynamic SSG configuration is not executed. Supply a custom Lua/JSON navigation provider when needed; see `:help md-readable-providers` and the [SSG compatibility table](tests/fixtures/navigation/SUPPORTED.md).
+
+# Keymaps
+
+No global keymaps are installed; map the commands that open a reading view yourself, as in the lazy.nvim example above. Reading buffers get these defaults. Press `g?` to list the active keymaps.
+
+| Key | Action | Description |
+| --- | --- | --- |
+| `q` | `actions.close` | Close the reading view |
+| `<CR>` | `actions.open` | Open the link, cell, tab or details at the cursor |
+| `g?` | `actions.show_help` | List keymaps |
+| `gs` | `actions.source` | Jump to the source position |
+| `]]` / `[[` | `actions.heading_next` / `actions.heading_prev` | Next / previous heading |
+| `]p` / `[p` | `actions.next_page` / `actions.prev_page` | Next / previous page |
+| `gn` | `actions.toggle_nav` | Book navigation |
+| `gO` | `actions.outline` | Page headings |
+| `gl` | `actions.links` | Document links |
+| `g/` | `actions.search` | Search the source, including omitted text |
+| `gz` | `actions.toggle_focus` | Toggle Focus; in Visual mode, focus the selected lines |
+| `go` | `actions.toggle_minimap` | Minimap |
+| `za` | `actions.expand` | Expand or collapse omitted content |
+
+`actions.select`, `actions.focus_minimap`, `actions.next_tab`, `actions.refresh` and `actions.diagnostics` are also available. Action names accept `-` or `_` (`actions.heading-next` works too). These keys are always installed and are not configured here:
+
+- `y` / `Y`: copy the corresponding Markdown source
+- `/` `?` `n` `N`: search the displayed text
+- Ctrl-O / Ctrl-I: follow the source jumplist
+
+Each `keymaps` value can be:
+
+```lua
+keymaps = {
+  ["gh"] = "actions.show_help", -- an action name
+  ["<leader>x"] = function() vim.cmd("MdReadable theme dark") end, -- a function
+  ["gz"] = { "actions.toggle_focus", mode = { "n", "x" }, desc = "Focus", nowait = true }, -- mode, desc and vim.keymap.set opts
+  ["q"] = false, -- disable a default
+}
+```
+
+Set `use_default_keymaps = false` to install only the keys you list, or `keymaps = false` to install no reading-buffer keymaps.
 
 # Picker previews
 

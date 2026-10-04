@@ -2,7 +2,9 @@ local M = {}
 M.defaults = {
   width = 100,
   debounce = 100,
-  keymaps = false,
+  -- Reading-buffer keymaps, merged with require("md-readable.keymaps").defaults.
+  keymaps = {},
+  use_default_keymaps = true,
   theme = "default",
   heading_rules = true,
   center = true,
@@ -18,9 +20,21 @@ M.defaults = {
   adapters = {},
 }
 M.options = vim.deepcopy(M.defaults)
+M.options.keymaps = require("md-readable.keymaps").merge(nil, true)
 function M.setup(opts)
   assert(opts == nil or type(opts) == "table", "md-readable.setup expects a table")
-  local value = vim.tbl_deep_extend("force", vim.deepcopy(M.defaults), opts or {})
+  opts = opts or {}
+  local keymaps = opts.keymaps
+  assert(
+    keymaps == nil or type(keymaps) == "boolean" or type(keymaps) == "table",
+    "keymaps must be a table, true or false"
+  )
+  -- keymaps are merged per key, not deeply, so a user entry replaces the default.
+  local value = vim.tbl_deep_extend("force", vim.deepcopy(M.defaults), vim.tbl_extend("force", opts, { keymaps = {} }))
+  if keymaps == true then
+    keymaps = nil
+  end
+  value.keymaps = require("md-readable.keymaps").merge(keymaps, value.use_default_keymaps)
   assert(vim.tbl_contains({ "integrated", "separate", "ondemand" }, value.layout), "invalid reader layout")
   assert(type(value.width) == "number" and value.width >= 12, "reader width must be >= 12")
   assert(type(value.debounce) == "number" and value.debounce >= 0, "debounce must be nonnegative")

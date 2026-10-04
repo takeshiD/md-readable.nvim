@@ -519,14 +519,7 @@ function M.open(mode)
       self:native_jump(key, vim.v.count1)
     end, { buffer = buf, desc = "Follow native source jumplist" })
   end
-  if config.keymaps then
-    vim.keymap.set("n", "q", function()
-      M.close(self)
-    end, { buffer = buf, desc = "Close reading view" })
-    vim.keymap.set("n", "<CR>", function()
-      require("md-readable").action("open")
-    end, { buffer = buf, desc = "Open reader item" })
-  end
+  require("md-readable.keymaps").attach(buf, config.keymaps)
   self:attach_source()
   local ok, err = pcall(function()
     self:load_navigation()

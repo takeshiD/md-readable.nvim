@@ -54,7 +54,23 @@ AGENTS.mdに記載したプラグインは参考実装であり、必須依存�
 {
   "takeshiD/md-readable.nvim",
   branch = "feat/readable-implementation",
-  opts = {},
+  cmd = "MdReadable",
+  -- 読書表示を開くキー（グローバルキーマップは追加しないので、ここで割り当てる）
+  keys = {
+    { "<leader>mr", "<cmd>MdReadable<cr>", ft = "markdown", desc = "Reader: 同じウィンドウ" },
+    { "<leader>mv", "<cmd>MdReadable vert<cr>", ft = "markdown", desc = "Reader: 左右分割" },
+    { "<leader>mf", "<cmd>MdReadable float<cr>", ft = "markdown", desc = "Reader: float" },
+  },
+  opts = {
+    -- 読書bufferのキーマップ。既定値に対してキー単位で上書き・追加・無効化する
+    keymaps = {
+      ["]]"] = { mode = "n", "actions.heading_next", desc = "Next Heading" },
+      ["[["] = { mode = "n", "actions.heading_prev", desc = "Previous Heading" },
+      ["go"] = { mode = "n", "actions.toggle_minimap", desc = "Toggle Minimap" },
+      ["g?"] = { mode = "n", "actions.show_help", desc = "Show Help" },
+      ["za"] = false, -- 既定のキーを無効化
+    },
+  },
 }
 ```
 
@@ -68,7 +84,7 @@ Markdownを開いて実行します。
 :MdReadable close
 ```
 
-setupは任意です。コマンドを好みのキーやautocmdへ割り当ててください。グローバルキーマップは追加しません。読書bufferの`y`は原文をコピーし、Ctrl-O / Ctrl-Iは原文のジャンプ履歴をたどります。`/`・`?`・`n`・`N`は表示テキストを検索します。
+setupは任意です。読書bufferのキーマップは[キーマップ](#キーマップ)を参照してください。各操作はコマンドとしても実行できます。
 
 | `MdReadable`の後に続ける操作 | 内容 |
 | --- | --- |
@@ -96,7 +112,8 @@ require("md-readable").setup({
   width = 100, -- 本文幅。floatは最大でwidth + 4列
   center = true, -- 広いwindowでは本文を中央に寄せる
   links = { icons = "unicode" }, -- "ascii"・false・種別ごとの表も可
-  keymaps = false, -- trueなら読書bufferにqとEnterを追加
+  keymaps = {}, -- 読書bufferのキーマップ。後述の「キーマップ」を参照
+  use_default_keymaps = true,
   table = { max_cell_width = 28 },
   focus = { coefficient = 0.5, span = 0 },
   minimap = { width = 14, mode = "braille", git = true, diagnostic = true },
@@ -109,6 +126,45 @@ require("md-readable").setup({
 狭い画面では本文幅を優先し、目次をfloatingで選択できます。Nerd Fontは不要で、ミニマップには`mode = "ascii"`もあります。Git差分はindexと未保存編集を含む原文を比較し、LSP診断はNeovim標準の診断情報から取得します。
 
 動的なSSG設定は実行しません。必要に応じてLua / JSONの共通ナビゲーションproviderを指定できます。詳細は`:help md-readable-providers`と[SSG対応表](tests/fixtures/navigation/SUPPORTED.md)を参照してください。
+
+# キーマップ
+
+グローバルキーマップは追加しません。読書表示を開くキーは上のlazy.nvimの例のように`keys`で割り当ててください。読書bufferには次のキーマップが既定で入ります。`g?`で現在のキーマップ一覧を表示できます。
+
+| キー | action | 内容 |
+| --- | --- | --- |
+| `q` | `actions.close` | 読書表示を閉じる |
+| `<CR>` | `actions.open` | カーソル位置のリンク・セル・タブ・detailsを開く |
+| `g?` | `actions.show_help` | キーマップ一覧 |
+| `gs` | `actions.source` | 対応する原文の位置へ |
+| `]]` / `[[` | `actions.heading_next` / `actions.heading_prev` | 次・前の見出し |
+| `]p` / `[p` | `actions.next_page` / `actions.prev_page` | 次・前のページ |
+| `gn` | `actions.toggle_nav` | 書籍目次 |
+| `gO` | `actions.outline` | ページ見出し |
+| `gl` | `actions.links` | リンク一覧 |
+| `g/` | `actions.search` | 省略した内容を含む原文検索 |
+| `gz` | `actions.toggle_focus` | Focus切替。Visual選択中は選択行にFocus |
+| `go` | `actions.toggle_minimap` | ミニマップ |
+| `za` | `actions.expand` | 省略内容の展開・折りたたみ |
+
+このほか`actions.select`、`actions.focus_minimap`、`actions.next_tab`、`actions.refresh`、`actions.diagnostics`を割り当てられます。action名の`-`と`_`はどちらでも構いません（`actions.heading-next`も可）。次のキーは常に有効で、設定では変更しません。
+
+- `y` / `Y`: 対応するMarkdown原文をコピー
+- `/` `?` `n` `N`: 表示テキストを検索
+- Ctrl-O / Ctrl-I: 原文のジャンプ履歴をたどる
+
+`keymaps`の各値には次の形式を指定できます。
+
+```lua
+keymaps = {
+  ["gh"] = "actions.show_help", -- action名
+  ["<leader>x"] = function() vim.cmd("MdReadable theme dark") end, -- 関数
+  ["gz"] = { "actions.toggle_focus", mode = { "n", "x" }, desc = "Focus", nowait = true }, -- mode・desc・vim.keymap.setのopts
+  ["q"] = false, -- 既定を無効化
+}
+```
+
+既定を使わず指定したキーだけにする場合は`use_default_keymaps = false`、読書bufferのキーマップをすべて無効にする場合は`keymaps = false`を指定します。
 
 # picker連携
 
