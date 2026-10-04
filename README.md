@@ -72,7 +72,7 @@ Setup is optional. Assign commands to your own keys or autocmds; the plugin does
 | --- | --- |
 | `nav`, `outline`, `select` | Book tree, page headings, adapter/tree selection |
 | `prev`, `next`, `heading-prev`, `heading-next` | Chapter/heading navigation |
-| `links`, `open` | Link list or open the item/cell under the cursor |
+| `links`, `open` | Floating link list (Enter open, o show in text, q close) or open the item/cell under the cursor |
 | `search [pattern]` | Search the complete original, including hidden text |
 | `focus on/off/toggle` | Limelight-style paragraph focus; a visual range fixes the focused lines |
 | `theme default/dark/light` | Change only the reading window's colors |

@@ -565,6 +565,10 @@ function M.close(self)
   self.generation = self.generation + 1
   service("ui.navigation", "close", self)
   service("minimap", "close", self)
+  if self._links_panel then
+    pcall(vim.api.nvim_win_close, self._links_panel.win, true)
+    self._links_panel = nil
+  end
   service("providers.image", "close", self)
   service("reader.focus", "close", self)
   service("ui.theme", "close", self.read_win)

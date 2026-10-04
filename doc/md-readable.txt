@@ -33,7 +33,7 @@ NAVIGATION                                               *md-readable-navigation
     :MdReadable next             Next available document
     :MdReadable heading-prev     Previous page heading
     :MdReadable heading-next     Next page heading
-    :MdReadable links            Choose a document link
+    :MdReadable links            List document links in a floating panel
     :MdReadable open             Open the link/control/cell at the cursor
     :MdReadable search [pattern]  Search all source, including hidden text
     :MdReadable diagnostics      Navigation and media errors in quickfix
@@ -45,6 +45,12 @@ visited by prev/next. Missing anchors do not cause an arbitrary jump.
 
 In navigation buffers: j/k move, Enter visits, h/l fold/unfold, q or Esc closes,
 Tab returns to the document, t selects tree/adapter, r refreshes, ? diagnostics.
+
+The links panel lists each link as "label  target  [kind]" with kinds web,
+doc, anchor, file, image and missing; long targets are clipped with ...
+Enter opens the link, o moves the reading cursor to it, q or Esc closes.
+Footnotes are not listed.
+
 The three layouts are integrated, separate, and ondemand. Narrow windows use
 a floating chooser instead of squeezing the document.
 

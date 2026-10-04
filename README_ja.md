@@ -74,7 +74,7 @@ setupは任意です。コマンドを好みのキーやautocmdへ割り当て�
 | --- | --- |
 | `nav` / `outline` / `select` | 書籍目次、ページ見出し、adapter・treeの選択 |
 | `prev` / `next` / `heading-prev` / `heading-next` | 章・見出し移動 |
-| `links` / `open` | リンク一覧、カーソル位置のリンク・セルを開く |
+| `links` / `open` | リンク一覧のfloat（Enterで開く、oで本文の位置へ、qで閉じる）、カーソル位置のリンク・セルを開く |
 | `search [pattern]` | 省略した内容を含む原文検索 |
 | `focus on/off/toggle` | 段落Focus。Visual範囲を指定して起動すると行範囲を固定 |
 | `theme default/dark/light` | 読書表示だけの配色変更 |

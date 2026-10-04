@@ -690,4 +690,5 @@ function M.select(session)
     end)
   end
 end
+M.clip = clip
 return M
