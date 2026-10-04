@@ -79,7 +79,6 @@
 ---@field tabs table<integer, integer> Source row of a tabs block to selected tab (1-based)
 ---@field positions table<string, integer[]> Path to last {row, col} (0-based source)
 ---@field attached table
----@field saved_options table<string, any> Window options restored on close (mode "current")
 ---@field group integer Autocommand group
 ---@field busy? boolean Suppresses cursor synchronization while moving windows
 ---@field pending? integer Debounce counter of scheduled refreshes

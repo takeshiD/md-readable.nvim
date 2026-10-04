@@ -256,6 +256,11 @@ function M.render(document, opts)
       if consumed[block_index] then -- Joined into the preceding ordinary paragraph.
       elseif M.renderers[block.type] then
         M.renderers[block.type](block, ctx)
+      elseif block.type == "table" and (opts.table or {}).enable == false then
+        for row = block.start_row, block.end_row - 1 do
+          local text = doc.lines[row + 1]
+          ctx.emit({ { text = text, source_start = 0, source_end = #text } }, row, true)
+        end
       elseif block.type == "table" then
         require("md-readable.renderers.table").render(block, ctx)
       elseif block.type == "callout" or block.type == "details" or block.type == "tabs" then
@@ -306,16 +311,48 @@ function M.render(document, opts)
           false
         )
       elseif block.type == "code" then
-        local label = block.language ~= "" and block.language or "Code"
-        local header_row = ctx.emit({ { text = "┌ " .. label, group = "MdReadableMuted" } }, block.start_row, true)
+        -- Shiki-like panel: a top row carrying the icon and language in the
+        -- chosen corner, one blank column on the left, a bottom row, and the
+        -- block background across the full body width. All of it is decoration.
+        local code_opts = opts.code or {}
+        local first_highlight = #result.highlights + 1
+        local label, label_width = {}, 0
+        if block.language ~= "" then
+          local icon, icon_group
+          if code_opts.icons then
+            icon, icon_group = require("md-readable.renderers.code").icon(block.language, code_opts.icons)
+          end
+          if icon then
+            label[#label + 1] = { text = icon .. " ", group = icon_group }
+          end
+          label[#label + 1] = { text = block.language, group = "MdReadableCodeBlockLabel" }
+        end
+        for _, item in ipairs(label) do
+          label_width = label_width + vim.fn.strdisplaywidth(item.text)
+        end
+        local lead = code_opts.label == "right" and math.max(1, width - label_width - 1) or 1
+        local header_row = ctx.emit({ { text = string.rep(" ", lead) }, unpack(label) }, block.start_row, false)
         local body_lines, body_rows = {}, {}
         for row = block.body_start, block.body_end - 1 do
           local text = doc.lines[row + 1]
           local offset = math.min(block.indent or 0, #text)
           body_lines[#body_lines + 1] = text:sub(offset + 1)
           body_rows[#body_rows + 1] = ctx.emit({
+            { text = " " },
             { text = text:sub(offset + 1), source_start = offset, source_end = #text, group = "MdReadableCodeBlock" },
           }, row, true)
+        end
+        ctx.emit({}, block.end_row - 1, false)
+        -- Background first, so labels and syntax colors are drawn over it.
+        local fill = {}
+        for row = header_row, #result.lines - 1 do
+          local line = result.lines[row + 1]
+          line = line .. string.rep(" ", math.max(0, width - vim.fn.strdisplaywidth(line)))
+          result.lines[row + 1] = line
+          fill[#fill + 1] = { row = row, start_col = 0, end_col = #line, group = "MdReadableCodeBlock" }
+        end
+        for index, item in ipairs(fill) do
+          table.insert(result.highlights, first_highlight + index - 1, item)
         end
         result.code_blocks[#result.code_blocks + 1] = {
           row = header_row,
@@ -325,7 +362,7 @@ function M.render(document, opts)
           body_end = block.body_end,
           language = block.language,
         }
-        for _, hl in ipairs(require("md-readable.renderers.code").highlights(body_lines, block.language)) do
+        for _, hl in ipairs(require("md-readable.renderers.code").highlights(body_lines, block.language, opts.code)) do
           local source_row = block.body_start + hl.row
           for _, segment in ipairs(result.segments) do
             if segment.source_row == source_row and segment.row >= header_row then

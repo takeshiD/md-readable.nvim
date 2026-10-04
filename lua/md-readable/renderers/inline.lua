@@ -40,6 +40,9 @@ M.icon_sets = {
 ---@param kind MdReadableLinkKind
 ---@return string?
 function M.icon(opts, kind)
+  if (opts.links or {}).enable == false then
+    return nil
+  end
   local setting = (opts.links or {}).icons
   local set = type(setting) == "table" and vim.tbl_extend("force", M.icon_sets.unicode, setting) or M.icon_sets[setting]
   return set and set[kind] or nil
@@ -55,6 +58,8 @@ end
 ---@return MdReadableRenderPiece[]
 function M.parse(line, row, links, opts, start_col, end_col)
   opts, start_col, end_col = opts or {}, start_col or 0, end_col or #line
+  -- links.enable = false keeps labels as plain text: no link highlight or marker.
+  local link_group = (opts.links or {}).enable ~= false and "MdReadableLink" or nil
   local by_start = {}
   for _, link in ipairs(links or {}) do
     if link.range.start.row == row then
@@ -96,13 +101,13 @@ function M.parse(line, row, links, opts, start_col, end_col)
           add(piece(line:sub(i, link.range["end"].byteColumn), i - 1, link.range["end"].byteColumn, "MdReadableMuted"))
         elseif link.kind == "image" then
           local item =
-            piece(link.text ~= "" and link.text or "Image", link.label_start, link.label_end, "MdReadableLink", "node")
+            piece(link.text ~= "" and link.text or "Image", link.label_start, link.label_end, link_group, "node")
           item.full_start, item.full_end = link.range.start.byteColumn, link.range["end"].byteColumn
           add({ text = "[Image: " })
           add(item)
           add({ text = "]" })
         else
-          local item = piece(link.text, link.label_start, link.label_end, "MdReadableLink", "node")
+          local item = piece(link.text, link.label_start, link.label_end, link_group, "node")
           item.full_start, item.full_end = link.range.start.byteColumn, link.range["end"].byteColumn
           local max_url = opts.max_url_width or 48
           if (link.style == "bare" or link.style == "autolink") and vim.fn.strdisplaywidth(item.text) > max_url then
@@ -122,7 +127,7 @@ function M.parse(line, row, links, opts, start_col, end_col)
           else
             local before = #result
             by_start[i] = nil
-            parse(link.label_start + 1, link.label_end, "MdReadableLink")
+            parse(link.label_start + 1, link.label_end, link_group)
             by_start[i] = link
             for index = before + 1, #result do
               local label = result[index]

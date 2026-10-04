@@ -39,17 +39,18 @@ end
 ---@param opts MdReadablePreviewOptions
 ---@return MdReadableConfig
 local function config(opts)
-  if opts.config then
-    return vim.deepcopy(opts.config --[[@as MdReadableConfig]])
-  end
   local ok, module = pcall(require, "md-readable.config")
-  return ok and module.get() or { images = { enabled = false }, table = { max_cell_width = 28 } }
+  if opts.config then
+    local value = vim.deepcopy(opts.config --[[@as MdReadableConfig]])
+    return ok and module.normalize(value) or value
+  end
+  return ok and module.get() or { images = { enable = false }, table = { max_cell_width = 28 } }
 end
 ---@param media? table
 ---@param configuration MdReadableConfig
 ---@return boolean
 local function capable(media, configuration)
-  if not media or (configuration.images or {}).enabled == false then
+  if not media or (configuration.images or {}).enable == false then
     return false
   end
   local ok, value = pcall(media.capabilities)

@@ -7,7 +7,6 @@ function M.check()
     vim.health.error("Neovim >= 0.12 is required")
   end
   for _, item in ipairs({
-    { "git", "minimap Git changes" },
     { "mmdc", "Mermaid" },
     { "magick", "image conversion" },
     { "curl", "permitted remote images" },

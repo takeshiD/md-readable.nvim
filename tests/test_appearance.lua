@@ -16,6 +16,7 @@ return function(t)
     api.setup(vim.tbl_deep_extend("force", {
       navigation = { auto_open = false },
       images = { enabled = false },
+      minimap = { enable = false },
       debounce = 0,
     }, config or {}))
     local buf = vim.api.nvim_create_buf(true, false)

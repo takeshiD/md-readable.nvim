@@ -14,7 +14,7 @@
     - リンク種別マーカー（外部 ↗、文書 →、アンカー #、ファイル ⧉。`links.icons`でASCII化・無効化）
 - Navigation
     - ミニマップ
-        - 原文に対応するGit差分・LSP診断の表示
+        - 見出し・コードブロックの色分け、カーソル移動で本文が追従
     - 見出しツリー
     - Focus Mode
     - 主要SSGの目次・前後
@@ -43,7 +43,7 @@ AGENTS.mdに記載したプラグインは参考実装であり、必須依存�
 # Requirements
 - Neovim >= 0.12
 - 画像表示にはKitty graphics対応端末が必要です。WezTerm / Ghosttyを対象としていますが、端末での画像の目視確認は未実施です。
-- 任意依存: 画像変換にImageMagick等、Mermaidに導入済みの`mmdc`、許可した外部画像の取得に`curl`、Git差分に`git`。
+- 任意依存: 画像変換にImageMagick等、Mermaidに導入済みの`mmdc`、許可した外部画像の取得に`curl`。
 - Telescope / Snacksは連携を利用する場合だけ必要です。ツールを自動インストールすることはありません。
 
 # 使い方
@@ -53,8 +53,6 @@ AGENTS.mdに記載したプラグインは参考実装であり、必須依存�
 ```lua
 {
   "takeshiD/md-readable.nvim",
-  branch = "feat/readable-implementation",
-  cmd = "MdReadable",
   -- 読書表示を開くキー（グローバルキーマップは追加しないので、ここで割り当てる）
   keys = {
     { "<leader>mr", "<cmd>MdReadable<cr>", ft = "markdown", desc = "Reader: 同じウィンドウ" },
@@ -70,6 +68,13 @@ AGENTS.mdに記載したプラグインは参考実装であり、必須依存�
       ["g?"] = { mode = "n", "actions.show_help", desc = "Show Help" },
       ["za"] = false, -- 既定のキーを無効化
     },
+    -- 各機能の有効・無効（既定はすべてtrue）
+    links = { enable = true }, -- false: リンクの強調表示と種別記号を出さない
+    table = { enable = true }, -- false: 表を整形せずMarkdownのまま表示
+    focus = { enable = true }, -- 読書表示を開いた時点でFocusを有効にする
+    minimap = { enable = true }, -- 読書表示を開いた時点でミニマップを表示する
+    images = { enable = true },
+    mermaid = { enable = true },
   },
 }
 ```
@@ -94,7 +99,7 @@ setupは任意です。読書bufferのキーマップは[キーマップ](#キ�
 | `search [pattern]`                                | 省略した内容を含む原文検索                                                                     |
 | `focus on/off/toggle`                             | 段落Focus。Visual範囲を指定して起動すると行範囲を固定                                          |
 | `theme default/dark/light`                        | 読書表示だけの配色変更                                                                         |
-| `minimap on/off/toggle/focus`                     | ミニマップ。Enterで本文へ移動                                                                  |
+| `minimap on/off/toggle/focus`                     | ミニマップ。カーソル移動で本文が追従、Enterで本文へ戻る                                        |
 | `table format`                                    | 原文の表を明示的に整列                                                                         |
 | `table row-before/row-after/row-delete [count]`   | データ行の挿入・削除                                                                           |
 | `table col-before/col-after/col-delete [count]`   | 列の挿入・削除                                                                                 |
@@ -111,19 +116,31 @@ require("md-readable").setup({
   layout = "integrated", -- integrated / separate / ondemand
   width = 100, -- 本文幅。floatは最大でwidth + 4列
   center = true, -- 広いwindowでは本文を中央に寄せる
-  links = { icons = "unicode" }, -- "ascii"・false・種別ごとの表も可
+  links = { enable = true, icons = "unicode" }, -- "ascii"・false・種別ごとの表も可
   keymaps = {}, -- 読書bufferのキーマップ。後述の「キーマップ」を参照
   use_default_keymaps = true,
-  table = { max_cell_width = 28 },
-  focus = { coefficient = 0.5, span = 0 },
-  minimap = { width = 14, mode = "braille", git = true, diagnostic = true },
-  images = { enabled = true, remote = false, height = 10 },
-  mermaid = { command = "mmdc" },
+  table = { enable = true, max_cell_width = 28 },
+  focus = { enable = true, coefficient = 0.5, span = 0 },
+  minimap = { enable = true, width = 8, mode = "braille" },
+  images = { enable = true, remote = false, height = 10 },
+  mermaid = { enable = true, command = "mmdc" },
+  code = {
+    theme = nil, -- コードブロックの配色: "github-dark"・"github-light"・"ayu-dark"・"ayu-light"・
+    --              "dracula"・"catppuccin"・"gruvbox-dark"・"gruvbox-light"・"tokyonight"
+    colors = {}, -- 個別の色（"#rrggbb"）: bg・fg・label・comment・keyword・string・number・constant・
+    --              func・type・variable・parameter・property・operator・punctuation・tag
+    label = "left", -- アイコンと言語名の位置。"left"（左上）か"right"（右上）
+    icons = nil, -- 言語アイコンの取得元。"mini"（mini.icons）か"web-devicons"。nilならアイコンなし
+  },
   -- adapters = { adapter = "mdbook", root_dir = "/path/to/book" },
 })
 ```
 
-狭い画面では本文幅を優先し、目次をfloatingで選択できます。Nerd Fontは不要で、ミニマップには`mode = "ascii"`もあります。Git差分はindexと未保存編集を含む原文を比較し、LSP診断はNeovim標準の診断情報から取得します。
+各機能の`enable`で有効・無効を切り替えます。`links.enable = false`ではリンクの強調表示と種別記号を出さず、ラベルを本文として表示します（リンク一覧と移動は使えます）。`table.enable = false`では表を整形せずMarkdownのまま表示します。`focus.enable`と`minimap.enable`は読書表示を開いた時点でFocusとミニマップを有効にします（開いた後は`gz`・`go`で切り替え）。`images.enable`・`mermaid.enable`は画像・Mermaidの描画を切り替えます。以前の`images.enabled`・`mermaid.enabled`も引き続き使えます。
+
+コードブロックは本文幅いっぱいの枠で表示し、背景はページの背景色を少し灰色に寄せた色になります。`code.theme`はShikiの配色を元にしたプリセットをコードブロックだけに適用します（背景色を含む）。`code.colors`はその上から、またはプリセットなしならカラースキームの色の上から、個別の色を上書きします。
+
+狭い画面では本文幅を優先し、目次をfloatingで選択できます。Nerd Fontは不要で、ミニマップには`mode = "ascii"`もあります。
 
 動的なSSG設定は実行しません。必要に応じてLua / JSONの共通ナビゲーションproviderを指定できます。詳細は`:help md-readable-providers`と[SSG対応表](tests/fixtures/navigation/SUPPORTED.md)を参照してください。
 
@@ -185,7 +202,20 @@ require("snacks").setup({
 nvim --headless -n -u NONE -i NONE -l tests/run.lua
 ```
 
-解析、7SSG、実際の読書Session、原文コピー、同期、狭幅UI、表編集、Git/LSP、画像プロトコル・取消し、導入済みpickerとの連携を検証します。実端末の画像と実際のmmdcの確認状況は[検証記録](docs/verification.md)に記載しています。
+解析、7SSG、実際の読書Session、原文コピー、同期、狭幅UI、表編集、ミニマップ、画像プロトコル・取消し、導入済みpickerとの連携を検証します。実端末の画像と実際のmmdcの確認状況は[検証記録](docs/verification.md)に記載しています。
 
 # License
 MIT
+
+```haskell
+-- 階乗を計算する関数（再帰）
+factorial :: Integer -> Integer
+factorial 0 = 1
+factorial n = n * factorial (n - 1)
+
+-- メイン関数
+main :: IO ()
+main = do
+    let number = 5
+    putStrLn ("Factorial of " ++ show number ++ " is " ++ show (factorial number))
+```

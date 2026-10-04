@@ -5,8 +5,6 @@ return function(t)
   local theme = require("md-readable.ui.theme")
   local mini = require("md-readable.minimap.render")
   local minimap = require("md-readable.minimap")
-  local git = require("md-readable.minimap.git")
-  local diagnostic = require("md-readable.minimap.diagnostic")
   local next_id = 1000
   local function session(lines)
     next_id = next_id + 1
@@ -22,7 +20,7 @@ return function(t)
       read_buf = read,
       read_win = win,
       source_win = original,
-      config = { focus = {}, minimap = { git = false, diagnostic = false } },
+      config = { focus = {}, minimap = {} },
       rendered = { lines = lines },
       map = {
         to_display = function(_, row, col)
@@ -33,6 +31,12 @@ return function(t)
         end,
       },
     }
+    s.sync = function(self, from)
+      self.synced = from
+    end
+    s.schedule = function(self)
+      self.scheduled = (self.scheduled or 0) + 1
+    end
     s.jump_source = function(self, row, col)
       self.jumped = { row, col }
       vim.api.nvim_win_set_cursor(self.read_win, { row + 1, col })
@@ -164,6 +168,31 @@ return function(t)
     s.cleanup()
   end)
 
+  t.test("minimap picture fills its width and height without stretching small documents", function()
+    local function extent(output)
+      local cols = 0
+      for _, line in ipairs(output.lines) do
+        local cells = vim.fn.split(line, "\\zs")
+        for i = #cells, 1, -1 do
+          if cells[i] ~= "⠀" and cells[i] ~= " " then
+            cols = math.max(cols, i)
+            break
+          end
+        end
+      end
+      return cols, #output.lines
+    end
+    local wide = {}
+    for i = 1, 130 do
+      wide[i] = string.rep("x", 100)
+    end
+    -- 100 columns into 24 dots and 130 rows into 120 dots: a whole-number stride
+    -- left 2 cells and 13 rows empty.
+    t.eq({ 12, 30 }, { extent(mini.render(wide, { width = 12, height = 30 })) })
+    t.eq({ 12, 30 }, { extent(mini.render(wide, { width = 12, height = 30, mode = "ascii" })) })
+    t.eq({ 5, 1 }, { extent(mini.render({ string.rep("x", 10) }, { width = 12, height = 30 })) })
+  end)
+
   t.test("Braille covers eight dots and ASCII preserves source mapping", function()
     local output = mini.render({ "xx", "xx", "xx", "xx" }, { width = 1, height = 1 })
     t.eq({ "⣿" }, output.lines)
@@ -177,33 +206,17 @@ return function(t)
     end
   end)
 
-  t.test("annotations use SourceMap and most severe diagnostic wins", function()
-    local output = mini.render({ "a", "b", "c", "d", "e", "f", "g", "h" }, { width = 2, height = 2 })
-    local map = {
-      to_display = function(_, row)
-        return row * 2
-      end,
-    }
-    local projected = mini.annotations(
-      { { start_row = 2, end_row = 3, severity = 4 }, { start_row = 3, end_row = 4, severity = 1 } },
-      map,
-      output
-    )
-    t.eq(nil, projected[0])
-    t.eq(1, projected[1].severity)
-  end)
-
-  t.test("minimap closes its nofile buffer and providers cleanly", function()
+  t.test("minimap is only the picture and closes its nofile buffer cleanly", function()
     theme.setup()
     local s = session({ "a", "b", "c", "d", "e" })
     local win = assert(minimap.open(s))
     local buf = vim.api.nvim_win_get_buf(win)
     t.eq("nofile", vim.bo[buf].buftype)
-    minimap.set_annotations(s, "git", { { start_row = 0, end_row = 1, kind = "add" } })
-    minimap.set_annotations(s, "diagnostic", { { start_row = 0, end_row = 1, kind = "diagnostic", severity = 1 } })
-    t.eq("+E", vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1]:sub(1, 2))
-    minimap.set_annotations(s, "git", {})
-    t.eq(" E", vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1]:sub(1, 2))
+    -- No annotation lanes: every cell of the window is picture.
+    local first = vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1]
+    t.eq(vim.api.nvim_win_get_width(win), vim.fn.strdisplaywidth(first))
+    local cell = vim.fn.char2nr(vim.fn.strcharpart(first, 0, 1))
+    t.ok(cell > 0x2800 and cell <= 0x28FF, "first column draws the document")
     minimap.focus(s)
     vim.api.nvim_win_set_cursor(win, { 2, 0 })
     local keys = vim.api.nvim_replace_termcodes("<CR>", true, false, true)
@@ -213,13 +226,6 @@ return function(t)
     t.ok(not vim.api.nvim_win_is_valid(win))
     t.ok(not vim.api.nvim_buf_is_valid(buf))
     s.cleanup()
-  end)
-
-  t.test("Git diff handles index equality, additions, changes and deletions", function()
-    t.eq({}, git.diff("a\nb\n", "a\nb\n", 2))
-    t.eq({ { start_row = 1, end_row = 2, kind = "add" } }, git.diff("a\n", "a\nb\n", 2))
-    t.eq({ { start_row = 1, end_row = 2, kind = "change" } }, git.diff("a\nb\n", "a\nc\n", 2))
-    t.eq({ { start_row = 0, end_row = 1, kind = "delete" } }, git.diff("a\nb\n", "a\n", 1))
   end)
 
   t.test("minimap supports floating readers without exceeding their width budget", function()
@@ -236,71 +242,6 @@ return function(t)
     local before = #vim.api.nvim_list_wins()
     t.eq(nil, minimap.open(s))
     t.eq(before, #vim.api.nvim_list_wins())
-    s.cleanup()
-  end)
-
-  t.test("diagnostics filter severity and update/clear standard diagnostic source", function()
-    local s = session({ "a", "b", "c" })
-    local ns = vim.api.nvim_create_namespace("ServiceTestDiagnostics")
-    vim.diagnostic.set(
-      ns,
-      s.source_buf,
-      { { lnum = 0, col = 0, severity = 1, message = "error" }, { lnum = 2, col = 0, severity = 4, message = "hint" } }
-    )
-    t.eq(2, #diagnostic.collect(s.source_buf))
-    t.eq(1, #diagnostic.collect(s.source_buf, { min = vim.diagnostic.severity.WARN }))
-    local events = {}
-    diagnostic.attach(s, function(_, provider, items)
-      events[#events + 1] = { provider, items }
-    end)
-    t.eq(2, #events[#events][2])
-    vim.diagnostic.reset(ns, s.source_buf)
-    t.eq({}, events[#events][2])
-    diagnostic.close(s)
-    s.cleanup()
-  end)
-
-  t.test("async Git compares unsaved buffer to index without writes and clears after staging", function()
-    local dir = t.tempdir()
-    local path = dir .. "/space ; file.md"
-    t.write(path, { "original" })
-    local function command(args)
-      local result = vim.system(args, { text = true }):wait()
-      t.eq(0, result.code, result.stderr)
-    end
-    command({ "git", "-C", dir, "init", "--quiet" })
-    command({ "git", "-C", dir, "add", "--", path })
-    local s = session({ "unsaved" })
-    vim.api.nvim_buf_set_name(s.source_buf, path)
-    local events = {}
-    git.attach(s, function(_, _, items)
-      events[#events + 1] = items
-    end)
-    t.ok(
-      vim.wait(3000, function()
-        return #events > 0
-      end, 20),
-      "Git initial diff timed out"
-    )
-    t.eq("change", events[#events][1].kind)
-    t.eq({ "original" }, vim.fn.readfile(path))
-    t.write(path, { "unsaved" })
-    command({ "git", "-C", dir, "add", "--", path })
-    t.ok(
-      vim.wait(4000, function()
-        return #events > 1
-      end, 20),
-      "index watcher did not detect staging"
-    )
-    t.eq({}, events[#events])
-    local before = #events
-    vim.api.nvim_buf_set_lines(s.source_buf, 0, -1, false, { "original" })
-    git.update(s)
-    t.ok(vim.wait(3000, function()
-      return #events > before
-    end, 20))
-    t.eq("change", events[#events][1].kind)
-    git.close(s)
     s.cleanup()
   end)
 end

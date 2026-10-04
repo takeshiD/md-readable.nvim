@@ -14,9 +14,9 @@ The runner reports the exact number of executed tests and exits nonzero on a fai
 
 Latest full run in this environment: **150 tests, 0 failures**. StyLua checks, `git diff --check`, help-tag generation, `:checkhealth md-readable`, and an actual command-line `MdReadable` → Focus → source smoke flow also passed.
 
-Covered behavior includes Markdown and static extensions, source byte ranges and copying, all seven SSG adapters, ambiguous detection and errors, real reading sessions in current/vertical/floating windows, unsaved changes, native jump history, missing anchors, original table edits, theme and Focus isolation, minimap Git/LSP annotations, narrow layouts, media conversion/caching/cancellation, and picker cleanup. Named/append/black-hole registers and UTF-8 rectangular copying are exercised through actual Neovim yank operations.
+Covered behavior includes Markdown and static extensions, source byte ranges and copying, all seven SSG adapters, ambiguous detection and errors, real reading sessions in current/vertical/floating windows, unsaved changes, native jump history, missing anchors, original table edits, theme and Focus isolation, the minimap, narrow layouts, media conversion/caching/cancellation, and picker cleanup. Named/append/black-hole registers and UTF-8 rectangular copying are exercised through actual Neovim yank operations.
 
-Real installed Telescope and Snacks APIs were exercised. ImageMagick was used to convert actual SVG/JPEG/WebP data. A real temporary Git repository validates index changes and unsaved buffer diffs. Media protocol tests intercept terminal output; Mermaid process tests use a controlled executable fixture.
+Real installed Telescope and Snacks APIs were exercised. ImageMagick was used to convert actual SVG/JPEG/WebP data. Media protocol tests intercept terminal output; Mermaid process tests use a controlled executable fixture.
 
 ## Performance observation
 

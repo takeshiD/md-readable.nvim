@@ -169,14 +169,16 @@ function Session:refresh()
   -- buffer text, SourceMap columns and search independent of the margin.
   local margin = self.config.center ~= false and math.max(0, math.floor((total - opts.width) / 2)) or 0
   local statuscolumn = margin > 0 and string.rep(" ", margin) or ""
-  if vim.wo[self.read_win].statuscolumn ~= statuscolumn then
-    vim.wo[self.read_win].statuscolumn = statuscolumn
+  if
+    vim.api.nvim_win_get_buf(self.read_win) == self.read_buf and vim.wo[self.read_win].statuscolumn ~= statuscolumn
+  then
+    vim.wo[self.read_win][0].statuscolumn = statuscolumn
   end
   opts.expanded, opts.tabs = self.expanded, self.tabs
   local image_ok, image = pcall(require, "md-readable.providers.image")
   local capable = image_ok and image.capabilities and image.capabilities()
   opts.media = {
-    enabled = self.config.images.enabled and not not capable,
+    enabled = self.config.images.enable and not not capable,
     image_height = self.config.images.height,
     reserve = image_ok and image.reserver and image.reserver(self) or nil,
   }
@@ -211,7 +213,6 @@ function Session:refresh()
   service("minimap", "update", self)
   service("ui.navigation", "update", self)
   service("providers.image", "update", self)
-  service("minimap.git", "update", self)
 end
 function Session:schedule()
   self.pending = (self.pending or 0) + 1
@@ -402,25 +403,18 @@ function M.open(mode)
     win = origin_win
     vim.api.nvim_win_set_buf(win, buf)
   end
-  local saved_options = {}
-  for _, option in ipairs({
-    "wrap",
-    "number",
-    "relativenumber",
-    "signcolumn",
-    "foldcolumn",
-    "conceallevel",
-    "cursorline",
-    "statuscolumn",
+  -- Local to the reading buffer (:setlocal): however it leaves the window
+  -- (close, :edit, :bdelete, ...), the window gets its own options back.
+  for option, value in pairs({
+    wrap = false,
+    number = false,
+    relativenumber = false,
+    signcolumn = "no",
+    foldcolumn = "0",
+    conceallevel = 0,
   }) do
-    saved_options[option] = vim.wo[win][option]
+    vim.wo[win][0][option] = value
   end
-  vim.wo[win].wrap = false
-  vim.wo[win].number = false
-  vim.wo[win].relativenumber = false
-  vim.wo[win].signcolumn = "no"
-  vim.wo[win].foldcolumn = "0"
-  vim.wo[win].conceallevel = 0
   ---@type MdReadableSession
   local self = setmetatable({
     id = M.next_id,
@@ -436,7 +430,6 @@ function M.open(mode)
     tabs = {},
     positions = {},
     attached = {},
-    saved_options = saved_options,
   }, Session)
   M.sessions[self.id] = self
   self.group = vim.api.nvim_create_augroup("MdReadableSession" .. self.id, { clear = true })
@@ -489,6 +482,11 @@ function M.open(mode)
             if self.closed or not valid(self.read_win) or not vim.api.nvim_buf_is_valid(target) then
               return
             end
+            -- The reading buffer was deleted (:bdelete), not merely left.
+            if not vim.api.nvim_buf_is_loaded(self.read_buf) then
+              M.close(self)
+              return
+            end
             self.busy = true
             self.source_buf = target
             switch_buffer(self.read_win, self.read_buf)
@@ -537,7 +535,8 @@ function M.open(mode)
       end)
     end,
   })
-  vim.api.nvim_create_autocmd("BufWipeout", {
+  -- :bdelete as well as :bwipeout of the reading buffer ends the session.
+  vim.api.nvim_create_autocmd({ "BufDelete", "BufWipeout" }, {
     group = self.group,
     buffer = buf,
     callback = function()
@@ -565,6 +564,14 @@ function M.open(mode)
   end
   if config.navigation.auto_open and self.snapshot and mode ~= "float" then
     service("ui.navigation", "open", self)
+  end
+  if config.focus.enable then
+    self.focus_enabled = service("reader.focus", "set", self, true)
+  end
+  -- Opened after the navigation panel so the minimap fits the remaining width;
+  -- a reading window too narrow for it simply starts without one.
+  if config.minimap.enable then
+    service("minimap", "open", self)
   end
   return self
 end
@@ -605,9 +612,6 @@ function M.close(self)
     if self.mode == "current" then
       if vim.api.nvim_buf_is_valid(self.source_buf) then
         vim.api.nvim_win_set_buf(self.read_win, self.source_buf)
-      end
-      for key, value in pairs(self.saved_options) do
-        vim.wo[self.read_win][key] = value
       end
     else
       pcall(vim.api.nvim_win_close, self.read_win, true)

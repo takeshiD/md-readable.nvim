@@ -71,7 +71,10 @@ return function(t)
         end,
       },
     })
-    t.eq({ "[Image: a]", "", "┌ mermaid", "graph TD", "after" }, rejected.lines)
+    local trimmed = vim.tbl_map(function(line)
+      return (line:gsub("%s+$", ""))
+    end, rejected.lines)
+    t.eq({ "[Image: a]", "", " mermaid", " graph TD", "", "after" }, trimmed)
     t.eq({ 0, 0 }, { rejected.images[1].height, rejected.images[2].height })
     local accepted = render(doc, {
       media = {

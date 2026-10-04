@@ -143,7 +143,7 @@ function M.update(session)
   local opts = session.config.images or {}
   if
     session.closed
-    or opts.enabled == false
+    or opts.enable == false
     or not vim.api.nvim_win_is_valid(session.read_win)
     or not M.capabilities()
   then

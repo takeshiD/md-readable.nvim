@@ -19,7 +19,6 @@ local initialized = false
 ---@type table<string, vim.api.keyset.highlight>
 local defaults = {
   MdReadableHeading = { link = "Title" },
-  MdReadableCodeBlock = { link = "NormalFloat" },
   MdReadableTableBorder = { link = "Comment" },
   MdReadableTableHeader = { bold = true },
   MdReadableQuote = { link = "Comment" },
@@ -35,9 +34,7 @@ local defaults = {
   MdReadableLinkIcon = { link = "Comment" },
   MdReadableFootnote = { link = "Special" },
   MdReadableMinimapCurrent = { link = "CursorLine" },
-  MdReadableGitAdd = { link = "DiffAdd" },
-  MdReadableGitChange = { link = "DiffChange" },
-  MdReadableGitDelete = { link = "DiffDelete" },
+  MdReadableMinimapCode = { link = "MdReadableCode" },
 }
 -- Used when the colorscheme gives every Markdown heading level the same style
 -- (the built-in default does). Groups are chosen to differ in common schemes.
@@ -117,6 +114,10 @@ function M.highlights()
   if not str.fg and not result.MdReadableCode.bg then
     result.MdReadableCode = { link = "String" }
   end
+  local code = require("md-readable.config").options.code
+  for group, value in pairs(require("md-readable.ui.code_theme").highlights(code, normal.bg)) do
+    result[group] = value
+  end
   return result
 end
 
@@ -179,7 +180,9 @@ function M.apply(win, name, opts)
     vim.api.nvim_set_hl(state.ns, group, {})
   end
   -- The default theme keeps the global MdReadable* groups, so user overrides
-  -- of those groups apply to reading windows too.
+  -- of those groups apply to reading windows too. Code block groups are the
+  -- exception (set per window from the session's code options); override them
+  -- through code.colors or the highlights option.
   local definitions = {}
   local palette = presets[name]
   if palette then
@@ -195,10 +198,15 @@ function M.apply(win, name, opts)
     definitions.MdReadableLink = { fg = palette.link, underline = true }
     definitions.MdReadableCode =
       { fg = palette.code, bg = blend(tonumber(palette.muted:sub(2), 16), tonumber(palette.bg:sub(2), 16), 0.15) }
-    definitions.MdReadableCodeBlock = { fg = palette.code, bg = palette.bg }
     for _, group in ipairs({ "Quote", "Rule", "Omission", "TableBorder", "Muted", "LinkIcon" }) do
       definitions["MdReadable" .. group] = { fg = palette.muted }
     end
+  end
+  -- Code block colors follow this session's options, on any reading theme.
+  local base = palette and tonumber(palette.bg:sub(2), 16) or resolve("Normal").bg
+  local text = palette and tonumber(palette.code:sub(2), 16) or nil
+  for group, value in pairs(require("md-readable.ui.code_theme").highlights(opts.code, base, text)) do
+    definitions[group] = value
   end
   for group, value in pairs(opts.highlights or {}) do
     definitions[group] = value

@@ -70,7 +70,7 @@ end
 ---@return string?
 function M.unavailable(session, descriptor)
   local opts = session.config.mermaid or {}
-  if opts.enabled == false then
+  if opts.enable == false then
     return "Mermaid rendering is disabled"
   end
   local target = cache_target(session, source(descriptor))
@@ -87,7 +87,7 @@ end
 ---@return fun() cancel
 function M.render(session, descriptor, callback)
   local opts = session.config.mermaid or {}
-  if opts.enabled == false then
+  if opts.enable == false then
     callback(nil, "Mermaid rendering is disabled")
     return function() end
   end

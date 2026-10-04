@@ -118,7 +118,24 @@ setup({ highlights = { Group = {...} } }) overrides them per reading window.
     MdReadableTableBorder, MdReadableTableHeader, MdReadableCallout,
     MdReadableCheckbox, MdReadableTabActive, MdReadableBold,
     MdReadableItalic, MdReadableStrike, MdReadableMinimapCurrent,
-    MdReadableGitAdd, MdReadableGitChange, MdReadableGitDelete
+    MdReadableMinimapCode
+    MdReadableCodeBlock, MdReadableCodeBlockLabel, MdReadableCodeBlock{Role}
+                            Code block panel; set through the code option.
+
+CODE BLOCKS                                         *md-readable-code-blocks*
+
+Code blocks are a full-width panel: a top row with the language in the
+code.label corner, "left" or "right", the code, and a bottom row. code.icons
+adds a language icon from "mini" (mini.icons) or "web-devicons"
+(nvim-web-devicons); nil, the default, shows none. The background is the page
+background shifted slightly toward gray.
+
+code.theme picks a palette for code blocks only, taken from Shiki:
+github-dark, github-light, ayu-dark, ayu-light, dracula, catppuccin,
+gruvbox-dark, gruvbox-light, tokyonight. Without it, code keeps the
+colorscheme's tree-sitter colors. code.colors sets single colors ("#rrggbb")
+on top: bg, fg, label, comment, keyword, string, number, constant, func,
+type, variable, parameter, property, operator, punctuation, tag.
 
 TABLES                                                   *md-readable-tables*
 
@@ -138,10 +155,12 @@ MINIMAP                                                  *md-readable-minimap*
 
     :MdReadable minimap on|off|toggle|focus
 
-Hidden by default. In the minimap, Enter jumps to the reading view; q/Esc
-closes it. Braille and ASCII modes are available. Git annotations use an
-internal git provider comparing the index to unsaved source text. Diagnostic
-annotations use vim.diagnostic; no extra LSP setup plugin is required.
+Opens with the reading view unless minimap.enable is false. Moving the cursor
+in the minimap scrolls the reading view (and the source window) along while
+the minimap keeps focus; Enter jumps there and returns to the reading view;
+q/Esc closes it. Heading rows use the MdReadableHeading{1-6} colors and code
+block rows use MdReadableMinimapCode. Braille and ASCII modes are available.
+minimap.width is the window width in cells, all of it used by the picture.
 
 IMAGES AND MERMAID                                       *md-readable-images*
 
@@ -168,17 +187,27 @@ CONFIGURATION                                            *md-readable-setup*
       use_default_keymaps = true,
       heading_rules = true,
       center = true,
-      links = { icons = 'unicode' },
+      links = { enable = true, icons = 'unicode' },
       navigation = { auto_open = true, width = 28, min_body_width = 48 },
-      table = { max_cell_width = 28 },
-      focus = { coefficient = 0.5, span = 0, priority = 10 },
-      minimap = { width = 14, mode = 'braille', git = true, diagnostic = true },
-      images = { enabled = true, remote = false, height = 10 },
-      mermaid = { command = 'mmdc' },
+      table = { enable = true, max_cell_width = 28 },
+      focus = { enable = true, coefficient = 0.5, span = 0, priority = 10 },
+      minimap = { enable = true, width = 12, mode = 'braille' },
+      images = { enable = true, remote = false, height = 10 },
+      mermaid = { enable = true, command = 'mmdc' },
+      code = { theme = nil, colors = {}, label = 'left', icons = nil },
       float = { width = 0.85, height = 0.85, border = 'rounded' },
     })
 <
 setup is optional. See |md-readable-keymaps| for keymaps.
+Each feature section has an enable switch:
+  links.enable    false shows link labels as plain text without highlights
+                  or kind markers; the link list and following still work.
+  table.enable    false shows tables as their Markdown source.
+  focus.enable    Start Focus mode when a reading view opens.
+  minimap.enable  Open the minimap when a reading view opens.
+  images.enable, mermaid.enable
+                  false turns image or Mermaid rendering off. The former
+                  `enabled` key is still accepted.
 width is the body width in every mode. A float is at most width + 4 columns
 wide (float.width is the upper fraction of the screen). With center=true a
 wider window gets a blank 'statuscolumn' margin that centers the body;

@@ -3,28 +3,17 @@ local render = require("md-readable.minimap.render")
 ---@type table<MdReadableSession, MdReadableMinimapState>
 local states = setmetatable({}, { __mode = "k" })
 local namespace = vim.api.nvim_create_namespace("MdReadableMinimap")
-local symbols = { add = "+", change = "~", delete = "-" }
-local diagnostic_symbols = { "E", "W", "I", "H" }
-local diagnostic_groups = { "DiagnosticError", "DiagnosticWarn", "DiagnosticInfo", "DiagnosticHint" }
 
----@alias MdReadableMinimapPublish fun(session:MdReadableSession, provider_id:string, items?:MdReadableMinimapItem[])
----@class MdReadableMinimapMarker
----@field row integer 0-based minimap row
----@field col integer 0-based byte column
----@field group string
 ---@class MdReadableMinimapState
+---@field regions? table<integer, string> 0-based minimap row to heading/code group
 ---@field win integer
 ---@field buf integer
----@field providers table<string, MdReadableMinimapItem[]> Provider id to items
----@field source_buf integer
 ---@field float boolean Placed beside a floating reading window
 ---@field original_width integer Reading window width before opening
 ---@field reserved_width? integer Reading float width while the minimap is open
 ---@field group? integer Autocommand group id
 ---@field rendered? MdReadableMinimapRendered
----@field markers? MdReadableMinimapMarker[]
 ---@field signature? string
----@field annotation_revision? integer
 ---@param session MdReadableSession
 ---@param state MdReadableMinimapState
 ---@return boolean?
@@ -53,17 +42,39 @@ local function current(session, state)
     { line_hl_group = "MdReadableMinimapCurrent", priority = 10 }
   )
   if vim.api.nvim_get_current_win() ~= state.win then
-    vim.api.nvim_win_set_cursor(state.win, { row + 1, 2 })
+    vim.api.nvim_win_set_cursor(state.win, { row + 1, 0 })
   end
-  for _, marker in ipairs(state.markers or {}) do
-    vim.api.nvim_buf_set_extmark(state.buf, namespace, marker.row, marker.col, {
-      end_col = marker.col + 1,
-      hl_group = marker.group,
-      priority = 20,
+  for region_row, group in pairs(state.regions or {}) do
+    vim.api.nvim_buf_set_extmark(state.buf, namespace, region_row, 0, {
+      end_row = region_row + 1,
+      end_col = 0,
+      hl_group = group,
+      priority = 15,
+      strict = false,
     })
   end
 end
 
+-- Moves the reading view to the minimap cursor without leaving the minimap.
+---@param session MdReadableSession
+---@param state MdReadableMinimapState
+local function follow(session, state)
+  if not valid(session, state) or not state.rendered or vim.api.nvim_get_current_win() ~= state.win then
+    return
+  end
+  local row = vim.api.nvim_win_get_cursor(state.win)[1]
+  local display = state.rendered.mini_to_display[row]
+  local reader_row = vim.api.nvim_win_get_cursor(session.read_win)[1]
+  -- Already inside this minimap row: keep the reader where it is.
+  if not display or state.rendered.display_to_mini[reader_row] == row - 1 then
+    return
+  end
+  vim.api.nvim_win_set_cursor(session.read_win, { display + 1, 0 })
+  session:sync(session.read_win)
+  require("md-readable.reader.focus").update(session)
+  require("md-readable.ui.navigation").update(session)
+  current(session, state)
+end
 ---@param session MdReadableSession
 ---@return MdReadableMinimapState?
 function M.get(session)
@@ -90,20 +101,8 @@ function M.update(session)
       height = math.max(1, vim.api.nvim_win_get_height(session.read_win)),
     })
   end
-  if state.source_buf ~= session.source_buf then
-    state.source_buf = session.source_buf
-    state.providers.git, state.providers.diagnostic = {}, {}
-    require("md-readable.minimap.git").close(session)
-    require("md-readable.minimap.diagnostic").close(session)
-    if config.git ~= false then
-      require("md-readable.minimap.git").attach(session, M.set_annotations)
-    end
-    if config.diagnostic ~= false then
-      require("md-readable.minimap.diagnostic").attach(session, M.set_annotations)
-    end
-  end
   local options = {
-    width = math.max(1, vim.api.nvim_win_get_width(state.win) - 2),
+    width = math.max(1, vim.api.nvim_win_get_width(state.win)),
     height = vim.api.nvim_win_get_height(state.win),
     mode = config.mode,
     tabstop = vim.bo[session.read_buf].tabstop,
@@ -116,7 +115,6 @@ function M.update(session)
     options.height,
     options.mode or "braille",
     options.tabstop,
-    state.annotation_revision or 0,
   }, ":")
   if state.signature == signature then
     current(session, state)
@@ -124,47 +122,11 @@ function M.update(session)
   end
   state.signature = signature
   state.rendered = render.render(session.rendered.lines, options)
-  local git = render.annotations(state.providers.git, session.map, state.rendered)
-  local diagnostic = render.annotations(state.providers.diagnostic, session.map, state.rendered)
-  local extra = {}
-  for name, items in pairs(state.providers) do
-    if name ~= "git" and name ~= "diagnostic" then
-      for row, item in pairs(render.annotations(items, session.map, state.rendered)) do
-        extra[row] = item
-      end
-    end
-  end
-  local lines, markers = {}, {}
-  for index, line in ipairs(state.rendered.lines) do
-    local row, g, d = index - 1, git[index - 1], diagnostic[index - 1]
-    local gsym = g and symbols[g.kind] or (extra[row] and "*" or " ")
-    local dsym = d and diagnostic_symbols[d.severity or 1] or " "
-    lines[index] = (gsym or "*") .. (dsym or "?") .. line
-    if g then
-      markers[#markers + 1] = { row = row, col = 0, group = "MdReadableGit" .. g.kind:gsub("^%l", string.upper) }
-    end
-    if d then
-      markers[#markers + 1] = { row = row, col = 1, group = diagnostic_groups[d.severity or 1] or "DiagnosticInfo" }
-    end
-  end
-  state.markers = markers
+  state.regions = render.regions(session.rendered, state.rendered)
   vim.bo[state.buf].modifiable = true
-  vim.api.nvim_buf_set_lines(state.buf, 0, -1, false, lines)
+  vim.api.nvim_buf_set_lines(state.buf, 0, -1, false, state.rendered.lines)
   vim.bo[state.buf].modifiable = false
   current(session, state)
-end
-
----@param session MdReadableSession
----@param provider_id string
----@param items? MdReadableMinimapItem[]
-function M.set_annotations(session, provider_id, items)
-  local state = states[session]
-  if not state then
-    return
-  end
-  state.providers[provider_id] = vim.deepcopy(items or {})
-  state.annotation_revision = (state.annotation_revision or 0) + 1
-  M.update(session)
 end
 
 ---@param session MdReadableSession
@@ -183,7 +145,10 @@ function M.open(session)
     return nil, "reading window needs at least 30 columns for the minimap"
   end
   local buf = vim.api.nvim_create_buf(false, true)
-  local width = math.max(5, math.min(config.width or 14, math.floor(available / 3)))
+  -- Set before the window exists so window-layout plugins can identify it.
+  vim.bo[buf].bufhidden, vim.bo[buf].filetype = "wipe", "md-readable-minimap"
+  vim.bo[buf].swapfile, vim.bo[buf].modifiable = false, false
+  local width = math.max(5, math.min(config.width or 12, math.floor(available / 3)))
   local reader_config = vim.api.nvim_win_get_config(session.read_win)
   local floating = reader_config.relative ~= ""
   local open_config = { split = "right", win = session.read_win, width = width }
@@ -204,6 +169,9 @@ function M.open(session)
       border = "single",
     }
   end
+  -- Without autocommands, layout plugins (e.g. windows.nvim autowidth) cannot
+  -- resize the minimap before 'winfixwidth' is set below.
+  open_config.noautocmd = true
   local ok, win = pcall(vim.api.nvim_open_win, buf, false, open_config)
   if not ok then
     if floating then
@@ -215,15 +183,11 @@ function M.open(session)
   local state = {
     win = win,
     buf = buf,
-    providers = {},
-    source_buf = session.source_buf,
     float = floating,
     original_width = available,
     reserved_width = reserved_width,
   }
   states[session] = state
-  vim.bo[buf].bufhidden, vim.bo[buf].filetype = "wipe", "md-readable-minimap"
-  vim.bo[buf].swapfile, vim.bo[buf].modifiable = false, false
   for key, value in pairs({
     number = false,
     relativenumber = false,
@@ -234,8 +198,9 @@ function M.open(session)
     winfixwidth = true,
     winbar = "Minimap",
     statusline = " Enter: jump  q: close",
+    statuscolumn = "", -- A split copies the reader's centering margin.
   }) do
-    vim.wo[win][key] = value
+    vim.wo[win][0][key] = value -- Local: a source shown here later gets plain options.
   end
   vim.keymap.set("n", "<CR>", function()
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
@@ -259,6 +224,13 @@ function M.open(session)
       current(session, state)
     end,
   })
+  vim.api.nvim_create_autocmd("CursorMoved", {
+    group = state.group,
+    buffer = buf,
+    callback = function()
+      follow(session, state)
+    end,
+  })
   vim.api.nvim_create_autocmd({ "VimResized", "WinResized" }, {
     group = state.group,
     callback = function()
@@ -269,7 +241,11 @@ function M.open(session)
     group = state.group,
     pattern = { tostring(win), tostring(session.read_win) },
     callback = function()
-      M.close(session)
+      -- Deferred: closing a window inside another window's close (for example
+      -- :bdelete of the reading buffer) aborts that command with E855.
+      vim.schedule(function()
+        M.close(session)
+      end)
     end,
   })
   vim.api.nvim_create_autocmd("BufWipeout", {
@@ -280,12 +256,8 @@ function M.open(session)
     end,
   })
   M.update(session)
-  if config.git ~= false then
-    require("md-readable.minimap.git").attach(session, M.set_annotations)
-  end
-  if config.diagnostic ~= false then
-    require("md-readable.minimap.diagnostic").attach(session, M.set_annotations)
-  end
+  -- The reading window lost columns; WinResized does not cover float resizes.
+  session:schedule()
   return win
 end
 
@@ -307,13 +279,17 @@ function M.close(session)
     return
   end
   states[session] = nil
-  require("md-readable.minimap.git").close(session)
-  require("md-readable.minimap.diagnostic").close(session)
   if state.group then
     pcall(vim.api.nvim_del_augroup_by_id, state.group)
   end
   if vim.api.nvim_win_is_valid(state.win) then
     pcall(vim.api.nvim_win_close, state.win, true)
+  end
+  -- The last window cannot close (:bdelete closed the reading window first):
+  -- it becomes the source window instead of showing a stray buffer.
+  if vim.api.nvim_win_is_valid(state.win) and vim.api.nvim_buf_is_valid(session.source_buf) then
+    vim.api.nvim_win_set_buf(state.win, session.source_buf)
+    vim.wo[state.win].winfixwidth = false
   end
   if vim.api.nvim_buf_is_valid(state.buf) then
     pcall(vim.api.nvim_buf_delete, state.buf, { force = true })
@@ -325,6 +301,7 @@ function M.close(session)
   then
     pcall(vim.api.nvim_win_set_config, session.read_win, { width = state.original_width })
   end
+  session:schedule()
 end
 
 ---@param session MdReadableSession

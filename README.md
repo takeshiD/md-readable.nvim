@@ -14,7 +14,7 @@ Read Markdown in a separate, read-only view while keeping the original text and 
     - Link kind markers (external ↗, document →, anchor #, file ⧉; ASCII or off via `links.icons`)
 - Navigation
     - Minimap
-        - Git changes and LSP diagnostics mapped from the source
+        - Headings and code blocks in color; moving in it scrolls the document
     - Heading tree
     - Focus Mode
     - Table of contents and previous/next navigation for major SSGs
@@ -41,7 +41,7 @@ See the [agreed specification](docs/final-spec-review.md), [implementation track
 # Requirements
 - Neovim >= 0.12
 - Inline images require a compatible Kitty graphics terminal. WezTerm/Ghostty are targets; actual terminal pixels are not yet manually verified.
-- Optional: ImageMagick/rsvg-convert/FFmpeg for image conversion; installed `mmdc` for Mermaid; `curl` for explicitly allowed web images; `git` for minimap changes.
+- Optional: ImageMagick/rsvg-convert/FFmpeg for image conversion; installed `mmdc` for Mermaid; `curl` for explicitly allowed web images.
 - Telescope and Snacks are optional, only for their preview integrations. No reference plugin is required and no tool is automatically installed.
 
 # Quick start
@@ -51,8 +51,6 @@ Load this repository with your plugin manager. For example, while this implement
 ```lua
 {
   "takeshiD/md-readable.nvim",
-  branch = "feat/readable-implementation",
-  cmd = "MdReadable",
   -- Keys that open a reading view (no global keymaps are installed, so map them here)
   keys = {
     { "<leader>mr", "<cmd>MdReadable<cr>", ft = "markdown", desc = "Reader: current window" },
@@ -68,6 +66,13 @@ Load this repository with your plugin manager. For example, while this implement
       ["g?"] = { mode = "n", "actions.show_help", desc = "Show Help" },
       ["za"] = false, -- disable a default key
     },
+    -- Feature switches (all default to true)
+    links = { enable = true }, -- false: plain link labels without highlights or markers
+    table = { enable = true }, -- false: show tables as their Markdown source
+    focus = { enable = true }, -- start Focus mode when a reading view opens
+    minimap = { enable = true }, -- open the minimap when a reading view opens
+    images = { enable = true },
+    mermaid = { enable = true },
   },
 }
 ```
@@ -92,7 +97,7 @@ Setup is optional. See [Keymaps](#keymaps) for reading-buffer keys; every action
 | `search [pattern]`                              | Search the complete original, including hidden text                                             |
 | `focus on/off/toggle`                           | Limelight-style paragraph focus; a visual range fixes the focused lines                         |
 | `theme default/dark/light`                      | Change only the reading window's colors                                                         |
-| `minimap on/off/toggle/focus`                   | Minimap with Git/LSP annotations; Enter jumps to the document                                   |
+| `minimap on/off/toggle/focus`                   | Minimap; moving in it scrolls the document, Enter returns there                                 |
 | `table format`                                  | Align the original table explicitly                                                             |
 | `table row-before/row-after/row-delete [count]` | Insert/delete data rows                                                                         |
 | `table col-before/col-after/col-delete [count]` | Insert/delete columns                                                                           |
@@ -109,19 +114,31 @@ require("md-readable").setup({
   layout = "integrated", -- integrated, separate, ondemand
   width = 100, -- body width; floats are at most width + 4 columns
   center = true, -- center the body in wider windows
-  links = { icons = "unicode" }, -- "ascii", false, or a table of markers per kind
+  links = { enable = true, icons = "unicode" }, -- "ascii", false, or a table of markers per kind
   keymaps = {}, -- reading-buffer keymaps; see Keymaps below
   use_default_keymaps = true,
-  table = { max_cell_width = 28 },
-  focus = { coefficient = 0.5, span = 0 },
-  minimap = { width = 14, mode = "braille", git = true, diagnostic = true },
-  images = { enabled = true, remote = false, height = 10 },
-  mermaid = { command = "mmdc" },
+  table = { enable = true, max_cell_width = 28 },
+  focus = { enable = true, coefficient = 0.5, span = 0 },
+  minimap = { enable = true, width = 12, mode = "braille" },
+  images = { enable = true, remote = false, height = 10 },
+  mermaid = { enable = true, command = "mmdc" },
+  code = {
+    theme = nil, -- code block syntax colors: "github-dark", "github-light", "ayu-dark", "ayu-light",
+    --              "dracula", "catppuccin", "gruvbox-dark", "gruvbox-light", "tokyonight"
+    colors = {}, -- "#rrggbb" per key: bg, fg, label, comment, keyword, string, number, constant,
+    --              func, type, variable, parameter, property, operator, punctuation, tag
+    label = "left", -- icon and language in the "left" or "right" top corner
+    icons = nil, -- language icon provider: "mini" (mini.icons) or "web-devicons"; nil shows none
+  },
   -- adapters = { adapter = "mdbook", root_dir = "/path/to/book" },
 })
 ```
 
-At narrow widths, navigation uses a floating chooser to preserve the reading area. Nerd Font glyphs are not required; an ASCII minimap mode is available. Git annotations compare the index with the original buffer, including unsaved changes. Diagnostics come from Neovim's standard diagnostic API.
+Each feature section has an `enable` switch. `links.enable = false` shows link labels as plain text without highlights or kind markers (the link list and following still work); `table.enable = false` shows tables as their Markdown source; `focus.enable` and `minimap.enable` start Focus mode and the minimap whenever a reading view opens (toggle them afterwards with `gz` / `go`); `images.enable` and `mermaid.enable` turn media rendering off. The former `images.enabled` / `mermaid.enabled` keys are still accepted.
+
+Code blocks are drawn as a full-width panel whose background is the page background shifted slightly toward gray. `code.theme` applies a Shiki-derived palette to code blocks only (background included); `code.colors` overrides single colors on top of it, or on top of the colorscheme when no theme is set.
+
+At narrow widths, navigation uses a floating chooser to preserve the reading area. Nerd Font glyphs are not required; an ASCII minimap mode is available.
 
 Dynamic SSG configuration is not executed. Supply a custom Lua/JSON navigation provider when needed; see `:help md-readable-providers` and the [SSG compatibility table](tests/fixtures/navigation/SUPPORTED.md).
 
@@ -183,7 +200,7 @@ require("snacks").setup({
 nvim --headless -n -u NONE -i NONE -l tests/run.lua
 ```
 
-Tests cover parsers, all seven static SSG adapters, actual reading sessions, source copying, synchronization, narrow layouts, table edits, Git/LSP annotations, media protocols and cancellation, and installed picker integrations when available. See [verification notes](docs/verification.md) for the remaining real-terminal/Mermaid checks.
+Tests cover parsers, all seven static SSG adapters, actual reading sessions, source copying, synchronization, narrow layouts, table edits, the minimap, media protocols and cancellation, and installed picker integrations when available. See [verification notes](docs/verification.md) for the remaining real-terminal/Mermaid checks.
 
 # License
 MIT

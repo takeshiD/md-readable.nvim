@@ -71,7 +71,7 @@ return function(t)
       images = { enabled = false },
       debounce = 0,
       navigation = { auto_open = opts.auto_open ~= false },
-      minimap = { git = false, diagnostic = false },
+      minimap = { enable = false },
     })
     local session
     local ok, err = xpcall(function()
