@@ -25,6 +25,19 @@ function M.render(document, opts)
   local width = math.max(1, opts.width or 80)
   local media = opts.media or {}
   local image_height = media.enabled == false and 0 or (opts.image_height or media.image_height or 8)
+  -- Records a media descriptor and reserves its rows only when it can be
+  -- drawn; media.reserve rejects known failures (missing file, no mmdc, ...).
+  local function add_media(descriptor, source_row)
+    descriptor.row, descriptor.width = #result.lines, width
+    descriptor.height = image_height
+    if image_height > 0 and media.reserve and not media.reserve(descriptor) then
+      descriptor.height = 0
+    end
+    result.images[#result.images + 1] = descriptor
+    for _ = 1, descriptor.height do
+      ctx.emit({}, source_row, false)
+    end
+  end
   local function add_segment(item, row, a, b, source_row, source_a, source_b)
     if source_a == nil then
       return
@@ -279,19 +292,13 @@ function M.render(document, opts)
           end
         end
         if block.language:lower() == "mermaid" then
-          result.images[#result.images + 1] = {
+          add_media({
             kind = "mermaid",
-            row = #result.lines,
             label_row = header_row,
             source_row = block.start_row,
             code = table.concat(body_lines, "\n"),
             alt = "Mermaid diagram",
-            height = image_height,
-            width = width,
-          }
-          for _ = 1, image_height do
-            ctx.emit({}, block.start_row, false)
-          end
+          }, block.start_row)
         end
       elseif joinable(block) then
         local pieces, hard, previous_text = paragraph_pieces(doc, block.start_row)
@@ -316,19 +323,13 @@ function M.render(document, opts)
           local display_row = ctx.emit(require("md-readable.renderers.text").pieces(block, doc, row, opts), row, true)
           for _, link in ipairs(doc.links) do
             if link.kind == "image" and link.range.start.row == row then
-              result.images[#result.images + 1] = {
+              add_media({
                 kind = "image",
-                row = #result.lines,
                 label_row = display_row,
                 source_row = row,
                 path = link.target,
                 alt = link.text,
-                height = image_height,
-                width = width,
-              }
-              for _ = 1, image_height do
-                ctx.emit({}, row, false)
-              end
+              }, row)
             end
           end
         end

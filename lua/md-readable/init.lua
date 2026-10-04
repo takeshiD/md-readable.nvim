@@ -137,6 +137,7 @@ function M.action(command, args, opts)
   end
   local s = session()
   if command == "refresh" then
+    require("md-readable.providers.image").forget(s)
     s:load_navigation()
     s:refresh()
   elseif command == "nav" then
@@ -228,15 +229,16 @@ function M.action(command, args, opts)
     s:refresh()
   elseif command == "images" then
     s.config.images.remote = args[1] == "allow"
-    require("md-readable.providers.image").update(s)
+    require("md-readable.providers.image").forget(s)
+    s:refresh()
   elseif command == "diagnostics" then
     local items = {}
     for _, d in ipairs((s.nav_result and s.nav_result.diagnostics) or (s.snapshot and s.snapshot.diagnostics) or {}) do
       items[#items + 1] =
         { text = (d.code or "") .. " " .. (d.message or tostring(d)), type = d.severity == "error" and "E" or "W" }
     end
-    for index, message in pairs(require("md-readable.providers.image").errors(s)) do
-      items[#items + 1] = { text = "image " .. index .. ": " .. tostring(message), type = "W" }
+    for _, message in ipairs(require("md-readable.providers.image").errors(s)) do
+      items[#items + 1] = { text = "media " .. message, type = "W" }
     end
     if #items == 0 then
       vim.notify("md-readable: no navigation diagnostics")

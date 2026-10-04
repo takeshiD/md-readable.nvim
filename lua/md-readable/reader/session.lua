@@ -150,7 +150,11 @@ function Session:refresh()
   opts.expanded, opts.tabs = self.expanded, self.tabs
   local image_ok, image = pcall(require, "md-readable.providers.image")
   local capable = image_ok and image.capabilities and image.capabilities()
-  opts.media = { enabled = self.config.images.enabled and not not capable, image_height = self.config.images.height }
+  opts.media = {
+    enabled = self.config.images.enabled and not not capable,
+    image_height = self.config.images.height,
+    reserve = image_ok and image.reserver and image.reserver(self) or nil,
+  }
   local rendered = require("md-readable.reader.render").render(document, opts)
   if #rendered.lines == 0 then
     rendered.lines = { "" }

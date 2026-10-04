@@ -32,6 +32,77 @@ function M.resolve(session, target)
     false
 end
 
+-- Stable identity of a media item; local images include the file identity so
+-- a fixed or replaced file is retried.
+function M.key(session, descriptor)
+  if descriptor.kind == "mermaid" then
+    return "mermaid\0"
+      .. (type(descriptor.code) == "table" and table.concat(descriptor.code, "\n") or descriptor.code or "")
+  end
+  local path, remote = M.resolve(session, descriptor.path or "")
+  return "image\0" .. tostring(path or descriptor.path) .. "\0" .. (path and not remote and cache.identity(path) or "")
+end
+
+local function label(descriptor)
+  if descriptor.kind == "mermaid" then
+    return "Mermaid diagram (line " .. ((descriptor.source_row or 0) + 1) .. ")"
+  end
+  return tostring(descriptor.path)
+end
+
+-- Reason a descriptor cannot be drawn, known before starting any work.
+function M.unavailable(session, descriptor)
+  if descriptor.kind == "mermaid" then
+    return require("md-readable.providers.mermaid").unavailable(session, descriptor)
+  end
+  local path, remote, err = M.resolve(session, descriptor.path or "")
+  if not path then
+    return err
+  end
+  if remote then
+    return not (session.config.images or {}).remote and "web images are denied; use :MdReadable images allow" or nil
+  end
+  local identity, missing = cache.identity(path)
+  return not identity and missing or nil
+end
+
+-- Returns the render-time predicate deciding which media reserve rows.
+-- Known failures (static or from an earlier attempt) reserve none.
+function M.reserver(session)
+  session.media_skipped = {}
+  return function(descriptor)
+    local key = M.key(session, descriptor)
+    local failure = (session.media_failures or {})[key]
+    local reason = failure and failure.message or M.unavailable(session, descriptor)
+    if reason then
+      session.media_skipped[key] = { label = label(descriptor), message = reason }
+      return false
+    end
+    return true
+  end
+end
+
+-- Records a failed attempt and re-renders so the item's rows are released.
+local function fail(session, descriptor, err)
+  session.media_failures = session.media_failures or {}
+  local key = M.key(session, descriptor)
+  if session.media_failures[key] then
+    return
+  end
+  session.media_failures[key] = { label = label(descriptor), message = tostring(err or "rendering failed") }
+  if (descriptor.height or 0) > 0 and session.refresh then
+    vim.schedule(function()
+      if not session.closed then
+        session:refresh()
+      end
+    end)
+  end
+end
+
+function M.forget(session)
+  session.media_failures = nil
+end
+
 function M.update(session)
   local opts = session.config.images or {}
   if
@@ -102,12 +173,12 @@ function M.update(session)
   local function fresh()
     return states[session] == state and state.epoch == epoch and not session.closed
   end
-  state.errors = {}
-  for index, image in ipairs(session.rendered.images or {}) do
+  for _, image in ipairs(session.rendered.images or {}) do
     local descriptor = vim.deepcopy(image)
     descriptor.height = descriptor.height or opts.height or 10
     descriptor.width = math.min(descriptor.width or info.width, opts.max_width or info.width)
-    local visible = descriptor.row
+    local visible = descriptor.height > 0
+      and descriptor.row
       and descriptor.row < info.botline
       and descriptor.row + descriptor.height > info.topline - 1
     if visible then
@@ -116,7 +187,7 @@ function M.update(session)
           return
         end
         if not path then
-          state.errors[index] = err
+          fail(session, descriptor, err)
           return
         end
         local cancel_conversion = convert.ensure(path, opts, function(png, conversion_err)
@@ -124,12 +195,12 @@ function M.update(session)
             return
           end
           if not png then
-            state.errors[index] = conversion_err
+            fail(session, descriptor, conversion_err)
             return
           end
           local _, cancel_display = display.show(png, session.read_win, descriptor, opts, function(_, display_err)
             if fresh() and display_err then
-              state.errors[index] = display_err
+              fail(session, descriptor, display_err)
             end
           end)
           state.cancel[#state.cancel + 1] = cancel_display
@@ -152,8 +223,20 @@ function M.update(session)
   end
 end
 
+-- Media problems as "label: message", from this render and earlier attempts.
 function M.errors(session)
-  return vim.deepcopy((states[session] or {}).errors or {})
+  local merged, result = {}, {}
+  for key, item in pairs(session.media_failures or {}) do
+    merged[key] = item
+  end
+  for key, item in pairs(session.media_skipped or {}) do
+    merged[key] = item
+  end
+  for _, item in pairs(merged) do
+    result[#result + 1] = item.label .. ": " .. item.message
+  end
+  table.sort(result)
+  return result
 end
 
 function M.close(session)

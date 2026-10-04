@@ -30,14 +30,8 @@ function M.command(source, output, opts)
   }
 end
 
-function M.render(session, descriptor, callback)
+local function cache_target(session, code)
   local opts = session.config.mermaid or {}
-  if opts.enabled == false then
-    callback(nil, "Mermaid rendering is disabled")
-    return function() end
-  end
-  local code = type(descriptor.code) == "table" and table.concat(descriptor.code, "\n") or descriptor.code or ""
-  local cache_opts = session.config.images or {}
   local key = table.concat({
     "mermaid-v1",
     code,
@@ -47,7 +41,35 @@ function M.render(session, descriptor, callback)
     opts.width or 1600,
     opts.height or 1000,
   }, "\0")
-  local target, cache_err = cache.path(key, ".png", cache_opts)
+  return cache.path(key, ".png", session.config.images or {})
+end
+
+local function source(descriptor)
+  return type(descriptor.code) == "table" and table.concat(descriptor.code, "\n") or descriptor.code or ""
+end
+
+-- Reason the diagram cannot be drawn without starting a job, or nil.
+function M.unavailable(session, descriptor)
+  local opts = session.config.mermaid or {}
+  if opts.enabled == false then
+    return "Mermaid rendering is disabled"
+  end
+  local target = cache_target(session, source(descriptor))
+  if target and vim.uv.fs_stat(target) then
+    return nil
+  end
+  local _, err = M.command("input.mmd", "output.png", opts)
+  return err
+end
+
+function M.render(session, descriptor, callback)
+  local opts = session.config.mermaid or {}
+  if opts.enabled == false then
+    callback(nil, "Mermaid rendering is disabled")
+    return function() end
+  end
+  local code = source(descriptor)
+  local target, cache_err = cache_target(session, code)
   if not target then
     callback(nil, cache_err)
     return function() end

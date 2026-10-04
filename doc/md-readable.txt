@@ -136,7 +136,11 @@ Compatible terminals display visible local images and Mermaid inline. Remote
 images are denied by default. Optional tools: ImageMagick/rsvg-convert/FFmpeg
 for conversion, curl for permitted downloads, installed mmdc for Mermaid.
 Tools are never automatically downloaded. Missing dependencies or errors keep
-alt text/code readable. WezTerm/Ghostty pixels and actual mmdc output still
+alt text/code readable.
+Rows are reserved only for media that can be drawn: a missing local file,
+denied web image, or absent mmdc reserves none, and a failed download,
+conversion or display releases its rows. :MdReadable diagnostics lists the
+reasons; :MdReadable refresh retries failed items. WezTerm/Ghostty pixels and actual mmdc output still
 require environment verification; protocol/process contracts are tested.
 
 CONFIGURATION                                            *md-readable-setup*
