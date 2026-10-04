@@ -93,7 +93,8 @@ setupは任意です。コマンドを好みのキーやautocmdへ割り当て�
 ```lua
 require("md-readable").setup({
   layout = "integrated", -- integrated / separate / ondemand
-  width = 100,
+  width = 100, -- 本文幅。floatは最大でwidth + 4列
+  center = true, -- 広いwindowでは本文を中央に寄せる
   keymaps = false, -- trueなら読書bufferにqとEnterを追加
   table = { max_cell_width = 28 },
   focus = { coefficient = 0.5, span = 0 },

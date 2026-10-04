@@ -91,7 +91,8 @@ Table edits are undoable and do not save the file. Decoration-only selections do
 ```lua
 require("md-readable").setup({
   layout = "integrated", -- integrated, separate, ondemand
-  width = 100,
+  width = 100, -- body width; floats are at most width + 4 columns
+  center = true, -- center the body in wider windows
   keymaps = false, -- true adds q and Enter only in reading buffers
   table = { max_cell_width = 28 },
   focus = { coefficient = 0.5, span = 0 },

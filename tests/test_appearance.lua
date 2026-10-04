@@ -95,4 +95,48 @@ return function(t)
     t.ok(found.MdReadableHeading1 and found.MdReadableHeading2 and found.MdReadableHeading3)
     cleanup()
   end)
+  t.test("reading body keeps its width and is centered at 60/80/120/200 columns", function()
+    local columns, lines = vim.o.columns, vim.o.lines
+    vim.o.lines = 40
+    local paragraph = string.rep("word ", 60)
+    for _, width in ipairs({ 60, 80, 120, 200 }) do
+      vim.o.columns = width
+      for _, mode in ipairs({ "float", "vert", "current" }) do
+        local s = open({ "# Title", "", paragraph }, mode, { width = 50 })
+        vim.cmd("redraw")
+        vim.wait(50, function()
+          return false
+        end)
+        vim.cmd("redraw")
+        local win_width = vim.api.nvim_win_get_width(s.read_win)
+        local info = vim.fn.getwininfo(s.read_win)[1]
+        local body = 0
+        for _, line in ipairs(vim.api.nvim_buf_get_lines(s.read_buf, 0, -1, false)) do
+          body = math.max(body, vim.fn.strdisplaywidth(line))
+        end
+        local label = mode .. "@" .. width
+        t.ok(body <= 50, label .. " body width " .. body)
+        t.ok(body <= win_width - info.textoff, label .. " body fits")
+        local left, right = info.textoff, win_width - info.textoff - body
+        -- Neovim caps the status column width (47 cells in 0.12); beyond it the
+        -- body stays as far right as the cap allows.
+        t.ok(
+          math.abs(left - right) <= 2 or (left >= 40 and right > left),
+          label .. " centered: " .. left .. "/" .. right
+        )
+        if mode == "float" then
+          t.ok(win_width <= 54, label .. " float width " .. win_width)
+          local config = vim.api.nvim_win_get_config(s.read_win)
+          local col = type(config.col) == "table" and config.col[false] or config.col
+          t.ok(math.abs(col - (width - win_width) / 2) <= 2, label .. " float centered")
+        end
+        cleanup()
+      end
+    end
+    open({ "text" }, "current", { width = 50, center = false })
+    t.eq("", vim.wo.statuscolumn)
+    cleanup()
+    t.eq("", vim.wo.statuscolumn, "current window option restored")
+    vim.o.columns, vim.o.lines = columns, lines
+  end)
 end

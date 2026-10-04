@@ -296,16 +296,12 @@ function M.render(document, opts)
         end
         -- H1/H2 get a display-only rule so structure does not depend on color.
         if block.type == "heading" and block.level <= 2 and opts.heading_rules ~= false then
-          ctx.emit(
+          ctx.emit({
             {
-              {
-                text = string.rep(block.level == 1 and "═" or "─", width),
-                group = "MdReadableHeading" .. block.level,
-              },
+              text = string.rep(block.level == 1 and "═" or "─", width),
+              group = "MdReadableHeading" .. block.level,
             },
-            block.end_row - 1,
-            false
-          )
+          }, block.end_row - 1, false)
         end
       end
     end

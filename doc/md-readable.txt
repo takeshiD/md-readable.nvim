@@ -138,6 +138,7 @@ CONFIGURATION                                            *md-readable-setup*
       width = 100,
       keymaps = false,
       heading_rules = true,
+      center = true,
       navigation = { auto_open = true, width = 28, min_body_width = 48 },
       table = { max_cell_width = 28 },
       focus = { coefficient = 0.5, span = 0, priority = 10 },
@@ -148,6 +149,11 @@ CONFIGURATION                                            *md-readable-setup*
     })
 <
 setup is optional. keymaps=true adds q and Enter only in reading buffers.
+width is the body width in every mode. A float is at most width + 4 columns
+wide (float.width is the upper fraction of the screen). With center=true a
+wider window gets a blank 'statuscolumn' margin that centers the body;
+Neovim limits that column to about 47 cells, so very wide windows keep the
+body slightly left of center.
 Neovim-exit reading-position persistence is intentionally not implemented.
 
 PROVIDERS                                                *md-readable-providers*

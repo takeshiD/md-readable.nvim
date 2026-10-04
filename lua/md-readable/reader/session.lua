@@ -138,7 +138,15 @@ function Session:refresh()
   local opts = vim.deepcopy(self.config)
   opts.tabstop = vim.bo[self.source_buf].tabstop
   vim.bo[self.read_buf].tabstop = opts.tabstop
-  opts.width = math.max(12, math.min(opts.width, vim.api.nvim_win_get_width(self.read_win) - 2))
+  local total = vim.api.nvim_win_get_width(self.read_win)
+  opts.width = math.max(12, math.min(opts.width, total - 2))
+  -- Center the body in wide windows with a blank status column, which keeps
+  -- buffer text, SourceMap columns and search independent of the margin.
+  local margin = self.config.center ~= false and math.max(0, math.floor((total - opts.width) / 2)) or 0
+  local statuscolumn = margin > 0 and string.rep(" ", margin) or ""
+  if vim.wo[self.read_win].statuscolumn ~= statuscolumn then
+    vim.wo[self.read_win].statuscolumn = statuscolumn
+  end
   opts.expanded, opts.tabs = self.expanded, self.tabs
   local image_ok, image = pcall(require, "md-readable.providers.image")
   local capable = image_ok and image.capabilities and image.capabilities()
@@ -340,7 +348,8 @@ function M.open(mode)
   if mode == "vert" then
     win = vim.api.nvim_open_win(buf, true, { split = "right", win = origin_win })
   elseif mode == "float" then
-    local width = math.max(12, math.floor(vim.o.columns * config.float.width))
+    -- The float never exceeds the body width plus a small margin.
+    local width = math.max(12, math.min(math.floor(vim.o.columns * config.float.width), config.width + 4))
     local height = math.max(3, math.floor((vim.o.lines - 2) * config.float.height))
     win = vim.api.nvim_open_win(buf, true, {
       relative = "editor",
@@ -366,6 +375,7 @@ function M.open(mode)
     "foldcolumn",
     "conceallevel",
     "cursorline",
+    "statuscolumn",
   }) do
     saved_options[option] = vim.wo[win][option]
   end
