@@ -86,21 +86,21 @@ Markdownを開いて実行します。
 
 setupは任意です。読書bufferのキーマップは[キーマップ](#キーマップ)を参照してください。各操作はコマンドとしても実行できます。
 
-| `MdReadable`の後に続ける操作 | 内容 |
-| --- | --- |
-| `nav` / `outline` / `select` | 書籍目次、ページ見出し、adapter・treeの選択 |
-| `prev` / `next` / `heading-prev` / `heading-next` | 章・見出し移動 |
-| `links` / `open` | リンク一覧のfloat（Enterで開く、oで本文の位置へ、qで閉じる）、カーソル位置のリンク・セルを開く |
-| `search [pattern]` | 省略した内容を含む原文検索 |
-| `focus on/off/toggle` | 段落Focus。Visual範囲を指定して起動すると行範囲を固定 |
-| `theme default/dark/light` | 読書表示だけの配色変更 |
-| `minimap on/off/toggle/focus` | ミニマップ。Enterで本文へ移動 |
-| `table format` | 原文の表を明示的に整列 |
-| `table row-before/row-after/row-delete [count]` | データ行の挿入・削除 |
-| `table col-before/col-after/col-delete [count]` | 列の挿入・削除 |
-| `expand` / `tab [index]` | 省略内容の展開、静的タブの選択 |
-| `images allow/deny` | この読書Sessionでの外部画像取得の許可・禁止 |
-| `refresh` / `diagnostics` | 構造の再取得、ナビゲーション・画像エラーの確認 |
+| `MdReadable`の後に続ける操作                      | 内容                                                                                           |
+| ---                                               | ---                                                                                            |
+| `nav` / `outline` / `select`                      | 書籍目次、ページ見出し、adapter・treeの選択                                                    |
+| `prev` / `next` / `heading-prev` / `heading-next` | 章・見出し移動                                                                                 |
+| `links` / `open`                                  | リンク一覧のfloat（Enterで開く、oで本文の位置へ、qで閉じる）、カーソル位置のリンク・セルを開く |
+| `search [pattern]`                                | 省略した内容を含む原文検索                                                                     |
+| `focus on/off/toggle`                             | 段落Focus。Visual範囲を指定して起動すると行範囲を固定                                          |
+| `theme default/dark/light`                        | 読書表示だけの配色変更                                                                         |
+| `minimap on/off/toggle/focus`                     | ミニマップ。Enterで本文へ移動                                                                  |
+| `table format`                                    | 原文の表を明示的に整列                                                                         |
+| `table row-before/row-after/row-delete [count]`   | データ行の挿入・削除                                                                           |
+| `table col-before/col-after/col-delete [count]`   | 列の挿入・削除                                                                                 |
+| `expand` / `tab [index]`                          | 省略内容の展開、静的タブの選択                                                                 |
+| `images allow/deny`                               | この読書Sessionでの外部画像取得の許可・禁止                                                    |
+| `refresh` / `diagnostics`                         | 構造の再取得、ナビゲーション・画像エラーの確認                                                 |
 
 表編集はundoで戻せ、自動保存しません。装飾だけをコピーした場合はレジスタを変更しません。省略セルの`…`を含めてコピーすると、元のセル全体を取得します。
 

@@ -84,21 +84,21 @@ Open a Markdown file and run one of:
 
 Setup is optional. See [Keymaps](#keymaps) for reading-buffer keys; every action is also available as a command.
 
-| Command after `MdReadable` | Action |
-| --- | --- |
-| `nav`, `outline`, `select` | Book tree, page headings, adapter/tree selection |
-| `prev`, `next`, `heading-prev`, `heading-next` | Chapter/heading navigation |
-| `links`, `open` | Floating link list (Enter open, o show in text, q close) or open the item/cell under the cursor |
-| `search [pattern]` | Search the complete original, including hidden text |
-| `focus on/off/toggle` | Limelight-style paragraph focus; a visual range fixes the focused lines |
-| `theme default/dark/light` | Change only the reading window's colors |
-| `minimap on/off/toggle/focus` | Minimap with Git/LSP annotations; Enter jumps to the document |
-| `table format` | Align the original table explicitly |
-| `table row-before/row-after/row-delete [count]` | Insert/delete data rows |
-| `table col-before/col-after/col-delete [count]` | Insert/delete columns |
-| `expand`, `tab [index]` | Expand omitted content or select a static tab |
-| `images allow/deny` | Permit/deny web image retrieval for this reading session |
-| `refresh`, `diagnostics` | Reload structure or inspect navigation/media errors |
+| Command after `MdReadable`                      | Action                                                                                          |
+| ---                                             | ---                                                                                             |
+| `nav`, `outline`, `select`                      | Book tree, page headings, adapter/tree selection                                                |
+| `prev`, `next`, `heading-prev`, `heading-next`  | Chapter/heading navigation                                                                      |
+| `links`, `open`                                 | Floating link list (Enter open, o show in text, q close) or open the item/cell under the cursor |
+| `search [pattern]`                              | Search the complete original, including hidden text                                             |
+| `focus on/off/toggle`                           | Limelight-style paragraph focus; a visual range fixes the focused lines                         |
+| `theme default/dark/light`                      | Change only the reading window's colors                                                         |
+| `minimap on/off/toggle/focus`                   | Minimap with Git/LSP annotations; Enter jumps to the document                                   |
+| `table format`                                  | Align the original table explicitly                                                             |
+| `table row-before/row-after/row-delete [count]` | Insert/delete data rows                                                                         |
+| `table col-before/col-after/col-delete [count]` | Insert/delete columns                                                                           |
+| `expand`, `tab [index]`                         | Expand omitted content or select a static tab                                                   |
+| `images allow/deny`                             | Permit/deny web image retrieval for this reading session                                        |
+| `refresh`, `diagnostics`                        | Reload structure or inspect navigation/media errors                                             |
 
 Table edits are undoable and do not save the file. Decoration-only selections do not overwrite registers. Selecting a cell's ellipsis copies the complete original cell.
 
