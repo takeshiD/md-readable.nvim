@@ -17,7 +17,6 @@ luac.out
 *.src.rock
 *.zip
 *.tar.gz
-.luarc.json
 
 # テスト・一時ファイル
 .tests/
