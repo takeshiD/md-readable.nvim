@@ -129,6 +129,7 @@ function M.new(opts)
       local rendered = require("md-readable.reader.render").render(document, {
         width = width,
         table = configuration.table,
+        links = configuration.links,
         media = { enabled = media_enabled, image_height = (configuration.images or {}).height or 8 },
       })
       if not current() then

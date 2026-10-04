@@ -11,7 +11,7 @@ Read Markdown in a separate, read-only view while keeping the original text and 
     - Code blocks
     - Color theme switching for the reading view only
     - Truncated display of long text in tables / URLs
-    - Distinct icons for local links and external links
+    - Link kind markers (external ↗, document →, anchor #, file ⧉; ASCII or off via `links.icons`)
 - Navigation
     - Minimap
         - Git changes and LSP diagnostics mapped from the source
@@ -93,6 +93,7 @@ require("md-readable").setup({
   layout = "integrated", -- integrated, separate, ondemand
   width = 100, -- body width; floats are at most width + 4 columns
   center = true, -- center the body in wider windows
+  links = { icons = "unicode" }, -- "ascii", false, or a table of markers per kind
   keymaps = false, -- true adds q and Enter only in reading buffers
   table = { max_cell_width = 28 },
   focus = { coefficient = 0.5, span = 0 },

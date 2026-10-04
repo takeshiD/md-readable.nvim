@@ -10,8 +10,8 @@
     - テーブルレンダリング
     - コードブロック
     - 読書表示だけのカラーテーマ切り替え
-    - テーブル内/URLの長文省略表示
-    - ローカルリンク, 外部リンクごとのアイコン表示
+    - テーブル内/URLの長文省略表示（本文の生URLと`links`一覧）
+    - リンク種別マーカー（外部 ↗、文書 →、アンカー #、ファイル ⧉。`links.icons`でASCII化・無効化）
 - Navigation
     - ミニマップ
         - 原文に対応するGit差分・LSP診断の表示
@@ -95,6 +95,7 @@ require("md-readable").setup({
   layout = "integrated", -- integrated / separate / ondemand
   width = 100, -- 本文幅。floatは最大でwidth + 4列
   center = true, -- 広いwindowでは本文を中央に寄せる
+  links = { icons = "unicode" }, -- "ascii"・false・種別ごとの表も可
   keymaps = false, -- trueなら読書bufferにqとEnterを追加
   table = { max_cell_width = 28 },
   focus = { coefficient = 0.5, span = 0 },

@@ -7,6 +7,17 @@ local function char_at(text, i)
 end
 M.char_at = char_at
 
+-- Link kind markers appended after labelled links. No Nerd Font is needed.
+M.icon_sets = {
+  unicode = { external = "↗", document = "→", anchor = "#", asset = "⧉" },
+  ascii = { external = "^", document = ">", anchor = "#", asset = "*" },
+}
+function M.icon(opts, kind)
+  local setting = (opts.links or {}).icons
+  local set = type(setting) == "table" and vim.tbl_extend("force", M.icon_sets.unicode, setting) or M.icon_sets[setting]
+  return set and set[kind] or nil
+end
+
 -- Pieces use absolute source byte columns; decoration has no source columns.
 function M.parse(line, row, links, opts, start_col, end_col)
   opts, start_col, end_col = opts or {}, start_col or 0, end_col or #line
@@ -77,6 +88,10 @@ function M.parse(line, row, links, opts, start_col, end_col)
             for index = before + 1, #result do
               local label = result[index]
               label.kind, label.full_start, label.full_end = "node", item.full_start, item.full_end
+            end
+            local icon = link.style ~= "bare" and link.style ~= "autolink" and M.icon(opts, link.kind)
+            if icon then
+              add({ text = icon, group = "MdReadableLinkIcon" }) -- Decoration: no source range.
             end
           end
         end

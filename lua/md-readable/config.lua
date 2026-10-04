@@ -6,6 +6,7 @@ M.defaults = {
   theme = "default",
   heading_rules = true,
   center = true,
+  links = { icons = "unicode" }, -- "unicode", "ascii", false, or { external = "..", ... }
   layout = "integrated",
   navigation = { auto_open = true, width = 28, min_body_width = 48 },
   table = { max_cell_width = 28 },

@@ -139,4 +139,25 @@ return function(t)
     t.eq("", vim.wo.statuscolumn, "current window option restored")
     vim.o.columns, vim.o.lines = columns, lines
   end)
+  t.test("link kind markers are decoration and configurable", function()
+    local source = { "[web](https://x.org) [doc](a.md) [top](#top) [file](f.pdf) https://bare.org ![i](p.png)" }
+    local function line(icons)
+      return render(parse(source), { width = 200, links = { icons = icons } }).lines[1]
+    end
+    t.eq("web↗ doc→ top# file⧉ https://bare.org [Image: i]", line("unicode"))
+    t.eq("web^ doc> top# file* https://bare.org [Image: i]", line("ascii"))
+    t.eq("web doc top file https://bare.org [Image: i]", line(false))
+    t.eq("web(w) doc→ top# file⧉ https://bare.org [Image: i]", line({ external = "(w)" }))
+    local value = render(parse(source), { width = 200, links = { icons = "unicode" } })
+    local map = source_map.new(source, value)
+    local icon = value.lines[1]:find("↗", 1, true) - 1
+    t.eq(nil, map:copy(0, icon, 0, icon + #"↗", "char"), "icon alone copies nothing")
+    t.eq("[web](https://x.org)", map:copy(0, 0, 0, icon + #"↗", "char"))
+    local s = open(source, "current", { links = { icons = "unicode" } })
+    vim.fn.setreg('"', "kept")
+    vim.api.nvim_win_set_cursor(s.read_win, { 1, icon })
+    vim.cmd("normal yl")
+    t.eq("kept", vim.fn.getreg('"'))
+    cleanup()
+  end)
 end

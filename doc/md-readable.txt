@@ -58,6 +58,15 @@ registers unchanged. Soft-wrapped/joined display lines retain source mappings.
 Reference-style links retain their original reference syntax; a reference
 definition outside the selection is not automatically appended.
 
+LINK MARKERS                                          *md-readable-link-icons*
+
+Labelled links get a marker after the label: external ↗, document →,
+same-page anchor #, other file ⧉. links.icons = 'ascii' uses ^ > # *,
+false disables them, and a table such as { external = '[web]' } overrides
+single kinds. Bare URLs and images are not marked (their text already says
+what they are). Markers are decoration: copying only a marker leaves
+registers unchanged, and copying the label with its marker copies the link.
+
 FOOTNOTES                                                *md-readable-footnotes*
 
 GFM footnotes render as [id] at the reference and as "[id] text" at the
@@ -151,6 +160,7 @@ CONFIGURATION                                            *md-readable-setup*
       keymaps = false,
       heading_rules = true,
       center = true,
+      links = { icons = 'unicode' },
       navigation = { auto_open = true, width = 28, min_body_width = 48 },
       table = { max_cell_width = 28 },
       focus = { coefficient = 0.5, span = 0, priority = 10 },
