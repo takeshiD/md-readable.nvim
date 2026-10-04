@@ -8,38 +8,40 @@
 
 ## 実装Issue
 
-- [ ] [I00: 共通契約・headlessテスト基盤](https://github.com/takeshiD/md-readable.nvim/issues/1)
-- [ ] [I01: Markdown構造の抽出](https://github.com/takeshiD/md-readable.nvim/issues/2)
-- [ ] [I02: 原文と表示の範囲対応](https://github.com/takeshiD/md-readable.nvim/issues/3)
-- [ ] [I03: 基本読書レンダリング](https://github.com/takeshiD/md-readable.nvim/issues/4)
-- [ ] [I04: ナビゲーション共通モデル](https://github.com/takeshiD/md-readable.nvim/issues/5)
-- [ ] [I05: 宣言的設定の解析](https://github.com/takeshiD/md-readable.nvim/issues/6)
-- [ ] [I06: SUMMARY構文の解析](https://github.com/takeshiD/md-readable.nvim/issues/7)
-- [ ] [I07: プロジェクト検出と拡張入力](https://github.com/takeshiD/md-readable.nvim/issues/8)
-- [ ] [I08: mdBook対応](https://github.com/takeshiD/md-readable.nvim/issues/9)
-- [ ] [I09: HonKit対応](https://github.com/takeshiD/md-readable.nvim/issues/10)
-- [ ] [I10: GitBook対応](https://github.com/takeshiD/md-readable.nvim/issues/11)
-- [ ] [I11: MkDocs対応](https://github.com/takeshiD/md-readable.nvim/issues/12)
-- [ ] [I12: Zensical対応](https://github.com/takeshiD/md-readable.nvim/issues/13)
-- [ ] [I13: Docusaurus対応](https://github.com/takeshiD/md-readable.nvim/issues/14)
-- [ ] [I14: Astro/Starlight対応](https://github.com/takeshiD/md-readable.nvim/issues/15)
-- [ ] [I15: 読書Sessionと原文同期](https://github.com/takeshiD/md-readable.nvim/issues/16)
-- [ ] [I16: 目次・見出し・前後ページUI](https://github.com/takeshiD/md-readable.nvim/issues/17)
-- [ ] [I17: 表の表示と省略内容の確認](https://github.com/takeshiD/md-readable.nvim/issues/18)
-- [ ] [I18: 表の原文整形](https://github.com/takeshiD/md-readable.nvim/issues/19)
-- [ ] [I19: 原文コピーと原文検索](https://github.com/takeshiD/md-readable.nvim/issues/20)
-- [ ] [I20: Focus Mode](https://github.com/takeshiD/md-readable.nvim/issues/21)
-- [ ] [I21: 読書表示のテーマ](https://github.com/takeshiD/md-readable.nvim/issues/22)
+チェックはPR #34でcloseするIssueを表す。未チェックの3件は実端末での確認待ち。
+
+- [x] [I00: 共通契約・headlessテスト基盤](https://github.com/takeshiD/md-readable.nvim/issues/1)
+- [x] [I01: Markdown構造の抽出](https://github.com/takeshiD/md-readable.nvim/issues/2)
+- [x] [I02: 原文と表示の範囲対応](https://github.com/takeshiD/md-readable.nvim/issues/3)
+- [x] [I03: 基本読書レンダリング](https://github.com/takeshiD/md-readable.nvim/issues/4)
+- [x] [I04: ナビゲーション共通モデル](https://github.com/takeshiD/md-readable.nvim/issues/5)
+- [x] [I05: 宣言的設定の解析](https://github.com/takeshiD/md-readable.nvim/issues/6)
+- [x] [I06: SUMMARY構文の解析](https://github.com/takeshiD/md-readable.nvim/issues/7)
+- [x] [I07: プロジェクト検出と拡張入力](https://github.com/takeshiD/md-readable.nvim/issues/8)
+- [x] [I08: mdBook対応](https://github.com/takeshiD/md-readable.nvim/issues/9)
+- [x] [I09: HonKit対応](https://github.com/takeshiD/md-readable.nvim/issues/10)
+- [x] [I10: GitBook対応](https://github.com/takeshiD/md-readable.nvim/issues/11)
+- [x] [I11: MkDocs対応](https://github.com/takeshiD/md-readable.nvim/issues/12)
+- [x] [I12: Zensical対応](https://github.com/takeshiD/md-readable.nvim/issues/13)
+- [x] [I13: Docusaurus対応](https://github.com/takeshiD/md-readable.nvim/issues/14)
+- [x] [I14: Astro/Starlight対応](https://github.com/takeshiD/md-readable.nvim/issues/15)
+- [x] [I15: 読書Sessionと原文同期](https://github.com/takeshiD/md-readable.nvim/issues/16)
+- [x] [I16: 目次・見出し・前後ページUI](https://github.com/takeshiD/md-readable.nvim/issues/17)
+- [x] [I17: 表の表示と省略内容の確認](https://github.com/takeshiD/md-readable.nvim/issues/18)
+- [x] [I18: 表の原文整形](https://github.com/takeshiD/md-readable.nvim/issues/19)
+- [x] [I19: 原文コピーと原文検索](https://github.com/takeshiD/md-readable.nvim/issues/20)
+- [x] [I20: Focus Mode](https://github.com/takeshiD/md-readable.nvim/issues/21)
+- [x] [I21: 読書表示のテーマ](https://github.com/takeshiD/md-readable.nvim/issues/22)
 - [ ] [I22: 画像の本文内表示](https://github.com/takeshiD/md-readable.nvim/issues/23)
 - [ ] [I23: Mermaid描画](https://github.com/takeshiD/md-readable.nvim/issues/24)
-- [ ] [I24: ミニマップ](https://github.com/takeshiD/md-readable.nvim/issues/25)
-- [ ] [I25: 一般的な拡張記法](https://github.com/takeshiD/md-readable.nvim/issues/26)
-- [ ] [I26: リンク一覧とリンク操作](https://github.com/takeshiD/md-readable.nvim/issues/27)
+- [x] [I24: ミニマップ](https://github.com/takeshiD/md-readable.nvim/issues/25)
+- [x] [I25: 一般的な拡張記法](https://github.com/takeshiD/md-readable.nvim/issues/26)
+- [x] [I26: リンク一覧とリンク操作](https://github.com/takeshiD/md-readable.nvim/issues/27)
 - [ ] [I27: 全体接続・導入・品質確認](https://github.com/takeshiD/md-readable.nvim/issues/28)
-- [ ] [I28: Telescope / Snacks連携](https://github.com/takeshiD/md-readable.nvim/issues/29)
-- [ ] [I29: 表の行列挿入削除](https://github.com/takeshiD/md-readable.nvim/issues/30)
-- [ ] [I30: ミニマップのGit差分](https://github.com/takeshiD/md-readable.nvim/issues/31)
-- [ ] [I31: ミニマップのLSP診断](https://github.com/takeshiD/md-readable.nvim/issues/32)
+- [x] [I28: Telescope / Snacks連携](https://github.com/takeshiD/md-readable.nvim/issues/29)
+- [x] [I29: 表の行列挿入削除](https://github.com/takeshiD/md-readable.nvim/issues/30)
+- [x] [I30: ミニマップのGit差分](https://github.com/takeshiD/md-readable.nvim/issues/31)
+- [x] [I31: ミニマップのLSP診断](https://github.com/takeshiD/md-readable.nvim/issues/32)
 
 ## 並列実装の進め方
 
@@ -62,4 +64,4 @@ I00を先に確定し、文書解析・SourceMap・ナビゲーション/各pars
 
 150件のheadlessテストが成功。7SSG、実Session、UTF-8の原文コピー、レジスタ、未保存編集・ページ同期、狭幅UI、表編集、Git/LSP注釈、画像プロトコル・取消し、導入済みTelescope/Snacksを検証。1,000ページfixtureの初回は約49ms、再解析約46ms（保証値ではない）。
 
-コード未マージのため追跡チェックは残す。#23・#24・#28は実装済みだが、WezTerm/Ghostty実端末の画像表示と実際のmmdc描画の検証を残す。詳細は [検証記録](https://github.com/takeshiD/md-readable.nvim/blob/feat/readable-implementation/docs/verification.md)。
+チェック済みの29件はPR #34の `Closes` 対象で、マージ時にcloseされる。#23・#24・#28は実装済みだが、WezTerm/Ghostty実端末の画像表示と実際のmmdc描画の検証を残す。詳細は [検証記録](https://github.com/takeshiD/md-readable.nvim/blob/feat/readable-implementation/docs/verification.md)。

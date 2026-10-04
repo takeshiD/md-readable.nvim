@@ -21,7 +21,7 @@ Root owns `reader.session`, configuration and commands. Session fields and callb
 
 Focus: `reader.focus.set(session, enabled, range?)`, `.update(session)`, `.close(session)`.
 Theme: `ui.theme.apply(win, name, opts?)`, `.setup()`.
-Minimap: `nav.minimap.open(session)`, `.close(session)`, `.update(session)`, `.toggle(session)`, `.set_annotations(session, provider_id, items)`; items are `{start_row,end_row,kind,severity?}` in original coordinates. Git/diagnostic updates are service-owned and must be cleaned up. Mini buffers can map Enter to session:jump_source.
+Minimap: `minimap.open(session)` (module `md-readable.minimap`), `.close(session)`, `.update(session)`, `.toggle(session)`, `.get(session)`, `.set_annotations(session, provider_id, items)`; items are `{start_row,end_row,kind,severity?}` in original coordinates. Git/diagnostic updates are service-owned and must be cleaned up. Mini buffers can map Enter to session:jump_source.
 Table: `table.format.format(table) -> lines`; `table.edit.edit(table, action, index, count) -> lines,err` actions row_before/row_after/row_delete/col_before/col_after/col_delete; index is 1-based data row (header 0) or column. `table.prefix` preserves the source container/indent spelling and is prepended by the formatter. Root applies edit to `[start_row,end_row)` exactly once and refreshes. `format` must not mutate its argument.
 
 ## Navigation
@@ -38,6 +38,6 @@ Snapshot matches design: `{schemaVersion=1,rootDir,adapterId,trees={{id,title,it
 Root: config/init/plugin/session/source_map/yank/search/navigation UI, issue publication, docs, media and integrations after first wave.
 Rendering agent: document/, renderers/, reader/render.lua, tests/test_document.lua, tests/test_render.lua, dedicated fixtures.
 Navigation agent: parsers/, adapters/, navigation/{model,index,order,detect,resolver}.lua, providers/navigation.lua, tests/test_navigation.lua and dedicated fixtures.
-Services agent: reader/focus.lua, ui/theme.lua, table/, nav/minimap.lua, minimap/, tests/test_services.lua and dedicated fixtures.
+Services agent: reader/focus.lua, ui/theme.lua, table/, minimap/, tests/test_services.lua and dedicated fixtures.
 
 Shared files and this contract are changed only by root. Send proposed changes to root before changing an interface. No agent edits another agent's files. Each works in a separate checkout and commits only assigned files. Preserve licenses when adapting reference code.

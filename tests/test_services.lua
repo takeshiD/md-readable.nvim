@@ -4,7 +4,7 @@ return function(t)
   local focus = require("md-readable.reader.focus")
   local theme = require("md-readable.ui.theme")
   local mini = require("md-readable.minimap.render")
-  local minimap = require("md-readable.nav.minimap")
+  local minimap = require("md-readable.minimap")
   local git = require("md-readable.minimap.git")
   local diagnostic = require("md-readable.minimap.diagnostic")
   local next_id = 1000

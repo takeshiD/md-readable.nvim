@@ -175,7 +175,7 @@ function M.action(command, args, opts)
     s.config.theme = name
     require("md-readable.reader.focus").update(s)
   elseif command == "minimap" then
-    local map = require("md-readable.nav.minimap")
+    local map = require("md-readable.minimap")
     local action = ({ on = "open", off = "close", focus = "focus", toggle = "toggle" })[args[1] or "toggle"]
     if not action then
       error("minimap: on | off | toggle | focus")

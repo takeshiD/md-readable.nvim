@@ -47,7 +47,7 @@ function M.current()
           return s
         end
       end
-      local minimap = require("md-readable.minimap.session").get(s)
+      local minimap = require("md-readable.minimap").get(s)
       if minimap and minimap.win == win then
         return s
       end
@@ -70,7 +70,7 @@ function Session:jump_source(row, col)
     vim.api.nvim_set_current_win(self.read_win)
   end
   service("reader.focus", "update", self)
-  service("nav.minimap", "update", self)
+  service("minimap", "update", self)
 end
 function Session:sync(from)
   if self.busy or self.closed or not self.map then
@@ -171,7 +171,7 @@ function Session:refresh()
   local dr, dc = self.map:to_display(row, col)
   cursor(self.read_win, dr, dc)
   service("reader.focus", "update", self)
-  service("nav.minimap", "update", self)
+  service("minimap", "update", self)
   service("ui.navigation", "update", self)
   service("providers.image", "update", self)
   service("minimap.git", "update", self)
@@ -403,7 +403,7 @@ function M.open(mode)
       if current_win == self.read_win or current_win == self.source_win then
         self:sync(current_win)
         service("reader.focus", "update", self)
-        service("nav.minimap", "update", self)
+        service("minimap", "update", self)
         service("ui.navigation", "update", self)
       end
     end,
@@ -550,7 +550,7 @@ function M.close(self)
   self.closed = true
   self.generation = self.generation + 1
   service("ui.navigation", "close", self)
-  service("nav.minimap", "close", self)
+  service("minimap", "close", self)
   service("providers.image", "close", self)
   service("reader.focus", "close", self)
   service("ui.theme", "close", self.read_win)

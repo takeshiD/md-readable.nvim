@@ -1,6 +1,6 @@
 local M = {}
 local render = require("md-readable.minimap.render")
-local store = require("md-readable.minimap.session")
+local states = setmetatable({}, { __mode = "k" })
 local namespace = vim.api.nvim_create_namespace("MdReadableMinimap")
 local symbols = { add = "+", change = "~", delete = "-" }
 local diagnostic_symbols = { "E", "W", "I", "H" }
@@ -40,8 +40,12 @@ local function current(session, state)
   end
 end
 
+function M.get(session)
+  return states[session]
+end
+
 function M.update(session)
-  local state = store.get(session)
+  local state = states[session]
   if not state then
     return
   end
@@ -124,7 +128,7 @@ function M.update(session)
 end
 
 function M.set_annotations(session, provider_id, items)
-  local state = store.get(session)
+  local state = states[session]
   if not state then
     return
   end
@@ -134,8 +138,8 @@ function M.set_annotations(session, provider_id, items)
 end
 
 function M.open(session)
-  if store.get(session) then
-    return store.get(session).win
+  if states[session] then
+    return states[session].win
   end
   if session.closed or not vim.api.nvim_win_is_valid(session.read_win) then
     return nil, "reading window is closed"
@@ -184,7 +188,7 @@ function M.open(session)
     original_width = available,
     reserved_width = reserved_width,
   }
-  store.set(session, state)
+  states[session] = state
   vim.bo[buf].bufhidden, vim.bo[buf].filetype = "wipe", "md-readable-minimap"
   vim.bo[buf].swapfile, vim.bo[buf].modifiable = false, false
   for key, value in pairs({
@@ -261,11 +265,11 @@ function M.focus(session)
 end
 
 function M.close(session)
-  local state = store.get(session)
+  local state = states[session]
   if not state then
     return
   end
-  store.remove(session)
+  states[session] = nil
   require("md-readable.minimap.git").close(session)
   require("md-readable.minimap.diagnostic").close(session)
   if state.group then
@@ -287,7 +291,7 @@ function M.close(session)
 end
 
 function M.toggle(session)
-  if store.get(session) then
+  if states[session] then
     M.close(session)
     return false
   end

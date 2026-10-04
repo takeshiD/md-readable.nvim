@@ -458,33 +458,33 @@ md-render.nvimのTelescopeとSnacks連携を参考に、Markdownや画像のprev
 - health checkでNeovim版、parser、任意依存、選択adapter、未対応機能を確認できるようにする。
 - 既存プラグインとの組み合わせを許容し、特定のpickerやstatuslineプラグインを必須にしない。
 
-## 12. 推奨ディレクトリ構成
+## 12. ディレクトリ構成
 
 ```text
 lua/md-readable/init.lua
 lua/md-readable/config.lua
+lua/md-readable/health.lua
 lua/md-readable/types.lua
-lua/md-readable/navigation/model.lua
-lua/md-readable/navigation/index.lua
-lua/md-readable/navigation/order.lua
-lua/md-readable/navigation/resolver.lua
-lua/md-readable/adapters/{mdbook,honkit,gitbook,mkdocs,zensical,docusaurus,astro}.lua
-lua/md-readable/parsers/{summary,yaml,toml,frontmatter}.lua
+lua/md-readable/navigation/{model,index,order,resolver,detect}.lua
+lua/md-readable/adapters/{registry,common,mdbook,honkit,gitbook,mkdocs,zensical,docusaurus,astro}.lua
+lua/md-readable/parsers/{summary,yaml,toml,frontmatter,literal,sidebar_static}.lua
 lua/md-readable/document/{parser,outline,links,blocks,table,extensions}.lua
-lua/md-readable/ui/{sidebar,outline,pager,theme,links,cell}.lua
-lua/md-readable/reader/{render,session,projection,sync,source_map,focus,yank,search}.lua
+lua/md-readable/ui/{navigation,theme,links,cell}.lua
+lua/md-readable/reader/{render,session,source_map,focus,yank,search}.lua
 lua/md-readable/renderers/{text,inline,code,table,extensions}.lua
 lua/md-readable/table/{format,edit}.lua
 lua/md-readable/providers/{navigation,image,mermaid}.lua
-lua/md-readable/minimap/{render,session,git,diagnostic}.lua
-lua/md-readable/integrations/{telescope,snacks}.lua
+lua/md-readable/image/{capabilities,cache,convert,display,download}.lua
+lua/md-readable/minimap/{init,render,git,diagnostic}.lua
+lua/md-readable/integrations/{preview,telescope,snacks}.lua
+lua/telescope/_extensions/md_readable.lua
 plugin/md-readable.lua
 doc/md-readable.txt
 tests/fixtures/
 README.md
 ```
 
-これは責務分割の例であり、最初から空ファイルをすべて生成する必要はない。担当ファイルの正本は各Issueとし、既存の空モジュールとの接続は統合担当が管理する。
+`ui/navigation.lua`は目次・見出しアウトライン・前後ページ表示を一つのパネル実装で扱う。`minimap/init.lua`がミニマップの公開入口で、`render`・`git`・`diagnostic`はその内部部品である。`types.lua`はLuaLS用の型注釈（`---@meta`）で、実行時には読み込まない。空のモジュールは置かない。
 
 ## 13. 並列実装と受け入れ条件
 
