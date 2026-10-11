@@ -27,7 +27,19 @@ M.heading_next = { callback = command("heading-next"), desc = "Next heading" }
 M.heading_prev = { callback = command("heading-prev"), desc = "Previous heading" }
 M.next_page = { callback = command("next"), desc = "Next page" }
 M.prev_page = { callback = command("prev"), desc = "Previous page" }
-M.toggle_nav = { callback = command("nav"), desc = "Toggle book navigation" }
+---@class MdReadableNavToggleOptions
+---@field float? boolean true: floating window, false: sidebar, nil: by width and layout
+M.toggle_nav = {
+  ---@param opts? MdReadableNavToggleOptions
+  callback = function(opts)
+    local float = type(opts) == "table" and opts.float
+    local args = float == true and { "float" } or float == false and { "sidebar" } or {}
+    require("md-readable.errors").report(require("md-readable").action, "nav", args, {})
+  end,
+  desc = "Toggle book navigation",
+}
+M.toggle_nav_float = { callback = command("nav", "float"), desc = "Toggle book navigation in a floating window" }
+M.toggle_nav_sidebar = { callback = command("nav", "sidebar"), desc = "Toggle book navigation in a sidebar" }
 M.outline = { callback = command("outline"), desc = "Page headings" }
 M.select = { callback = command("select"), desc = "Select navigation adapter or tree" }
 M.links = { callback = command("links"), desc = "Document links" }
@@ -55,6 +67,15 @@ M.show_help = {
   end,
   desc = "Show reader keymaps",
 }
+
+-- Actions can be called directly: require("md-readable.actions").toggle_nav({ float = true }).
+for _, action in pairs(M) do
+  setmetatable(action, {
+    __call = function(self, ...)
+      return self.callback(...)
+    end,
+  })
+end
 
 -- Accepts "actions.heading_next", "heading_next" or "heading-next".
 ---@param name any Action name; non-strings yield nil

@@ -38,6 +38,7 @@ local arguments = {
   minimap = { "on", "off", "toggle", "focus" },
   table = { "format", "row-before", "row-after", "row-delete", "col-before", "col-after", "col-delete" },
   images = { "allow", "deny" },
+  nav = { "float", "sidebar" },
 }
 ---@param command string
 ---@param value? string
@@ -167,7 +168,9 @@ function M.action(command, args, opts)
     s:load_navigation()
     s:refresh()
   elseif command == "nav" then
-    require("md-readable.ui.navigation").toggle(s)
+    check_argument("nav", args[1], false)
+    local float = ({ float = true, sidebar = false })[args[1]]
+    require("md-readable.ui.navigation").toggle(s, { float = float })
   elseif command == "outline" then
     require("md-readable.ui.navigation").outline(s)
   elseif command == "prev" or command == "next" then

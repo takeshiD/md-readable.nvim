@@ -35,6 +35,7 @@ local next_id = 0
 ---@field panels table<MdReadableNavUiPanelKind, MdReadableNavUiPanel>
 ---@field order MdReadableNavNode[] Reading order of the active tree
 ---@field open boolean
+---@field float? boolean Style the user asked for (true floating, false sidebar); nil follows width/layout
 ---@field revision integer
 ---@field snapshot? MdReadableNavSnapshot
 ---@field tree_id? string
@@ -670,7 +671,7 @@ function M.update(session)
   st.updating = false
 end
 ---@param session MdReadableSession
----@param opts? {user?: boolean} user: opened by an explicit command
+---@param opts? {user?: boolean, float?: boolean} user: opened by an explicit command; float: force the style
 ---@return integer? win Book panel window
 function M.open(session, opts)
   opts = opts or {}
@@ -697,10 +698,17 @@ function M.open(session, opts)
   available = math.min(available, vim.o.columns)
   local narrow = available < minimum + width + 1
   st.available_width, st.lines = available, vim.o.lines
-  if not st.panels.book and (opts.user or (not narrow and layout ~= "ondemand")) then
-    create_panel(session, st, "book", narrow or layout == "ondemand", opts.user)
+  if opts.float ~= nil then
+    st.float = opts.float
   end
-  if layout == "separate" and not st.panels.outline and available >= minimum + width * 2 + 2 then
+  local floating = st.float
+  if floating == nil then
+    floating = narrow or layout == "ondemand"
+  end
+  if not st.panels.book and (opts.user or (not narrow and layout ~= "ondemand")) then
+    create_panel(session, st, "book", floating, opts.user)
+  end
+  if layout == "separate" and not floating and not st.panels.outline and available >= minimum + width * 2 + 2 then
     create_panel(session, st, "outline", false, false)
   end
   if not st.group then
@@ -744,7 +752,7 @@ function M.close(session)
   if not st then
     return
   end
-  st.open = false
+  st.open, st.float = false, nil
   for kind, panel in pairs(st.panels) do
     destroy(panel)
     st.panels[kind] = nil
@@ -756,14 +764,24 @@ function M.close(session)
     st.group = nil
   end
 end
+-- Closes the book panel, or opens it. opts.float picks the style (true
+-- floating window, false sidebar); a panel open in the other style is
+-- reopened in the requested one instead of closed.
 ---@param session MdReadableSession
-function M.toggle(session)
+---@param opts? {float?: boolean}
+function M.toggle(session, opts)
+  opts = opts or {}
   local st = state(session)
-  if st.panels.book and valid(st.panels.book.win) then
+  local book = st.panels.book
+  local open = book and valid(book.win)
+  if open and (opts.float == nil or book.floating == opts.float) then
     M.close(session)
     focus_reader(session)
   else
-    local win = M.open(session, { user = true })
+    if open then
+      M.close(session)
+    end
+    local win = M.open(session, { user = true, float = opts.float })
     if valid(win) then
       ---@cast win -nil
       vim.api.nvim_set_current_win(win)

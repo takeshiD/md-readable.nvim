@@ -27,7 +27,9 @@ displayed text.
 
 NAVIGATION                                               *md-readable-navigation*
 
-    :MdReadable nav              Toggle the book tree
+    :MdReadable nav [float|sidebar]
+                                 Toggle the book tree; float/sidebar force
+                                 the style (the other style reopens)
     :MdReadable outline          Show page headings
     :MdReadable select           Select a tree or ambiguous project adapter
     :MdReadable prev             Previous available document
@@ -256,7 +258,10 @@ Reading buffers get buffer-local keymaps from the keymaps option. Defaults:
     za         actions.expand           Expand or collapse omitted content
 
 Also available: actions.select, actions.focus_minimap, actions.next_tab,
-actions.refresh, actions.diagnostics. Names accept - or _. A value is an
+actions.refresh, actions.diagnostics, actions.toggle_nav_float,
+actions.toggle_nav_sidebar. Actions are also callable from a function
+keymap: require('md-readable.actions').toggle_nav({ float = true }).
+Names accept - or _. A value is an
 action name, a function, false (disable), or a table:
 >
     keymaps = {
