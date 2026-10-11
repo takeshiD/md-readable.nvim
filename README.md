@@ -131,6 +131,16 @@ require("md-readable").setup({
     label = "left", -- icon and language in the "left" or "right" top corner
     icons = nil, -- language icon provider: "mini" (mini.icons) or "web-devicons"; nil shows none
   },
+  watch = { enable = true }, -- reload the source when its file changes outside Neovim
+  git = {
+    enable = true, -- Git status of the source in the sign column
+    signs = {
+      -- text: 1-2 cells; color: "#rrggbb" or a highlight group name (default Added/Changed/Removed)
+      add = { text = "▎" },
+      change = { text = "▎" },
+      delete = { text = "▁" },
+    },
+  },
   -- adapters = { adapter = "mdbook", root_dir = "/path/to/book" },
 })
 ```
@@ -143,6 +153,20 @@ A Mermaid diagram is drawn inside its code block panel, in place of the code, un
 
 Code blocks are drawn as a full-width panel whose background is the page background shifted slightly toward gray. `code.theme` applies a Shiki-derived palette to code blocks only (background included); `code.colors` overrides single colors on top of it, or on top of the colorscheme when no theme is set.
 
+The reading view shows the Git status of the source in its sign column, next to the text: rows added, changed or deleted against the Git index (unsaved edits included) get a sign on the display rows that show them. A change on rows the view hides (blank lines, frontmatter, a deletion) marks the next shown row. Set the symbols and colors per kind, for example:
+
+```lua
+git = {
+  signs = {
+    add = { text = "+", color = "#3fb950" },
+    change = { text = "~", color = "DiagnosticWarn" }, -- a group name: use that group's colors
+    delete = { text = "_" },                          -- no color: keep Removed
+  },
+},
+```
+
+`git = { enable = false }` turns the signs and the sign column off.
+
 At narrow widths, navigation uses a floating chooser to preserve the reading area. Nerd Font glyphs are not required; an ASCII minimap mode is available.
 
 Dynamic SSG configuration is not executed. Supply a custom Lua/JSON navigation provider when needed; see `:help md-readable-providers` and the [SSG compatibility table](tests/fixtures/navigation/SUPPORTED.md).
@@ -151,23 +175,23 @@ Dynamic SSG configuration is not executed. Supply a custom Lua/JSON navigation p
 
 No global keymaps are installed; map the commands that open a reading view yourself, as in the lazy.nvim example above. Reading buffers get these defaults. Press `g?` to list the active keymaps.
 
-| Key | Action | Description |
-| --- | --- | --- |
-| `q` | `actions.close` | Close the reading view |
-| `<CR>` | `actions.open` | Open the link, cell, tab or details at the cursor |
-| `g?` | `actions.show_help` | List keymaps |
-| `gs` | `actions.source` | Jump to the source position |
-| `]]` / `[[` | `actions.heading_next` / `actions.heading_prev` | Next / previous heading |
-| `]p` / `[p` | `actions.next_page` / `actions.prev_page` | Next / previous page |
-| `gn` | `actions.toggle_nav` | Book navigation |
-| `gO` | `actions.outline` | Page headings |
-| `gl` | `actions.links` | Document links |
-| `g/` | `actions.search` | Search the source, including omitted text |
-| `gz` | `actions.toggle_focus` | Toggle Focus; in Visual mode, focus the selected lines |
-| `go` | `actions.toggle_minimap` | Minimap |
-| `za` | `actions.expand` | Expand or collapse omitted content |
+| Key         | Action                                          | Description                                            |
+| ---         | ---                                             | ---                                                    |
+| `q`         | `actions.close`                                 | Close the reading view                                 |
+| `<CR>`      | `actions.open`                                  | Open the link, cell, tab or details at the cursor      |
+| `g?`        | `actions.show_help`                             | List keymaps                                           |
+| `gs`        | `actions.source`                                | Jump to the source position                            |
+| `]]` / `[[` | `actions.heading_next` / `actions.heading_prev` | Next / previous heading                                |
+| `]p` / `[p` | `actions.next_page` / `actions.prev_page`       | Next / previous page                                   |
+| `gO`        | `actions.outline`                               | Page headings                                          |
+| `gl`        | `actions.links`                                 | Document links                                         |
+| `g/`        | `actions.search`                                | Search the source, including omitted text              |
+| `gz`        | `actions.toggle_focus`                          | Toggle Focus; in Visual mode, focus the selected lines |
+| `go`        | `actions.toggle_minimap`                        | Toggle Minimap                                         |
+| `gn`        | `actions.toggle_nav`                            | Toggle Book navigation                                 |
+| `za`        | `actions.expand`                                | Expand or collapse omitted content                     |
 
-`actions.select`, `actions.focus_minimap`, `actions.next_tab`, `actions.refresh` and `actions.diagnostics` are also available. Action names accept `-` or `_` (`actions.heading-next` works too). These keys are always installed and are not configured here:
+`actions.select`, `actions.focus_minimap`, `actions.next_tab`, `actions.refresh`, `actions.diagnostics`, `actions.toggle_nav_float` and `actions.toggle_nav_sidebar` are also available. Action names accept `-` or `_` (`actions.heading-next` works too). Actions can also be called from a function keymap, e.g. `require("md-readable.actions").toggle_nav({ float = true })` (`float = false` for a sidebar, omitted to choose by width and `layout`); `:MdReadable nav float|sidebar` does the same. These keys are always installed and are not configured here:
 
 - `y` / `Y`: copy the corresponding Markdown source
 - `/` `?` `n` `N`: search the displayed text

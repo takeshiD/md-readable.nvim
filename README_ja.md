@@ -42,7 +42,8 @@ AGENTS.mdに記載したプラグインは参考実装であり、必須依存�
 
 # Requirements
 - Neovim >= 0.12
-- 画像表示にはKitty graphics対応端末が必要です。WezTerm / Ghosttyを対象としていますが、端末での画像の目視確認は未実施です。
+- 画像表示: Kitty graphics protocolに対応した端末が必要
+> []KittyとGhosttyに対応tmuxの中でも使えます（`allow-passthrough on`）。画像は代わり文字として置くので、スクロールに追従し、tmuxでウィンドウを切り替えれば消えます。WezTermは代わり文字に対応していないため、画像の代わりに文字で表示します。
 - 任意依存: 画像変換にImageMagick等、Mermaidに導入済みの`mmdc`、許可した外部画像の取得に`curl`。
 - Telescope / Snacksは連携を利用する場合だけ必要です。ツールを自動インストールすることはありません。
 
@@ -113,26 +114,89 @@ setupは任意です。読書bufferのキーマップは[キーマップ](#キ�
 
 ```lua
 require("md-readable").setup({
-  layout = "integrated", -- integrated / separate / ondemand
-  width = 100, -- 本文幅。floatは最大でwidth + 4列
-  center = true, -- 広いwindowでは本文を中央に寄せる
-  links = { enable = true, icons = "unicode" }, -- "ascii"・false・種別ごとの表も可
-  keymaps = {}, -- 読書bufferのキーマップ。後述の「キーマップ」を参照
+  -- 配置: "integrated"・"separate"・"ondemand"
+  layout = "integrated",
+  -- 本文幅。floatは最大でwidth + 4列
+  width = 100,
+  -- 広いwindowでは本文を中央に寄せる
+  center = true,
+  -- 読書bufferのキーマップ。後述の「キーマップ」を参照
+  keymaps = {},
   use_default_keymaps = true,
-  table = { enable = true, max_cell_width = 28 },
-  focus = { enable = true, coefficient = 0.5, span = 0 },
-  minimap = { enable = true, follow = true, width = 8, mode = "braille" }, -- follow: カーソル移動で本文が追従
-  navigation = { follow = true }, -- ナビゲーションの見出しにカーソルを合わせると本文が追従（ページはEnterで開く）
-  images = { enable = true, remote = false, height = 10 },
-  mermaid = { enable = true, command = "mmdc", no_sandbox = false, scale = 3, max_rows = 40 },
-  code = {
-    theme = nil, -- コードブロックの配色: "github-dark"・"github-light"・"ayu-dark"・"ayu-light"・
-    --              "dracula"・"catppuccin"・"gruvbox-dark"・"gruvbox-light"・"tokyonight"
-    colors = {}, -- 個別の色（"#rrggbb"）: bg・fg・label・comment・keyword・string・number・constant・
-    --              func・type・variable・parameter・property・operator・punctuation・tag
-    label = "left", -- アイコンと言語名の位置。"left"（左上）か"right"（右上）
-    icons = nil, -- 言語アイコンの取得元。"mini"（mini.icons）か"web-devicons"。nilならアイコンなし
+
+  links = {
+    enable = true,
+    -- リンク種別の記号: "unicode"・"ascii"・false・種別ごとの表
+    icons = "unicode",
   },
+  table = {
+    enable = true,
+    max_cell_width = 28,
+  },
+  focus = {
+    -- 読書表示を開いた時点でFocusを有効にする
+    enable = true,
+    coefficient = 0.5,
+    span = 0,
+  },
+  minimap = {
+    -- 読書表示を開いた時点でミニマップを表示する
+    enable = true,
+    -- ミニマップでカーソルを動かすと本文が追従する
+    follow = true,
+    width = 14,
+    mode = "braille",
+  },
+  navigation = {
+    -- 見出しにカーソルを合わせると本文が追従する（ページはEnterで開く）
+    follow = true,
+  },
+  images = {
+    enable = true,
+    remote = false,
+    height = 10,
+  },
+  mermaid = {
+    enable = true,
+    command = "mmdc",
+    -- mmdcのChromiumを--no-sandboxで起動する（後述）
+    no_sandbox = false,
+    -- mmdcの出力倍率
+    scale = 3,
+    -- 図が使う行数の上限
+    max_rows = 40,
+  },
+  code = {
+    -- コードブロックの配色:
+    --   "github-dark"・"github-light"・"ayu-dark"・"ayu-light"・"dracula"・
+    --   "catppuccin"・"gruvbox-dark"・"gruvbox-light"・"tokyonight"
+    theme = "github-dark",
+    -- 個別の色（"#rrggbb"）:
+    --   bg・fg・label・comment・keyword・string・number・constant・func・
+    --   type・variable・parameter・property・operator・punctuation・tag
+    colors = {},
+    -- アイコンと言語名の位置: "left"（左上）・"right"（右上）
+    label = "left",
+    -- 言語アイコンの取得元: "mini"（mini.icons）・"web-devicons"。nilならアイコンなし
+    icons = "mini",
+  },
+
+  watch = {
+    -- 原文ファイルが外部（別のエディターやgitなど）で更新されたら読み込み直して反映する
+    enable = true,
+  },
+  git = {
+    -- 原文のGitの差分をsign columnに表示する
+    enable = true,
+    signs = {
+      -- text: 1〜2桁の記号
+      -- color: "#rrggbb"か強調表示グループ名（省略時はAdded・Changed・Removed）
+      add = { text = "▎" },
+      change = { text = "▎" },
+      delete = { text = "▁" },
+    },
+  },
+
   -- adapters = { adapter = "mdbook", root_dir = "/path/to/book" },
 })
 ```
@@ -145,6 +209,20 @@ Mermaidの図はコードブロックの枠の中に、コードの代わりに�
 
 コードブロックは本文幅いっぱいの枠で表示し、背景はページの背景色を少し灰色に寄せた色になります。`code.theme`はShikiの配色を元にしたプリセットをコードブロックだけに適用します（背景色を含む）。`code.colors`はその上から、またはプリセットなしならカラースキームの色の上から、個別の色を上書きします。
 
+読書表示のsign column（本文のすぐ左）に、原文のGitの差分を表示します。Gitのindexと比べて（未保存の編集も含む）追加・変更・削除された原文の行を表示している行に記号が付きます。空行やfront matter、削除の位置など読書表示に出ない行の変更は、その後で最初に表示される行に付きます。記号と色は種類ごとに変えられます。
+
+```lua
+git = {
+  signs = {
+    add = { text = "+", color = "#3fb950" },
+    change = { text = "~", color = "DiagnosticWarn" }, -- グループ名ならそのグループの色を使う
+    delete = { text = "_" },                          -- colorを省略するとRemovedのまま
+  },
+},
+```
+
+`git = { enable = false }`にすると記号とsign columnを表示しません。
+
 狭い画面では本文幅を優先し、目次をfloatingで選択できます。Nerd Fontは不要で、ミニマップには`mode = "ascii"`もあります。
 
 動的なSSG設定は実行しません。必要に応じてLua / JSONの共通ナビゲーションproviderを指定できます。詳細は`:help md-readable-providers`と[SSG対応表](tests/fixtures/navigation/SUPPORTED.md)を参照してください。
@@ -153,23 +231,48 @@ Mermaidの図はコードブロックの枠の中に、コードの代わりに�
 
 グローバルキーマップは追加しません。読書表示を開くキーは上のlazy.nvimの例のように`keys`で割り当ててください。読書bufferには次のキーマップが既定で入ります。`g?`で現在のキーマップ一覧を表示できます。
 
-| キー | action | 内容 |
-| --- | --- | --- |
-| `q` | `actions.close` | 読書表示を閉じる |
-| `<CR>` | `actions.open` | カーソル位置のリンク・セル・タブ・detailsを開く |
-| `g?` | `actions.show_help` | キーマップ一覧 |
-| `gs` | `actions.source` | 対応する原文の位置へ |
-| `]]` / `[[` | `actions.heading_next` / `actions.heading_prev` | 次・前の見出し |
-| `]p` / `[p` | `actions.next_page` / `actions.prev_page` | 次・前のページ |
-| `gn` | `actions.toggle_nav` | 書籍目次 |
-| `gO` | `actions.outline` | ページ見出し |
-| `gl` | `actions.links` | リンク一覧 |
-| `g/` | `actions.search` | 省略した内容を含む原文検索 |
-| `gz` | `actions.toggle_focus` | Focus切替。Visual選択中は選択行にFocus |
-| `go` | `actions.toggle_minimap` | ミニマップ |
-| `za` | `actions.expand` | 省略内容の展開・折りたたみ |
+| キー        | action                                          | 内容                                            |
+| ---         | ---                                             | ---                                             |
+| `q`         | `actions.close`                                 | 読書表示を閉じる                                |
+| `<CR>`      | `actions.open`                                  | カーソル位置のリンク・セル・タブ・detailsを開く |
+| `g?`        | `actions.show_help`                             | キーマップ一覧                                  |
+| `gs`        | `actions.source`                                | 対応する原文の位置へ                            |
+| `]]` / `[[` | `actions.heading_next` / `actions.heading_prev` | 次・前の見出し                                  |
+| `]p` / `[p` | `actions.next_page` / `actions.prev_page`       | 次・前のページ                                  |
+| `gn`        | `actions.toggle_nav`                            | 書籍目次                                        |
+| `gO`        | `actions.outline`                               | ページ見出し                                    |
+| `gl`        | `actions.links`                                 | リンク一覧                                      |
+| `g/`        | `actions.search`                                | 省略した内容を含む原文検索                      |
+| `gz`        | `actions.toggle_focus`                          | Focus切替。Visual選択中は選択行にFocus          |
+| `go`        | `actions.toggle_minimap`                        | ミニマップ                                      |
+| `za`        | `actions.expand`                                | 省略内容の展開・折りたたみ                      |
 
-このほか`actions.select`、`actions.focus_minimap`、`actions.next_tab`、`actions.refresh`、`actions.diagnostics`を割り当てられます。action名の`-`と`_`はどちらでも構いません（`actions.heading-next`も可）。次のキーは常に有効で、設定では変更しません。
+このほか
+
+- `actions.select`
+- `actions.focus_minimap`
+- `actions.next_tab`
+- `actions.refresh`
+- `actions.diagnostics`
+- `actions.toggle_nav_float`
+- `actions.toggle_nav_sidebar`
+
+を割り当てられます。
+
+関数のキーマップからactionを呼ぶこともでき、`require("md-readable.actions").toggle_nav({ float = true })`で目次をフローティングウィンドウで開きます。
+したがってよりカスタマイズする場合は次のように設定することが出来ます。
+
+```lua
+keymaps = {
+    ["gN"] = { mode = "n", function()
+            require("md-readable.actions").toggle_nav({float = true})
+        end,
+        desc = "Toggle Nav on Floating Window"
+    }
+}
+```
+
+`:MdReadable nav float|sidebar`でも同じです。次のキーは常に有効で、設定では変更しません。
 
 - `y` / `Y`: 対応するMarkdown原文をコピー
 - `/` `?` `n` `N`: 表示テキストを検索
@@ -200,14 +303,6 @@ require("snacks").setup({
 ```
 
 `:Telescope md_readable find_files` / `:Telescope md_readable live_grep`も利用できます。選択確定の動作はpicker側に任せ、非対応ファイルは標準previewへ戻します。詳細は`:help md-readable`、依存状況は`:checkhealth md-readable`で確認できます。
-
-# 開発・検証
-
-```sh
-nvim --headless -n -u NONE -i NONE -l tests/run.lua
-```
-
-解析、7SSG、実際の読書Session、原文コピー、同期、狭幅UI、表編集、ミニマップ、画像プロトコル・取消し、導入済みpickerとの連携を検証します。実端末の画像と実際のmmdcの確認状況は[検証記録](docs/verification.md)に記載しています。
 
 # License
 MIT
