@@ -203,6 +203,7 @@ CONFIGURATION                                            *md-readable-setup*
                   scale = 3, max_rows = 40 },
       code = { theme = nil, colors = {}, label = 'left', icons = nil },
       watch = { enable = true },
+      git = { enable = true },
       float = { width = 0.85, height = 0.85, border = 'rounded' },
     })
 <
@@ -217,6 +218,14 @@ Each feature section has an enable switch:
                   outside Neovim, so the reading view follows edits from
                   other editors, git or generators. Edits made in Neovim
                   always update the view.
+  git.enable      Show the Git status of the source in the reading view's
+                  sign column, next to the text: added, changed and
+                  deleted source rows (unsaved edits included, compared
+                  with the index) mark the display rows that show them.
+                  A change on rows the view hides (blank lines,
+                  frontmatter, a deletion) marks the next shown row.
+                  Groups: MdReadableGitAdd, MdReadableGitChange,
+                  MdReadableGitDelete (linked to Added/Changed/Removed).
   minimap.follow  Moving the cursor in the minimap scrolls the reading view
                   while the minimap keeps focus; false: only Enter jumps.
   navigation.follow

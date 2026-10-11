@@ -35,6 +35,9 @@ local defaults = {
   MdReadableFootnote = { link = "Special" },
   MdReadableMinimapCurrent = { link = "CursorLine" },
   MdReadableMinimapCode = { link = "MdReadableCode" },
+  MdReadableGitAdd = { link = "Added" },
+  MdReadableGitChange = { link = "Changed" },
+  MdReadableGitDelete = { link = "Removed" },
 }
 -- Used when the colorscheme gives every Markdown heading level the same style
 -- (the built-in default does). Groups are chosen to differ in common schemes.

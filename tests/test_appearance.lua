@@ -135,7 +135,10 @@ return function(t)
       end
     end
     open({ "text" }, "current", { width = 50, center = false })
+    t.eq("%s", vim.wo.statuscolumn, "no margin, only the Git sign column")
+    open({ "text" }, "current", { width = 50, center = false, git = { enable = false } })
     t.eq("", vim.wo.statuscolumn)
+    t.eq("no", vim.wo.signcolumn)
     cleanup()
     t.eq("", vim.wo.statuscolumn, "current window option restored")
     vim.o.columns, vim.o.lines = columns, lines

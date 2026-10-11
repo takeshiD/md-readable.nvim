@@ -169,6 +169,12 @@ function Session:refresh()
   -- buffer text, SourceMap columns and search independent of the margin.
   local margin = self.config.center ~= false and math.max(0, math.floor((total - opts.width) / 2)) or 0
   local statuscolumn = margin > 0 and string.rep(" ", margin) or ""
+  -- Git signs sit at the right end of the margin, next to the text; the sign
+  -- column takes 2 cells, which the width above already leaves free. Neovim
+  -- collapses a status column wider than 47 cells, so the padding stops at 45.
+  if (self.config.git or {}).enable ~= false then
+    statuscolumn = string.rep(" ", math.min(45, math.max(0, margin - 2))) .. "%s"
+  end
   if
     vim.api.nvim_win_get_buf(self.read_win) == self.read_buf and vim.wo[self.read_win].statuscolumn ~= statuscolumn
   then
@@ -213,6 +219,7 @@ function Session:refresh()
   service("minimap", "update", self)
   service("ui.navigation", "update", self)
   service("providers.image", "update", self)
+  service("reader.git", "refresh", self)
 end
 function Session:schedule()
   self.pending = (self.pending or 0) + 1
@@ -312,6 +319,7 @@ function Session:unwatch_file()
 end
 function Session:attach_source()
   self:watch_file()
+  service("reader.git", "attach", self)
   if M.watchers[self.source_buf] then
     return
   end
@@ -479,7 +487,8 @@ function M.open(mode)
     wrap = false,
     number = false,
     relativenumber = false,
-    signcolumn = "no",
+    -- %s in 'statuscolumn' draws the Git signs; "no" would leave it empty.
+    signcolumn = (config.git or {}).enable ~= false and "yes:1" or "no",
     foldcolumn = "0",
     conceallevel = 0,
   }) do
@@ -669,6 +678,7 @@ function M.close(self)
   self.closed = true
   self.generation = self.generation + 1
   self:unwatch_file()
+  service("reader.git", "close", self)
   service("ui.navigation", "close", self)
   service("minimap", "close", self)
   if self._links_panel then
