@@ -455,6 +455,30 @@ local function activate(session, st, panel)
     st.panels[panel.kind] = nil
   end
 end
+-- Moves the reading view to the heading under the panel cursor while the
+-- panel keeps focus (navigation.follow). Pages still open with Enter.
+---@param session MdReadableSession
+---@param st MdReadableNavUiState
+---@param panel MdReadableNavUiPanel
+local function follow(session, st, panel)
+  if (session.config.navigation or {}).follow == false or vim.api.nvim_get_current_win() ~= panel.win then
+    return
+  end
+  local entry = panel_entry(panel)
+  if not entry or entry.kind ~= "heading" or not session.map or not valid(session.read_win) then
+    return
+  end
+  local current = current_heading(session)
+  if current and heading_key(current) == entry.id then
+    return
+  end
+  local display = session.map:to_display(heading_row(entry.heading), 0)
+  vim.api.nvim_win_set_cursor(session.read_win, { display + 1, 0 })
+  session:sync(session.read_win)
+  require("md-readable.reader.focus").update(session)
+  require("md-readable.minimap").update(session)
+  M.update(session)
+end
 ---@param session MdReadableSession
 ---@param st MdReadableNavUiState
 ---@param panel MdReadableNavUiPanel
@@ -520,6 +544,12 @@ local function create_panel(session, st, kind, floating, focus)
   key("<CR>", function()
     activate(session, st, panel)
   end, "Open selected document or heading")
+  vim.api.nvim_create_autocmd("CursorMoved", {
+    buffer = buf,
+    callback = function()
+      follow(session, st, panel)
+    end,
+  })
   key("h", function()
     fold(session, st, panel, false)
   end, "Collapse or select parent")

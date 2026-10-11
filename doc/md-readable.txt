@@ -191,10 +191,11 @@ CONFIGURATION                                            *md-readable-setup*
       heading_rules = true,
       center = true,
       links = { enable = true, icons = 'unicode' },
-      navigation = { auto_open = true, width = 28, min_body_width = 48 },
+      navigation = { auto_open = true, follow = true, width = 28,
+                     min_body_width = 48 },
       table = { enable = true, max_cell_width = 28 },
       focus = { enable = true, coefficient = 0.5, span = 0, priority = 10 },
-      minimap = { enable = true, width = 12, mode = 'braille' },
+      minimap = { enable = true, follow = true, width = 12, mode = 'braille' },
       images = { enable = true, remote = false, height = 10 },
       mermaid = { enable = true, command = 'mmdc', no_sandbox = false,
                   scale = 3, max_rows = 40 },
@@ -209,6 +210,12 @@ Each feature section has an enable switch:
   table.enable    false shows tables as their Markdown source.
   focus.enable    Start Focus mode when a reading view opens.
   minimap.enable  Open the minimap when a reading view opens.
+  minimap.follow  Moving the cursor in the minimap scrolls the reading view
+                  while the minimap keeps focus; false: only Enter jumps.
+  navigation.follow
+                  Moving over a heading in a navigation panel (book tree
+                  or outline) scrolls the reading view to it; pages still
+                  open with Enter. false: only Enter jumps.
   mermaid.no_sandbox
                   Start mmdc's Chromium with --no-sandbox, for systems
                   where its sandbox helper fails ("Failed to launch the

@@ -11,9 +11,13 @@ return function(t)
     end
     vim.cmd("silent! only!")
   end
-  local function open(lines)
+  local function open(lines, opts)
     cleanup()
-    api.setup({ navigation = { auto_open = false }, images = { enable = false }, debounce = 0 })
+    api.setup(vim.tbl_deep_extend("force", {
+      navigation = { auto_open = false },
+      images = { enable = false },
+      debounce = 0,
+    }, opts or {}))
     local buf = vim.api.nvim_create_buf(true, false)
     vim.api.nvim_set_current_buf(buf)
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
@@ -98,5 +102,55 @@ return function(t)
     vim.api.nvim_exec_autocmds("CursorMoved", { buffer = state.buf })
     t.eq(display + 2, vim.api.nvim_win_get_cursor(s.read_win)[1])
     cleanup()
+  end)
+
+  t.test("minimap.follow = false keeps the reading view until Enter", function()
+    local lines = {}
+    for i = 1, 300 do
+      lines[i] = "line " .. i
+    end
+    local s = open(lines, { minimap = { follow = false } })
+    local state = assert(minimap.get(s))
+    vim.api.nvim_set_current_win(state.win)
+    local before = vim.api.nvim_win_get_cursor(s.read_win)[1]
+    vim.api.nvim_win_set_cursor(state.win, { #vim.api.nvim_buf_get_lines(state.buf, 0, -1, false), 0 })
+    vim.api.nvim_exec_autocmds("CursorMoved", { buffer = state.buf })
+    t.eq(before, vim.api.nvim_win_get_cursor(s.read_win)[1])
+    cleanup()
+  end)
+
+  t.test("moving over a heading in a navigation panel follows it; pages wait for Enter", function()
+    local navigation = require("md-readable.ui.navigation")
+    local lines = {}
+    for i = 1, 6 do
+      vim.list_extend(lines, { "# Heading " .. i, "" })
+      for j = 1, 30 do
+        lines[#lines + 1] = "text " .. i .. "." .. j
+      end
+      lines[#lines + 1] = ""
+    end
+    for _, follow in ipairs({ true, false }) do
+      local s = open(lines, { navigation = { follow = follow }, minimap = { enable = false } })
+      navigation.outline(s)
+      local panel = s._navigation.panels.outline
+      t.eq(panel.win, vim.api.nvim_get_current_win())
+      local target
+      for index, entry in ipairs(panel.entries) do
+        if entry.kind == "heading" and entry.heading.title == "Heading 5" then
+          target = index
+        end
+      end
+      local before = vim.api.nvim_win_get_cursor(s.read_win)[1]
+      vim.api.nvim_win_set_cursor(panel.win, { assert(target), 0 })
+      vim.api.nvim_exec_autocmds("CursorMoved", { buffer = panel.buf })
+      local heading = s.map:to_display(panel.entries[target].heading.range.start.row, 0)
+      if follow then
+        t.eq(heading + 1, vim.api.nvim_win_get_cursor(s.read_win)[1], "reader at Heading 5")
+        t.eq(panel.win, vim.api.nvim_get_current_win(), "focus stays in the panel")
+      else
+        t.eq(before, vim.api.nvim_win_get_cursor(s.read_win)[1], "follow = false waits for Enter")
+      end
+      cleanup()
+    end
   end)
 end

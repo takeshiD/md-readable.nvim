@@ -55,10 +55,14 @@ local function current(session, state)
   end
 end
 
--- Moves the reading view to the minimap cursor without leaving the minimap.
+-- Moves the reading view to the minimap cursor without leaving the minimap
+-- (minimap.follow).
 ---@param session MdReadableSession
 ---@param state MdReadableMinimapState
 local function follow(session, state)
+  if (session.config.minimap or {}).follow == false then
+    return
+  end
   if not valid(session, state) or not state.rendered or vim.api.nvim_get_current_win() ~= state.win then
     return
   end

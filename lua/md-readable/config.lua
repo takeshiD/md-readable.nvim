@@ -8,6 +8,7 @@ local M = {}
 ---@field auto_open boolean Open the navigation panel when a project is detected
 ---@field width integer Panel width in cells
 ---@field min_body_width integer
+---@field follow boolean Moving over a heading in a panel scrolls the reading view
 ---@class MdReadableConfigTable : MdReadableUserConfigTable
 ---@field enable boolean false shows tables as their Markdown source
 ---@field max_cell_width integer
@@ -22,6 +23,7 @@ local M = {}
 ---@field cterm_color? integer
 ---@class MdReadableConfigMinimap : MdReadableUserConfigMinimap
 ---@field enable boolean Open the minimap when a reading view opens
+---@field follow boolean Moving in the minimap scrolls the reading view
 ---@field width integer
 ---@field mode MdReadableMinimapMode
 ---@class MdReadableConfigImages : MdReadableUserConfigImages
@@ -79,6 +81,7 @@ local M = {}
 ---@field icons? MdReadableLinkIcons
 ---@class MdReadableUserConfigNavigation
 ---@field auto_open? boolean
+---@field follow? boolean
 ---@field width? integer
 ---@field min_body_width? integer
 ---@class MdReadableUserConfigTable
@@ -95,6 +98,7 @@ local M = {}
 ---@field cterm_color? integer
 ---@class MdReadableUserConfigMinimap
 ---@field enable? boolean
+---@field follow? boolean
 ---@field width? integer
 ---@field mode? MdReadableMinimapMode
 ---@class MdReadableUserConfigImages
@@ -161,10 +165,10 @@ M.defaults = {
   center = true,
   links = { enable = true, icons = "unicode" }, -- "unicode", "ascii", false, or { external = "..", ... }
   layout = "integrated",
-  navigation = { auto_open = true, width = 28, min_body_width = 48 },
+  navigation = { auto_open = true, follow = true, width = 28, min_body_width = 48 },
   table = { enable = true, max_cell_width = 28 },
   focus = { enable = true, coefficient = 0.5, span = 0, bop = "^\\s*$\\n\\zs", eop = "^\\s*$", priority = 10 },
-  minimap = { enable = true, width = 12, mode = "braille" },
+  minimap = { enable = true, follow = true, width = 12, mode = "braille" },
   images = { enable = true, remote = false, height = 10, max_bytes = 20 * 1024 * 1024 },
   mermaid = { enable = true, command = "mmdc", scale = 3, max_rows = 40 },
   code = { label = "left", colors = {} },

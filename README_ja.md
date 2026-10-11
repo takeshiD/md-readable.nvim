@@ -121,7 +121,8 @@ require("md-readable").setup({
   use_default_keymaps = true,
   table = { enable = true, max_cell_width = 28 },
   focus = { enable = true, coefficient = 0.5, span = 0 },
-  minimap = { enable = true, width = 8, mode = "braille" },
+  minimap = { enable = true, follow = true, width = 8, mode = "braille" }, -- follow: カーソル移動で本文が追従
+  navigation = { follow = true }, -- ナビゲーションの見出しにカーソルを合わせると本文が追従（ページはEnterで開く）
   images = { enable = true, remote = false, height = 10 },
   mermaid = { enable = true, command = "mmdc", no_sandbox = false, scale = 3, max_rows = 40 },
   code = {

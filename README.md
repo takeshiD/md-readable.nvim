@@ -119,7 +119,8 @@ require("md-readable").setup({
   use_default_keymaps = true,
   table = { enable = true, max_cell_width = 28 },
   focus = { enable = true, coefficient = 0.5, span = 0 },
-  minimap = { enable = true, width = 12, mode = "braille" },
+  minimap = { enable = true, follow = true, width = 12, mode = "braille" }, -- follow: moving in it scrolls the view
+  navigation = { follow = true }, -- moving over a heading in a navigation panel scrolls the view; pages open with Enter
   images = { enable = true, remote = false, height = 10 },
   mermaid = { enable = true, command = "mmdc", no_sandbox = false, scale = 3, max_rows = 40 },
   code = {
