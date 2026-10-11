@@ -40,7 +40,7 @@ See the [agreed specification](docs/final-spec-review.md), [implementation track
 
 # Requirements
 - Neovim >= 0.12
-- Inline images require a compatible Kitty graphics terminal. WezTerm/Ghostty are targets; actual terminal pixels are not yet manually verified.
+- Inline images require a terminal with Kitty graphics Unicode placeholders: Kitty or Ghostty, also inside tmux (`allow-passthrough on`). Images are placeholder text, so they scroll with the view and disappear when you switch tmux windows. WezTerm lacks placeholders and gets the text fallback.
 - Optional: ImageMagick/rsvg-convert/FFmpeg for image conversion; installed `mmdc` for Mermaid; `curl` for explicitly allowed web images.
 - Telescope and Snacks are optional, only for their preview integrations. No reference plugin is required and no tool is automatically installed.
 
@@ -121,7 +121,7 @@ require("md-readable").setup({
   focus = { enable = true, coefficient = 0.5, span = 0 },
   minimap = { enable = true, width = 12, mode = "braille" },
   images = { enable = true, remote = false, height = 10 },
-  mermaid = { enable = true, command = "mmdc" },
+  mermaid = { enable = true, command = "mmdc", no_sandbox = false, scale = 3, max_rows = 40 },
   code = {
     theme = nil, -- code block syntax colors: "github-dark", "github-light", "ayu-dark", "ayu-light",
     --              "dracula", "catppuccin", "gruvbox-dark", "gruvbox-light", "tokyonight"
@@ -135,6 +135,10 @@ require("md-readable").setup({
 ```
 
 Each feature section has an `enable` switch. `links.enable = false` shows link labels as plain text without highlights or kind markers (the link list and following still work); `table.enable = false` shows tables as their Markdown source; `focus.enable` and `minimap.enable` start Focus mode and the minimap whenever a reading view opens (toggle them afterwards with `gz` / `go`); `images.enable` and `mermaid.enable` turn media rendering off. The former `images.enabled` / `mermaid.enabled` keys are still accepted.
+
+If Mermaid diagrams stay blank and `:MdReadable diagnostics` reports "Failed to launch the browser process" with a SUID sandbox message, mmdc's Chromium cannot use its sandbox (common with Nix-installed Chromium). `mermaid.no_sandbox = true` starts it with `--no-sandbox`; only use it for documents you trust.
+
+A Mermaid diagram is drawn inside its code block panel, in place of the code, under the same label row and background; when it cannot be drawn the code is shown. It fills the body width and gets the rows that keep its aspect ratio, up to `mermaid.max_rows`. Until a diagram is first generated it uses `images.height` rows, then the view is redrawn once. `mermaid.scale` is passed to mmdc so enlarged diagrams stay sharp.
 
 Code blocks are drawn as a full-width panel whose background is the page background shifted slightly toward gray. `code.theme` applies a Shiki-derived palette to code blocks only (background included); `code.colors` overrides single colors on top of it, or on top of the colorscheme when no theme is set.
 

@@ -19,7 +19,15 @@ function M.command(source, output, opts)
   if vim.fn.executable(command) ~= 1 then
     return nil, "install mmdc to render Mermaid diagrams"
   end
-  return {
+  local extra = {}
+  if opts.no_sandbox then
+    local config, err = M.no_sandbox_config()
+    if not config then
+      return nil, err
+    end
+    extra = { "--puppeteerConfigFile", config }
+  end
+  return vim.list_extend({
     command,
     "--input",
     source,
@@ -35,7 +43,28 @@ function M.command(source, output, opts)
     tostring(opts.width or 1600),
     "--height",
     tostring(opts.height or 1000),
-  }
+    "--scale",
+    tostring(opts.scale or 3),
+  }, extra)
+end
+
+-- Puppeteer config that starts mmdc's Chromium without its sandbox, for
+-- systems where the sandbox helper is unusable (e.g. Nix-installed Chromium).
+---@return string? path
+---@return string? err
+function M.no_sandbox_config()
+  local path = vim.fs.joinpath(vim.fn.stdpath("cache") --[[@as string]], "md-readable", "puppeteer-no-sandbox.json")
+  if vim.uv.fs_stat(path) then
+    return path
+  end
+  local ok, err = pcall(function()
+    vim.fn.mkdir(vim.fs.dirname(path), "p")
+    vim.fn.writefile({ vim.json.encode({ args = { "--no-sandbox" } }) }, path)
+  end)
+  if not ok then
+    return nil, "cannot write the Mermaid puppeteer config: " .. tostring(err)
+  end
+  return path
 end
 
 ---@param session MdReadableSession
@@ -45,13 +74,14 @@ end
 local function cache_target(session, code)
   local opts = session.config.mermaid or {}
   local key = table.concat({
-    "mermaid-v1",
+    "mermaid-v2",
     code,
     opts.command or "mmdc",
     opts.theme or "default",
     opts.background or "transparent",
     opts.width or 1600,
     opts.height or 1000,
+    opts.scale or 3,
   }, "\0")
   return cache.path(key, ".png", session.config.images or {})
 end
@@ -62,6 +92,30 @@ local function source(descriptor)
   return type(descriptor.code) == "table" and table.concat(descriptor.code --[[@as string[] ]], "\n")
     or descriptor.code
     or ""
+end
+
+-- Rows that show an already generated diagram across `descriptor.width`
+-- columns (cells are about twice as tall as wide), capped by max_rows; nil
+-- until the diagram exists.
+---@param session MdReadableSession
+---@param descriptor MdReadableRenderedImage
+---@return integer?
+function M.rows(session, descriptor)
+  local target = cache_target(session, source(descriptor))
+  local fd = target and vim.uv.fs_open(target, "r", 420)
+  if not fd then
+    return nil
+  end
+  local header = vim.uv.fs_read(fd, 24, 0)
+  vim.uv.fs_close(fd)
+  local width, height = require("md-readable.image.display").dimensions(header or "")
+  if not width then
+    return nil
+  end
+  ---@cast height integer
+  local max_rows = (session.config.mermaid or {}).max_rows or 40
+  local columns = math.max(1, descriptor.width or 80)
+  return math.max(1, math.min(max_rows, math.ceil(columns * height / (2 * width))))
 end
 
 -- Reason the diagram cannot be drawn without starting a job, or nil.

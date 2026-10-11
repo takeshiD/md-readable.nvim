@@ -37,6 +37,9 @@ local M = {}
 ---@class MdReadableConfigMermaid : MdReadableUserConfigMermaid
 ---@field enable boolean
 ---@field command string
+---@field no_sandbox? boolean Start mmdc's Chromium with --no-sandbox
+---@field scale number mmdc --scale; higher keeps enlarged diagrams sharp
+---@field max_rows integer Upper bound of the rows a diagram fills
 ---@field theme? string
 ---@field background? string
 ---@field width? integer Pixels
@@ -109,6 +112,9 @@ local M = {}
 ---@field enable? boolean
 ---@field enabled? boolean Deprecated name of `enable`
 ---@field command? string
+---@field no_sandbox? boolean
+---@field scale? number
+---@field max_rows? integer
 ---@field theme? string
 ---@field background? string
 ---@field width? integer
@@ -160,7 +166,7 @@ M.defaults = {
   focus = { enable = true, coefficient = 0.5, span = 0, bop = "^\\s*$\\n\\zs", eop = "^\\s*$", priority = 10 },
   minimap = { enable = true, width = 12, mode = "braille" },
   images = { enable = true, remote = false, height = 10, max_bytes = 20 * 1024 * 1024 },
-  mermaid = { enable = true, command = "mmdc" },
+  mermaid = { enable = true, command = "mmdc", scale = 3, max_rows = 40 },
   code = { label = "left", colors = {} },
   float = { width = 0.85, height = 0.85, border = "rounded" },
   adapters = {},

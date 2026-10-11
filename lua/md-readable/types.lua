@@ -38,6 +38,7 @@
 ---@field label_row integer Display row of the label line
 ---@field source_row integer
 ---@field width integer
+---@field col? integer Display column of the image within its rows (default 0)
 ---@field height integer Reserved rows; 0 when it cannot be drawn
 ---@field alt string
 ---@field path? string Link target (images)

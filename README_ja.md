@@ -123,7 +123,7 @@ require("md-readable").setup({
   focus = { enable = true, coefficient = 0.5, span = 0 },
   minimap = { enable = true, width = 8, mode = "braille" },
   images = { enable = true, remote = false, height = 10 },
-  mermaid = { enable = true, command = "mmdc" },
+  mermaid = { enable = true, command = "mmdc", no_sandbox = false, scale = 3, max_rows = 40 },
   code = {
     theme = nil, -- コードブロックの配色: "github-dark"・"github-light"・"ayu-dark"・"ayu-light"・
     --              "dracula"・"catppuccin"・"gruvbox-dark"・"gruvbox-light"・"tokyonight"
@@ -137,6 +137,10 @@ require("md-readable").setup({
 ```
 
 各機能の`enable`で有効・無効を切り替えます。`links.enable = false`ではリンクの強調表示と種別記号を出さず、ラベルを本文として表示します（リンク一覧と移動は使えます）。`table.enable = false`では表を整形せずMarkdownのまま表示します。`focus.enable`と`minimap.enable`は読書表示を開いた時点でFocusとミニマップを有効にします（開いた後は`gz`・`go`で切り替え）。`images.enable`・`mermaid.enable`は画像・Mermaidの描画を切り替えます。以前の`images.enabled`・`mermaid.enabled`も引き続き使えます。
+
+Mermaidの図が表示されず、`:MdReadable diagnostics`に「Failed to launch the browser process」とSUID sandboxのエラーが出る場合は、mmdcが使うChromiumの隔離機能が動いていません（NixでChromiumを導入した環境でよく起きます）。`mermaid.no_sandbox = true`にすると`--no-sandbox`で起動します。隔離機能を切るため、信頼できる文書にだけ使ってください。
+
+Mermaidの図はコードブロックの枠の中に、コードの代わりに表示します（見出しの行と背景色はそのまま）。図を描けない場合はコードを表示します。図は本文幅いっぱいに表示し、縦横比を保つのに必要な行数を確保します（上限は`mermaid.max_rows`）。図を初めて生成するまでは`images.height`の行数で表示し、生成後に一度描き直します。`mermaid.scale`はmmdcの出力倍率で、拡大してもぼやけないようにします。
 
 コードブロックは本文幅いっぱいの枠で表示し、背景はページの背景色を少し灰色に寄せた色になります。`code.theme`はShikiの配色を元にしたプリセットをコードブロックだけに適用します（背景色を含む）。`code.colors`はその上から、またはプリセットなしならカラースキームの色の上から、個別の色を上書きします。
 

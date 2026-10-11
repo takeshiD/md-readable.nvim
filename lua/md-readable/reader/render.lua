@@ -2,7 +2,7 @@
 ---@class MdReadableRenderMediaOptions
 ---@field enabled? boolean false reserves no rows for media
 ---@field image_height? integer Rows reserved per image or diagram
----@field reserve? fun(descriptor:MdReadableRenderedImage):boolean false when the media cannot be drawn
+---@field reserve? fun(descriptor:MdReadableRenderedImage):boolean|integer false when the media cannot be drawn; a number of rows overrides image_height
 -- Render options: a (partial) configuration plus per-session state.
 ---@class MdReadableRenderOptions: MdReadableUserConfig
 ---@field tabstop? integer
@@ -52,11 +52,15 @@ function M.render(document, opts)
   -- drawn; media.reserve rejects known failures (missing file, no mmdc, ...).
   ---@param descriptor table MdReadableRenderedImage without row, width and height
   ---@param source_row integer
-  local function add_media(descriptor, source_row)
-    descriptor.row, descriptor.width = #result.lines, width
+  ---@param media_width? integer Columns available; defaults to the body width
+  local function add_media(descriptor, source_row, media_width)
+    descriptor.row, descriptor.width = #result.lines, media_width or width
     descriptor.height = image_height
-    if image_height > 0 and media.reserve and not media.reserve(descriptor) then
+    local verdict = image_height > 0 and media.reserve and media.reserve(descriptor)
+    if verdict == false then
       descriptor.height = 0
+    elseif type(verdict) == "number" then
+      descriptor.height = verdict
     end
     result.images[#result.images + 1] = descriptor
     for _ = 1, descriptor.height do
@@ -332,15 +336,34 @@ function M.render(document, opts)
         end
         local lead = code_opts.label == "right" and math.max(1, width - label_width - 1) or 1
         local header_row = ctx.emit({ { text = string.rep(" ", lead) }, unpack(label) }, block.start_row, false)
-        local body_lines, body_rows = {}, {}
+        local body_lines = {}
         for row = block.body_start, block.body_end - 1 do
           local text = doc.lines[row + 1]
-          local offset = math.min(block.indent or 0, #text)
-          body_lines[#body_lines + 1] = text:sub(offset + 1)
-          body_rows[#body_rows + 1] = ctx.emit({
-            { text = " " },
-            { text = text:sub(offset + 1), source_start = offset, source_end = #text, group = "MdReadableCodeBlock" },
-          }, row, true)
+          body_lines[#body_lines + 1] = text:sub(math.min(block.indent or 0, #text) + 1)
+        end
+        -- A drawable Mermaid diagram takes the place of its code inside the
+        -- panel; otherwise (disabled, no mmdc, failed) the code is shown.
+        local diagram
+        if block.language:lower() == "mermaid" then
+          diagram = {
+            kind = "mermaid",
+            label_row = header_row,
+            source_row = block.start_row,
+            code = table.concat(body_lines, "\n"),
+            alt = "Mermaid diagram",
+            col = 1,
+          }
+          add_media(diagram, block.start_row, math.max(1, width - 2))
+        end
+        if not diagram or diagram.height == 0 then
+          for row = block.body_start, block.body_end - 1 do
+            local text = doc.lines[row + 1]
+            local offset = math.min(block.indent or 0, #text)
+            ctx.emit({
+              { text = " " },
+              { text = text:sub(offset + 1), source_start = offset, source_end = #text, group = "MdReadableCodeBlock" },
+            }, row, true)
+          end
         end
         ctx.emit({}, block.end_row - 1, false)
         -- Background first, so labels and syntax colors are drawn over it.
@@ -379,15 +402,6 @@ function M.render(document, opts)
               end
             end
           end
-        end
-        if block.language:lower() == "mermaid" then
-          add_media({
-            kind = "mermaid",
-            label_row = header_row,
-            source_row = block.start_row,
-            code = table.concat(body_lines, "\n"),
-            alt = "Mermaid diagram",
-          }, block.start_row)
         end
       elseif joinable(block) then
         local pieces, hard, previous_text = paragraph_pieces(doc, block.start_row)

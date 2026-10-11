@@ -84,7 +84,9 @@ return function(t)
         end,
       },
     })
-    t.eq(#rejected.lines + 8, #accepted.lines)
+    -- The image adds 4 rows; the diagram's 4 rows replace its one code row.
+    t.eq(#rejected.lines + 4 + 3, #accepted.lines)
+    t.ok(not table.concat(accepted.lines, "\n"):find("graph TD", 1, true), "code gives way to the diagram")
   end)
 
   t.test("missing images and absent mmdc never reserve blank rows", function()
@@ -127,6 +129,49 @@ return function(t)
       vim.cmd("normal yy")
       t.eq("Following text\n", vim.fn.getreg('"'))
       t.ok(table.concat(provider.errors(s), "\n"):find("bad.png: conversion failed", 1, true))
+    end)
+  end)
+
+  t.test("scrolling adds newly visible images without redrawing the shown ones", function()
+    local dir = t.tempdir()
+    local file = assert(io.open(dir .. "/a.png", "wb"))
+    file:write(png)
+    file:close()
+    with_media(true, function()
+      local get, ensure, show = capabilities.get, convert.ensure, display.show
+      local shown, cancelled = {}, 0
+      display.show = function(_, _, descriptor)
+        shown[#shown + 1] = descriptor.row
+        return #shown, function()
+          cancelled = cancelled + 1
+        end
+      end
+      local lines = { "![first](a.png)" }
+      for i = 1, 80 do
+        vim.list_extend(lines, { "", "filler " .. i })
+      end
+      lines[#lines + 1] = ""
+      lines[#lines + 1] = "![second](a.png)"
+      local s = open(dir, lines)
+      vim.wait(100, function()
+        return false
+      end)
+      provider.update(s)
+      t.eq({ s.rendered.images[1].row }, { shown[#shown] }, "the visible image is shown")
+      t.ok(not vim.tbl_contains(shown, s.rendered.images[2].row), "the hidden one is not")
+      shown, cancelled = {}, 0
+      vim.api.nvim_win_call(s.read_win, function()
+        vim.cmd("normal! G")
+      end)
+      provider.update(s)
+      t.eq({ s.rendered.images[2].row }, shown, "the second image once it is visible")
+      vim.api.nvim_win_call(s.read_win, function()
+        vim.cmd("normal! gg")
+      end)
+      provider.update(s)
+      t.eq(1, #shown, "scrolling back does not resend the first")
+      t.eq(0, cancelled, "nothing was redrawn")
+      capabilities.get, convert.ensure, display.show = get, ensure, show
     end)
   end)
 end

@@ -7,7 +7,8 @@ local display = require("md-readable.image.display")
 ---@field cancel fun()[]
 ---@field epoch integer Bumped on each redraw; stale callbacks compare against it
 ---@field group? integer Autocommand group
----@field signature? string Inputs of the last redraw
+---@field signature? string Inputs of the last redraw (not the scroll position)
+---@field started? table<integer, true> Indexes of rendered.images already requested
 ---@class MdReadableImageProblem
 ---@field label string
 ---@field message string
@@ -98,7 +99,7 @@ end
 -- Returns the render-time predicate deciding which media reserve rows.
 -- Known failures (static or from an earlier attempt) reserve none.
 ---@param session MdReadableSession
----@return fun(descriptor:MdReadableRenderedImage):boolean
+---@return fun(descriptor:MdReadableRenderedImage):boolean|integer
 function M.reserver(session)
   session.media_skipped = {}
   return function(descriptor)
@@ -109,7 +110,8 @@ function M.reserver(session)
       session.media_skipped[key] = { label = label(descriptor), message = reason }
       return false
     end
-    return true
+    -- A generated diagram gets the rows that fit it to the body width.
+    return descriptor.kind == "mermaid" and require("md-readable.providers.mermaid").rows(session, descriptor) or true
   end
 end
 
@@ -177,16 +179,12 @@ function M.update(session)
   if not info then
     return
   end
+  -- Placeholders scroll with the text, so scrolling only adds newly visible
+  -- media; anything else redraws all of them.
   local parts = {
     session.generation or 0,
     session.read_win,
-    info.topline,
-    info.botline,
-    info.winrow,
-    info.wincol,
     info.width,
-    info.height,
-    info.leftcol or 0,
     vim.inspect(opts),
     vim.inspect(session.config.mermaid or {}),
   }
@@ -200,25 +198,26 @@ function M.update(session)
     end
   end
   local signature = table.concat(parts, "\0")
-  if state.signature == signature then
-    return
+  if state.signature ~= signature then
+    state.signature, state.epoch, state.started = signature, state.epoch + 1, {}
+    clear(state)
   end
-  state.signature, state.epoch = signature, state.epoch + 1
-  clear(state)
   local epoch = state.epoch
   ---@return boolean
   local function fresh()
     return states[session] == state and state.epoch == epoch and not session.closed
   end
-  for _, image in ipairs(session.rendered.images or {}) do
+  for index, image in ipairs(session.rendered.images or {}) do
     local descriptor = vim.deepcopy(image)
     descriptor.height = descriptor.height or opts.height or 10
     descriptor.width = math.min(descriptor.width or info.width, opts.max_width or info.width)
-    local visible = descriptor.height > 0
+    local visible = not state.started[index]
+      and descriptor.height > 0
       and descriptor.row
       and descriptor.row < info.botline
       and descriptor.row + descriptor.height > info.topline - 1
     if visible then
+      state.started[index] = true
       ---@param path? string
       ---@param err? string
       local function show(path, err)
@@ -247,7 +246,20 @@ function M.update(session)
         state.cancel[#state.cancel + 1] = cancel_conversion
       end
       if descriptor.kind == "mermaid" then
-        state.cancel[#state.cancel + 1] = require("md-readable.providers.mermaid").render(session, descriptor, show)
+        local mermaid = require("md-readable.providers.mermaid")
+        state.cancel[#state.cancel + 1] = mermaid.render(session, descriptor, function(path, err)
+          -- First generation: re-render once so the diagram gets its own rows.
+          local rows = path and mermaid.rows(session, image)
+          if rows and rows ~= image.height and fresh() then
+            vim.schedule(function()
+              if not session.closed then
+                session:refresh()
+              end
+            end)
+            return
+          end
+          show(path, err)
+        end)
       elseif descriptor.path then
         local path, remote, err = M.resolve(session, descriptor.path)
         if not path then
