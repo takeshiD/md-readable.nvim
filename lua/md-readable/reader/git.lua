@@ -22,12 +22,29 @@ local states = setmetatable({}, { __mode = "k" })
 ---@field watcher? uv.uv_fs_poll_t Git index watcher
 ---@field root? string Repository top level
 
----@type table<MdReadableGitKind, {text:string, group:string}>
-M.signs = {
-  add = { text = "▎", group = "MdReadableGitAdd" },
-  change = { text = "▎", group = "MdReadableGitChange" },
-  delete = { text = "▁", group = "MdReadableGitDelete" },
-}
+-- Highlight group of each sign; its color comes from git.signs.<kind>.color
+-- (see M.highlights) or, by default, Added/Changed/Removed.
+---@type table<MdReadableGitKind, string>
+M.groups = { add = "MdReadableGitAdd", change = "MdReadableGitChange", delete = "MdReadableGitDelete" }
+---@type table<MdReadableGitKind, string>
+local default_text = { add = "▎", change = "▎", delete = "▁" }
+
+-- Window highlight definitions for the configured sign colors: "#rrggbb"
+-- colors the sign, any other string names a group to follow.
+---@param opts? MdReadableUserConfigGit
+---@return table<string, vim.api.keyset.highlight>
+function M.highlights(opts)
+  local result, signs = {}, (opts or {}).signs or {}
+  for kind, group in pairs(M.groups) do
+    local color = (signs[kind] or {}).color
+    if type(color) == "string" and color:match("^#%x%x%x%x%x%x$") then
+      result[group] = { fg = tonumber(color:sub(2), 16) }
+    elseif type(color) == "string" and color ~= "" then
+      result[group] = { link = color }
+    end
+  end
+  return result
+end
 
 -- Hunks of the source against the indexed text. A deletion marks the row
 -- after it (the last row when it removed the end of the file).
@@ -106,12 +123,12 @@ function M.draw(session)
     return
   end
   local last = vim.api.nvim_buf_line_count(session.read_buf) - 1
+  local signs = ((session.config or {}).git or {}).signs or {}
   for row, kind in pairs(M.project(session.rendered, state.hunks)) do
     if row <= last then
-      local sign = M.signs[kind]
       vim.api.nvim_buf_set_extmark(session.read_buf, namespace, row, 0, {
-        sign_text = sign.text,
-        sign_hl_group = sign.group,
+        sign_text = (signs[kind] or {}).text or default_text[kind],
+        sign_hl_group = M.groups[kind],
         priority = 10,
       })
     end

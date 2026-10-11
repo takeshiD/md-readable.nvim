@@ -142,4 +142,29 @@ return function(t)
     t.eq({}, signs(off))
     cleanup()
   end)
+
+  t.test("git.signs sets each sign's text and color", function()
+    local _, path = repository({ "# Title", "", "keep", "", "edit me", "", "end" })
+    local s = open(path, {
+      git = { signs = { add = { text = "+", color = "#00ff00" }, change = { text = "~", color = "DiffText" } } },
+    })
+    vim.api.nvim_buf_set_lines(s.source_buf, 4, 5, false, { "edited" })
+    vim.api.nvim_buf_set_lines(s.source_buf, 2, 2, false, { "added", "" })
+    t.ok(wait_signs(s, function(found)
+      return found[display_row(s, "added")] and found[display_row(s, "edited")]
+    end))
+    local text = {}
+    for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(s.read_buf, ns, 0, -1, { details = true })) do
+      text[mark[2]] = vim.trim(mark[4].sign_text)
+    end
+    t.eq("+", text[display_row(s, "added")])
+    t.eq("~", text[display_row(s, "edited")])
+    local window_ns = vim.api.nvim_get_hl_ns({ winid = s.read_win })
+    t.eq(0x00ff00, vim.api.nvim_get_hl(window_ns, { name = "MdReadableGitAdd" }).fg, "#rrggbb colors the sign")
+    t.eq("DiffText", vim.api.nvim_get_hl(window_ns, { name = "MdReadableGitChange" }).link, "a name follows that group")
+    t.eq(true, vim.tbl_isempty(vim.api.nvim_get_hl(window_ns, { name = "MdReadableGitDelete" })), "unset keeps Removed")
+    local ok, err = pcall(api.setup, { git = { signs = { delete = { text = "abc" } } } })
+    t.ok(not ok and err:find("git.signs.delete.text must be 1 or 2 cells wide", 1, true), tostring(err))
+    cleanup()
+  end)
 end

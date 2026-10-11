@@ -203,7 +203,11 @@ CONFIGURATION                                            *md-readable-setup*
                   scale = 3, max_rows = 40 },
       code = { theme = nil, colors = {}, label = 'left', icons = nil },
       watch = { enable = true },
-      git = { enable = true },
+      git = {
+        enable = true,
+        signs = { add = { text = '▎' }, change = { text = '▎' },
+                  delete = { text = '▁' } },
+      },
       float = { width = 0.85, height = 0.85, border = 'rounded' },
     })
 <
@@ -226,6 +230,10 @@ Each feature section has an enable switch:
                   frontmatter, a deletion) marks the next shown row.
                   Groups: MdReadableGitAdd, MdReadableGitChange,
                   MdReadableGitDelete (linked to Added/Changed/Removed).
+  git.signs.{add,change,delete}
+                  text: the sign, 1 or 2 cells. color: "#rrggbb" for the
+                  sign color, or a highlight group name to follow; unset
+                  keeps the default group.
   minimap.follow  Moving the cursor in the minimap scrolls the reading view
                   while the minimap keeps focus; false: only Enter jumps.
   navigation.follow

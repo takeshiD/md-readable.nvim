@@ -211,6 +211,9 @@ function M.apply(win, name, opts)
   for group, value in pairs(require("md-readable.ui.code_theme").highlights(opts.code, base, text)) do
     definitions[group] = value
   end
+  for group, value in pairs(require("md-readable.reader.git").highlights(opts.git)) do
+    definitions[group] = value
+  end
   for group, value in pairs(opts.highlights or {}) do
     definitions[group] = value
   end

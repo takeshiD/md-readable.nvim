@@ -54,8 +54,23 @@ local M = {}
 ---@field icons? "mini"|"web-devicons" Language icon provider; nil shows no icon
 ---@class MdReadableConfigWatch : MdReadableUserConfigWatch
 ---@field enable boolean Reload the source when its file changes outside Neovim
+---@class MdReadableGitSign
+---@field text string 1-2 cells in the sign column
+---@field color? string "#rrggbb" or a highlight group name; nil uses the default group
+---@class MdReadableUserGitSign
+---@field text? string
+---@field color? string
+---@class MdReadableConfigGitSigns : MdReadableUserConfigGitSigns
+---@field add MdReadableGitSign
+---@field change MdReadableGitSign
+---@field delete MdReadableGitSign
+---@class MdReadableUserConfigGitSigns
+---@field add? MdReadableUserGitSign
+---@field change? MdReadableUserGitSign
+---@field delete? MdReadableUserGitSign
 ---@class MdReadableConfigGit : MdReadableUserConfigGit
 ---@field enable boolean Git status of the source in the reading sign column
+---@field signs MdReadableConfigGitSigns
 ---@class MdReadableConfigFloat : MdReadableUserConfigFloat
 ---@field width number Fraction of the editor width (0, 1]
 ---@field height number Fraction of the editor height (0, 1]
@@ -139,6 +154,7 @@ local M = {}
 ---@field enable? boolean
 ---@class MdReadableUserConfigGit
 ---@field enable? boolean
+---@field signs? MdReadableUserConfigGitSigns
 ---@class MdReadableUserConfigFloat
 ---@field width? number
 ---@field height? number
@@ -185,7 +201,10 @@ M.defaults = {
   mermaid = { enable = true, command = "mmdc", scale = 3, max_rows = 40 },
   code = { label = "left", colors = {} },
   watch = { enable = true },
-  git = { enable = true },
+  git = {
+    enable = true,
+    signs = { add = { text = "▎" }, change = { text = "▎" }, delete = { text = "▁" } },
+  },
   float = { width = 0.85, height = 0.85, border = "rounded" },
   adapters = {},
 }
@@ -241,6 +260,11 @@ function M.setup(opts)
   assert(value.images.height >= 1, "images.height must be positive")
   local code_err = require("md-readable.ui.code_theme").validate(value.code)
   assert(not code_err, code_err)
+  for kind, sign in pairs(value.git.signs) do
+    local width = type(sign.text) == "string" and vim.fn.strdisplaywidth(sign.text) or 0
+    assert(width >= 1 and width <= 2, "git.signs." .. kind .. ".text must be 1 or 2 cells wide")
+    assert(sign.color == nil or type(sign.color) == "string", "git.signs." .. kind .. ".color must be a string")
+  end
   M.options = value
   return value
 end
