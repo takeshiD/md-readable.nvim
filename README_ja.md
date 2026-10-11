@@ -206,16 +206,3 @@ nvim --headless -n -u NONE -i NONE -l tests/run.lua
 
 # License
 MIT
-
-```haskell
--- 階乗を計算する関数（再帰）
-factorial :: Integer -> Integer
-factorial 0 = 1
-factorial n = n * factorial (n - 1)
-
--- メイン関数
-main :: IO ()
-main = do
-    let number = 5
-    putStrLn ("Factorial of " ++ show number ++ " is " ++ show (factorial number))
-```
