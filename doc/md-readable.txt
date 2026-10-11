@@ -202,6 +202,7 @@ CONFIGURATION                                            *md-readable-setup*
       mermaid = { enable = true, command = 'mmdc', no_sandbox = false,
                   scale = 3, max_rows = 40 },
       code = { theme = nil, colors = {}, label = 'left', icons = nil },
+      watch = { enable = true },
       float = { width = 0.85, height = 0.85, border = 'rounded' },
     })
 <
@@ -212,6 +213,10 @@ Each feature section has an enable switch:
   table.enable    false shows tables as their Markdown source.
   focus.enable    Start Focus mode when a reading view opens.
   minimap.enable  Open the minimap when a reading view opens.
+  watch.enable    Watch the source file and reload it when it changes
+                  outside Neovim, so the reading view follows edits from
+                  other editors, git or generators. Edits made in Neovim
+                  always update the view.
   minimap.follow  Moving the cursor in the minimap scrolls the reading view
                   while the minimap keeps focus; false: only Enter jumps.
   navigation.follow

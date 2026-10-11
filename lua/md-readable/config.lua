@@ -52,6 +52,8 @@ local M = {}
 ---@field colors table<string, string> "#rrggbb" per role, bg, fg or label; overrides the preset
 ---@field label "left"|"right" Corner of the icon and language name
 ---@field icons? "mini"|"web-devicons" Language icon provider; nil shows no icon
+---@class MdReadableConfigWatch : MdReadableUserConfigWatch
+---@field enable boolean Reload the source when its file changes outside Neovim
 ---@class MdReadableConfigFloat : MdReadableUserConfigFloat
 ---@field width number Fraction of the editor width (0, 1]
 ---@field height number Fraction of the editor height (0, 1]
@@ -73,6 +75,7 @@ local M = {}
 ---@field images MdReadableConfigImages
 ---@field mermaid MdReadableConfigMermaid
 ---@field code MdReadableConfigCode
+---@field watch MdReadableConfigWatch
 ---@field float MdReadableConfigFloat
 ---@field adapters MdReadableNavOptions
 ---@field highlights? table<string, vim.api.keyset.highlight> Highlight group overrides
@@ -129,6 +132,8 @@ local M = {}
 ---@field colors? table<string, string>
 ---@field label? "left"|"right"
 ---@field icons? "mini"|"web-devicons"
+---@class MdReadableUserConfigWatch
+---@field enable? boolean
 ---@class MdReadableUserConfigFloat
 ---@field width? number
 ---@field height? number
@@ -150,6 +155,7 @@ local M = {}
 ---@field images? MdReadableUserConfigImages
 ---@field mermaid? MdReadableUserConfigMermaid
 ---@field code? MdReadableUserConfigCode
+---@field watch? MdReadableUserConfigWatch
 ---@field float? MdReadableUserConfigFloat
 ---@field adapters? MdReadableNavOptions
 ---@field highlights? table<string, vim.api.keyset.highlight>
@@ -172,6 +178,7 @@ M.defaults = {
   images = { enable = true, remote = false, height = 10, max_bytes = 20 * 1024 * 1024 },
   mermaid = { enable = true, command = "mmdc", scale = 3, max_rows = 40 },
   code = { label = "left", colors = {} },
+  watch = { enable = true },
   float = { width = 0.85, height = 0.85, border = "rounded" },
   adapters = {},
 }
@@ -214,7 +221,7 @@ function M.setup(opts)
   end
   value.keymaps = require("md-readable.keymaps").merge(keymaps, value.use_default_keymaps)
   M.normalize(value, opts)
-  for _, name in ipairs({ "links", "table", "focus", "minimap", "images", "mermaid" }) do
+  for _, name in ipairs({ "links", "table", "focus", "minimap", "images", "mermaid", "watch" }) do
     assert(type(value[name].enable) == "boolean", name .. ".enable must be true or false")
   end
   assert(vim.tbl_contains({ "integrated", "separate", "ondemand" }, value.layout), "invalid reader layout")

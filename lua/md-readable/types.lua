@@ -87,6 +87,7 @@
 ---@field snapshot? MdReadableNavSnapshot
 ---@field stale? boolean Snapshot kept although the last load failed
 ---@field focus_enabled? boolean
+---@field watching? {buf:integer, path:string, timer:uv.uv_timer_t, handle?:uv.uv_fs_event_t} Source file watcher
 ---@field yank_previous? table<string, table> Register name to getreginfo() before a yank
 ---@field yank_register? string Register named for the pending yank
 ---@field media_skipped? table<string, MdReadableImageProblem>

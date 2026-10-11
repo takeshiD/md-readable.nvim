@@ -250,7 +250,68 @@ function Session:native_jump(key, count)
   self:refresh()
   self:jump_source(destination[1] - 1, destination[2])
 end
+-- Watches the source file (watch.enable) so changes made outside Neovim are
+-- reloaded; the reload then refreshes the view through on_reload. Every event
+-- re-arms the watcher, since editors that save by renaming replace the file.
+function Session:watch_file()
+  local buf = self.source_buf
+  local path = vim.api.nvim_buf_get_name(buf)
+  if self.watching and self.watching.buf == buf and self.watching.path == path then
+    return
+  end
+  self:unwatch_file()
+  if (self.config.watch or {}).enable == false or path == "" or vim.bo[buf].buftype ~= "" then
+    return
+  end
+  local state = { buf = buf, path = path, timer = assert(vim.uv.new_timer()) }
+  self.watching = state
+  local function arm()
+    if state.handle then
+      pcall(state.handle.stop, state.handle)
+      pcall(state.handle.close, state.handle)
+      state.handle = nil
+    end
+    local handle = vim.uv.new_fs_event()
+    if not handle then
+      return
+    end
+    local ok = handle:start(path, {}, function()
+      state.timer:stop()
+      state.timer:start(100, 0, function()
+        vim.schedule(function()
+          if self.watching ~= state then
+            return
+          end
+          arm()
+          if vim.api.nvim_buf_is_valid(buf) and vim.uv.fs_stat(path) then
+            pcall(vim.api.nvim_command, "checktime " .. buf)
+          end
+        end)
+      end)
+    end)
+    if ok then
+      state.handle = handle
+    else
+      handle:close()
+    end
+  end
+  arm()
+end
+function Session:unwatch_file()
+  local state = self.watching
+  if not state then
+    return
+  end
+  self.watching = nil
+  if state.handle then
+    pcall(state.handle.stop, state.handle)
+    pcall(state.handle.close, state.handle)
+  end
+  pcall(state.timer.stop, state.timer)
+  pcall(state.timer.close, state.timer)
+end
 function Session:attach_source()
+  self:watch_file()
   if M.watchers[self.source_buf] then
     return
   end
@@ -268,6 +329,15 @@ function Session:attach_source()
       if not active then
         M.watchers[buf] = nil
         return true
+      end
+    end,
+    -- A reload (:checktime, :edit) replaces every line. Without this callback
+    -- Neovim detaches instead, which on_detach would take as a closed source.
+    on_reload = function()
+      for _, s in pairs(M.sessions) do
+        if not s.closed and s.source_buf == buf then
+          s:schedule()
+        end
       end
     end,
     on_detach = function()
@@ -598,6 +668,7 @@ function M.close(self)
   end
   self.closed = true
   self.generation = self.generation + 1
+  self:unwatch_file()
   service("ui.navigation", "close", self)
   service("minimap", "close", self)
   if self._links_panel then
