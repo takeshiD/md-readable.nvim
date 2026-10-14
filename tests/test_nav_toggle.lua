@@ -77,4 +77,50 @@ return function(t)
     cleanup()
     vim.o.columns, vim.o.lines = columns, lines
   end)
+
+  t.test("configured keymaps also work in the navigation, minimap and links panels", function()
+    local columns, lines = vim.o.columns, vim.o.lines
+    local minimap = require("md-readable.minimap")
+    local s = open({
+      minimap = { enable = true },
+      keymaps = {
+        ["gN"] = {
+          mode = "n",
+          function()
+            require("md-readable.actions").toggle_nav({ float = true })
+          end,
+          desc = "Toggle Nav on Floating Window",
+        },
+        ["gX"] = "actions.toggle_focus",
+      },
+    })
+    local function press(keys)
+      vim.api.nvim_feedkeys(vim.keycode(keys), "xt", false)
+    end
+    -- Navigation sidebar: a user key reopens it as a float.
+    actions.toggle_nav({ float = false })
+    t.eq(book(s).win, vim.api.nvim_get_current_win())
+    press("gN")
+    t.ok(book(s) and book(s).floating, "gN in the sidebar")
+    -- Panel keys win over reader keys on the same key: q closes the panel.
+    press("q")
+    t.eq(nil, book(s), "q closes the panel")
+    t.ok(not s.closed, "not the reading view")
+    -- Minimap: the default go toggles it from inside, a user key reaches the session.
+    local state = assert(minimap.get(s))
+    vim.api.nvim_set_current_win(state.win)
+    press("gX")
+    t.eq(true, s.focus_enabled, "gX in the minimap toggles Focus")
+    press("go")
+    t.eq(nil, minimap.get(s), "go in the minimap closes it")
+    -- Links panel.
+    vim.api.nvim_set_current_win(s.read_win)
+    require("md-readable.ui.links").open(s)
+    t.eq(s._links_panel.win, vim.api.nvim_get_current_win())
+    t.eq(s, sessions.current(), "the links panel resolves its session")
+    press("gX")
+    t.ok(not s.focus_enabled, "gX in the links panel")
+    cleanup()
+    vim.o.columns, vim.o.lines = columns, lines
+  end)
 end

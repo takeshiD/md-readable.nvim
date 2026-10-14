@@ -263,7 +263,9 @@ Neovim-exit reading-position persistence is intentionally not implemented.
 
 KEYMAPS                                                  *md-readable-keymaps*
 
-Reading buffers get buffer-local keymaps from the keymaps option. Defaults:
+Reading buffers get buffer-local keymaps from the keymaps option. The
+navigation, minimap and links panels get them too, below their own keys
+(<CR>, q, <Esc>, h/l, ...), which win on the same key. Defaults:
 
     q          actions.close            Close the reading view
     <CR>       actions.open             Open link, cell, tab or details

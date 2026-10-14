@@ -134,6 +134,9 @@ function M.open(session)
   local function selected()
     return entries[vim.api.nvim_win_get_cursor(win)[1]]
   end
+  -- The configured reader keymaps work here too; the panel keys set below
+  -- replace any of them on the same key.
+  require("md-readable.keymaps").attach(buf, session.config.keymaps)
   ---@param lhs string
   ---@param rhs function
   ---@param desc string

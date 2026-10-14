@@ -173,7 +173,7 @@ Dynamic SSG configuration is not executed. Supply a custom Lua/JSON navigation p
 
 # Keymaps
 
-No global keymaps are installed; map the commands that open a reading view yourself, as in the lazy.nvim example above. Reading buffers get these defaults. Press `g?` to list the active keymaps.
+No global keymaps are installed; map the commands that open a reading view yourself, as in the lazy.nvim example above. Reading buffers get these defaults. Press `g?` to list the active keymaps. The same keymaps also work in the navigation, minimap and links panels; there the panel keys (`<CR>`, `q`, `<Esc>`, `h`/`l`, ...) take precedence on the same key.
 
 | Key         | Action                                          | Description                                            |
 | ---         | ---                                             | ---                                                    |

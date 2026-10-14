@@ -47,7 +47,8 @@ end
 function M.all()
   return M.sessions
 end
--- Session whose reader, source, navigation panel or minimap window is current.
+-- Session whose reader, source, navigation panel, minimap or links panel
+-- window is current.
 ---@return MdReadableSession?
 function M.current()
   local win = vim.api.nvim_get_current_win()
@@ -70,6 +71,9 @@ function M.current()
       end
       local minimap = require("md-readable.minimap").get(s)
       if minimap and minimap.win == win then
+        return s
+      end
+      if s._links_panel and s._links_panel.win == win then
         return s
       end
     end

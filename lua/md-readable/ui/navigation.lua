@@ -536,6 +536,9 @@ local function create_panel(session, st, kind, floating, focus)
   options(win)
   local panel = { buf = buf, win = win, kind = kind, floating = floating, entries = {} }
   st.panels[kind] = panel
+  -- The configured reader keymaps work here too; the panel keys set below
+  -- replace any of them on the same key (Enter, q, h/l, ...).
+  require("md-readable.keymaps").attach(buf, session.config.keymaps)
   ---@param lhs string
   ---@param rhs function
   ---@param description string

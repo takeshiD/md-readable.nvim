@@ -206,6 +206,9 @@ function M.open(session)
   }) do
     vim.wo[win][0][key] = value -- Local: a source shown here later gets plain options.
   end
+  -- The configured reader keymaps work here too; Enter, q and Esc below
+  -- replace them on those keys.
+  require("md-readable.keymaps").attach(buf, session.config.keymaps)
   vim.keymap.set("n", "<CR>", function()
     local row = vim.api.nvim_win_get_cursor(state.win)[1]
     local display = state.rendered.mini_to_display[row] or 0
