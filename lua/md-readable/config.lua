@@ -42,16 +42,28 @@ local M = {}
 ---@field cache_ttl? integer Remote cache lifetime in seconds
 ---@field converter? string Image conversion command
 ---@field timeout? integer Milliseconds
+---@class MdReadableMermaidMmdcOpts
+---@field no_sandbox? boolean Start mmdc's Chromium with --no-sandbox
+---@field theme? string mmdc --theme (default "default")
+---@field background? string mmdc --backgroundColor (default "transparent")
+---@field width? integer Page width in pixels (default 1600)
+---@field height? integer Page height in pixels (default 1000)
+---@class MdReadableMermaidTermaidOpts
+---@field ascii? boolean --ascii
+---@field sharp_edges? boolean --sharp-edges
+---@field inline_edge_labels? boolean --inline-edge-labels
+---@field gap? integer --gap
+---@field padding_x? integer --padding-x
+---@field padding_y? integer --padding-y
 ---@class MdReadableConfigMermaid : MdReadableUserConfigMermaid
 ---@field enable boolean
----@field command string
----@field no_sandbox? boolean Start mmdc's Chromium with --no-sandbox
+---@field renderer "mmdc"|"termaid" mmdc draws images; termaid draws Unicode text (any terminal)
+---@field command? string Renderer command, may include arguments ("uvx termaid"); default: the renderer's name
+---@field args string[] Extra arguments for the renderer
 ---@field scale number mmdc --scale; higher keeps enlarged diagrams sharp
 ---@field max_rows integer Upper bound of the rows a diagram fills
----@field theme? string
----@field background? string
----@field width? integer Pixels
----@field height? integer Pixels
+---@field mmdc_opts MdReadableMermaidMmdcOpts
+---@field termaid_opts MdReadableMermaidTermaidOpts
 ---@field timeout? integer Milliseconds
 ---@class MdReadableConfigCode : MdReadableUserConfigCode
 ---@field theme? string Syntax palette preset (see md-readable.ui.code_theme); nil keeps the colorscheme
@@ -145,14 +157,13 @@ local M = {}
 ---@class MdReadableUserConfigMermaid
 ---@field enable? boolean
 ---@field enabled? boolean Deprecated name of `enable`
+---@field renderer? "mmdc"|"termaid"
 ---@field command? string
----@field no_sandbox? boolean
+---@field args? string[]
 ---@field scale? number
 ---@field max_rows? integer
----@field theme? string
----@field background? string
----@field width? integer
----@field height? integer
+---@field mmdc_opts? MdReadableMermaidMmdcOpts
+---@field termaid_opts? MdReadableMermaidTermaidOpts
 ---@field timeout? integer
 ---@class MdReadableUserConfigCode
 ---@field theme? string
@@ -225,7 +236,16 @@ M.defaults = {
   focus = { enable = true, coefficient = 0.5, span = 0, bop = "^\\s*$\\n\\zs", eop = "^\\s*$", priority = 10 },
   minimap = { enable = true, follow = true, width = 12, mode = "braille" },
   images = { enable = true, remote = false, height = 10, max_bytes = 20 * 1024 * 1024 },
-  mermaid = { enable = true, command = "mmdc", scale = 3, max_rows = 40 },
+  mermaid = {
+    enable = true,
+    renderer = "mmdc",
+    -- command = nil: "mmdc" or "termaid" after the renderer
+    args = {},
+    scale = 3,
+    max_rows = 40,
+    mmdc_opts = { no_sandbox = false },
+    termaid_opts = {},
+  },
   code = { label = "left", colors = {} },
   watch = { enable = true },
   git = {
@@ -301,6 +321,27 @@ function M.setup(opts)
   assert(value.float.width > 0 and value.float.width <= 1, "float.width must be a fraction between 0 and 1")
   assert(value.float.height > 0 and value.float.height <= 1, "float.height must be a fraction between 0 and 1")
   assert(value.images.height >= 1, "images.height must be positive")
+  assert(
+    vim.tbl_contains({ "mmdc", "termaid" }, value.mermaid.renderer),
+    'mermaid.renderer must be "mmdc" or "termaid"'
+  )
+  local mermaid = value.mermaid
+  assert(
+    mermaid.command == nil or (type(mermaid.command) == "string" and vim.trim(mermaid.command) ~= ""),
+    'mermaid.command must be a command such as "mmdc" or "uvx termaid"'
+  )
+  assert(vim.islist(mermaid.args), "mermaid.args must be a list of strings")
+  for _, arg in ipairs(mermaid.args) do
+    assert(type(arg) == "string", "mermaid.args must be a list of strings")
+  end
+  assert(type(mermaid.mmdc_opts) == "table", "mermaid.mmdc_opts must be a table")
+  assert(type(mermaid.termaid_opts) == "table", "mermaid.termaid_opts must be a table")
+  for name in pairs(mermaid.termaid_opts) do
+    assert(
+      require("md-readable.providers.termaid").flags[name],
+      "mermaid.termaid_opts." .. name .. " is not a termaid option"
+    )
+  end
   assert(
     vim.tbl_contains({ "auto", "sidebar", "float" }, value.navigation.style),
     'navigation.style must be "auto", "sidebar" or "float"'

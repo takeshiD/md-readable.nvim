@@ -207,6 +207,20 @@ function Session:refresh()
     image_height = self.config.images.height,
     reserve = image_ok and image.reserver and image.reserver(self) or nil,
   }
+  local mermaid = self.config.mermaid or {}
+  if mermaid.enable ~= false and mermaid.renderer == "termaid" then
+    ---@param code string
+    ---@param width integer
+    ---@return string[]?
+    opts.diagram = function(code, width)
+      local lines, err = require("md-readable.providers.termaid").render(code, width, mermaid)
+      if err then
+        self.media_skipped = self.media_skipped or {}
+        self.media_skipped["termaid\0" .. code] = { label = "Mermaid diagram (termaid)", message = err }
+      end
+      return lines
+    end
+  end
   local rendered = require("md-readable.reader.render").render(document, opts)
   if #rendered.lines == 0 then
     rendered.lines = { "" }

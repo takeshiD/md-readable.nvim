@@ -219,8 +219,9 @@ CONFIGURATION                                            *md-readable-setup*
       focus = { enable = true, coefficient = 0.5, span = 0, priority = 10 },
       minimap = { enable = true, follow = true, width = 12, mode = 'braille' },
       images = { enable = true, remote = false, height = 10 },
-      mermaid = { enable = true, command = 'mmdc', no_sandbox = false,
-                  scale = 3, max_rows = 40 },
+      mermaid = { enable = true, renderer = 'mmdc', command = nil, args = {},
+                  scale = 3, max_rows = 40,
+                  mmdc_opts = { no_sandbox = false }, termaid_opts = {} },
       code = { theme = nil, colors = {}, label = 'left', icons = nil },
       watch = { enable = true },
       git = {
@@ -260,7 +261,7 @@ Each feature section has an enable switch:
                   Moving over a heading in a navigation panel (book tree
                   or outline) scrolls the reading view to it; pages still
                   open with Enter. false: only Enter jumps.
-  mermaid.no_sandbox
+  mermaid.mmdc_opts.no_sandbox
                   Start mmdc's Chromium with --no-sandbox, for systems
                   where its sandbox helper fails ("Failed to launch the
                   browser process", e.g. Nix). Use with trusted documents.
@@ -271,6 +272,23 @@ Each feature section has an enable switch:
                   ratio needs, at most this many. Before the first
                   generation it uses images.height rows.
   mermaid.scale   mmdc --scale, so enlarged diagrams stay sharp.
+  mermaid.renderer
+                  "mmdc" draws images (Kitty/Ghostty). "termaid" draws
+                  Unicode text with termaid inside the code panel, in any
+                  terminal. Without the renderer, or for diagrams it
+                  cannot draw, the code is shown and :MdReadable
+                  diagnostics says why.
+  mermaid.command, mermaid.args
+                  The renderer's command, split on whitespace so it may
+                  carry arguments ("uvx termaid"; a runner may download
+                  the tool), and extra arguments. Unset: "mmdc" or
+                  "termaid".
+  mermaid.mmdc_opts
+                  no_sandbox, theme, background, width, height for mmdc.
+  mermaid.termaid_opts
+                  ascii, sharp_edges, inline_edge_labels (true) and gap,
+                  padding_x, padding_y (numbers) as termaid flags; the
+                  panel width is passed as --width.
   images.enable, mermaid.enable
                   false turns image or Mermaid rendering off. The former
                   `enabled` key is still accepted.

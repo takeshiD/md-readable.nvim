@@ -139,7 +139,18 @@ require("md-readable").setup({
     },
   },
   images = { enable = true, remote = false, height = 10 },
-  mermaid = { enable = true, command = "mmdc", no_sandbox = false, scale = 3, max_rows = 40 },
+  mermaid = {
+    enable = true,
+    renderer = "mmdc", -- "mmdc": images (Kitty/Ghostty); "termaid": Unicode text in any terminal
+    command = nil, -- the renderer's command, arguments allowed ("uvx termaid"); nil: "mmdc" / "termaid"
+    args = {}, -- extra arguments for the renderer
+    scale = 3, -- mmdc output scale
+    max_rows = 40, -- most rows a diagram fills
+    mmdc_opts = {
+      no_sandbox = false, -- see below; also theme, background, width, height
+    },
+    termaid_opts = {}, -- ascii, sharp_edges, inline_edge_labels (true) / gap, padding_x, padding_y (number)
+  },
   code = {
     theme = nil, -- code block syntax colors: "github-dark", "github-light", "ayu-dark", "ayu-light",
     --              "dracula", "catppuccin", "gruvbox-dark", "gruvbox-light", "tokyonight"
@@ -164,7 +175,9 @@ require("md-readable").setup({
 
 Each feature section has an `enable` switch. `links.enable = false` shows link labels as plain text without highlights or kind markers (the link list and following still work); `table.enable = false` shows tables as their Markdown source; `focus.enable` and `minimap.enable` start Focus mode and the minimap whenever a reading view opens (toggle them afterwards with `gz` / `go`); `images.enable` and `mermaid.enable` turn media rendering off. The former `images.enabled` / `mermaid.enabled` keys are still accepted.
 
-If Mermaid diagrams stay blank and `:MdReadable diagnostics` reports "Failed to launch the browser process" with a SUID sandbox message, mmdc's Chromium cannot use its sandbox (common with Nix-installed Chromium). `mermaid.no_sandbox = true` starts it with `--no-sandbox`; only use it for documents you trust.
+If Mermaid diagrams stay blank and `:MdReadable diagnostics` reports "Failed to launch the browser process" with a SUID sandbox message, mmdc's Chromium cannot use its sandbox (common with Nix-installed Chromium). `mermaid.mmdc_opts.no_sandbox = true` starts it with `--no-sandbox`; only use it for documents you trust.
+
+`mermaid.command` runs the selected renderer; it may contain arguments, so a package runner works too, e.g. `command = "uvx termaid"` (a runner may download the tool; the defaults never do). With `mermaid.renderer = "termaid"`, diagrams are drawn as Unicode box-drawing text by [termaid](https://pypi.org/project/termaid/) inside the code block panel, so they also work in terminals without image support (WezTerm, SSH, plain tmux). The output is fitted to the panel width with `--width` and cached per diagram; when termaid is missing or cannot draw a diagram, the code is shown and `:MdReadable diagnostics` gives the reason.
 
 A Mermaid diagram is drawn inside its code block panel, in place of the code, under the same label row and background; when it cannot be drawn the code is shown. It fills the body width and gets the rows that keep its aspect ratio, up to `mermaid.max_rows`. Until a diagram is first generated it uses `images.height` rows, then the view is redrawn once. `mermaid.scale` is passed to mmdc so enlarged diagrams stay sharp.
 

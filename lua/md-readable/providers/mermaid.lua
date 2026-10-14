@@ -5,6 +5,28 @@ local cache = require("md-readable.image.cache")
 ---@type table<MdReadableSession, table<MdReadableMermaidJob, true>>
 local jobs = setmetatable({}, { __mode = "k" })
 
+-- Command line prefix of the configured renderer: mermaid.command split on
+-- whitespace ("uvx termaid" works; quoting is not interpreted) or, when unset,
+-- the renderer's own name; then mermaid.args.
+---@param opts? MdReadableConfigMermaid
+---@return string[]? argv
+---@return string? err
+function M.base(opts)
+  opts = opts or {}
+  local renderer = opts.renderer or "mmdc"
+  local command = opts.command or renderer
+  local argv = type(command) == "string" and vim.split(vim.trim(command), "%s+") or {}
+  if not argv[1] or argv[1] == "" then
+    return nil, "mermaid.command is empty"
+  end
+  argv[1] = vim.fn.expand(argv[1])
+  if vim.fn.executable(argv[1]) ~= 1 then
+    return nil, "install " .. renderer .. " to render Mermaid diagrams (" .. argv[1] .. " not found)"
+  end
+  return vim.list_extend(argv, vim.deepcopy(opts.args or {}))
+end
+
+-- mmdc command line converting `source` (.mmd) to `output` (.png).
 ---@param source string Input .mmd file
 ---@param output string Output .png file
 ---@param opts? MdReadableConfigMermaid
@@ -12,23 +34,12 @@ local jobs = setmetatable({}, { __mode = "k" })
 ---@return string? err
 function M.command(source, output, opts)
   opts = opts or {}
-  local command = opts.command or "mmdc"
-  if type(command) ~= "string" or vim.fs.basename(command) == "npx" or vim.fs.basename(command) == "npm" then
-    return nil, "Mermaid requires an installed renderer executable, not a package installer"
+  local argv, err = M.base(opts)
+  if not argv then
+    return nil, err
   end
-  if vim.fn.executable(command) ~= 1 then
-    return nil, "install mmdc to render Mermaid diagrams"
-  end
-  local extra = {}
-  if opts.no_sandbox then
-    local config, err = M.no_sandbox_config()
-    if not config then
-      return nil, err
-    end
-    extra = { "--puppeteerConfigFile", config }
-  end
-  return vim.list_extend({
-    command,
+  local mmdc = opts.mmdc_opts or {}
+  vim.list_extend(argv, {
     "--input",
     source,
     "--output",
@@ -36,16 +47,24 @@ function M.command(source, output, opts)
     "--outputFormat",
     "png",
     "--theme",
-    opts.theme or "default",
+    mmdc.theme or "default",
     "--backgroundColor",
-    opts.background or "transparent",
+    mmdc.background or "transparent",
     "--width",
-    tostring(opts.width or 1600),
+    tostring(mmdc.width or 1600),
     "--height",
-    tostring(opts.height or 1000),
+    tostring(mmdc.height or 1000),
     "--scale",
     tostring(opts.scale or 3),
-  }, extra)
+  })
+  if mmdc.no_sandbox then
+    local config, config_err = M.no_sandbox_config()
+    if not config then
+      return nil, config_err
+    end
+    vim.list_extend(argv, { "--puppeteerConfigFile", config })
+  end
+  return argv
 end
 
 -- Puppeteer config that starts mmdc's Chromium without its sandbox, for
@@ -73,14 +92,16 @@ end
 ---@return string? err
 local function cache_target(session, code)
   local opts = session.config.mermaid or {}
+  local mmdc = opts.mmdc_opts or {}
   local key = table.concat({
-    "mermaid-v2",
+    "mermaid-v3",
     code,
     opts.command or "mmdc",
-    opts.theme or "default",
-    opts.background or "transparent",
-    opts.width or 1600,
-    opts.height or 1000,
+    table.concat(opts.args or {}, " "),
+    mmdc.theme or "default",
+    mmdc.background or "transparent",
+    mmdc.width or 1600,
+    mmdc.height or 1000,
     opts.scale or 3,
   }, "\0")
   return cache.path(key, ".png", session.config.images or {})

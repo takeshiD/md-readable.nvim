@@ -11,6 +11,7 @@
 ---@field media? MdReadableRenderMediaOptions
 ---@field image_height? integer Overrides media.image_height
 ---@field max_url_width? integer
+---@field diagram? fun(code:string, width:integer):string[]? Mermaid as text (termaid); nil lines show the code
 ---@class MdReadableRenderModule
 ---@field renderers table<string, MdReadableBlockRenderer> Custom renderers by block type
 local M = { renderers = {} }
@@ -342,9 +343,18 @@ function M.render(document, opts)
           body_lines[#body_lines + 1] = text:sub(math.min(block.indent or 0, #text) + 1)
         end
         -- A drawable Mermaid diagram takes the place of its code inside the
-        -- panel; otherwise (disabled, no mmdc, failed) the code is shown.
-        local diagram
-        if block.language:lower() == "mermaid" then
+        -- panel, as text (opts.diagram, termaid) or as an image (mmdc);
+        -- otherwise (disabled, no renderer, failed) the code is shown.
+        local diagram, drawn
+        local text = block.language:lower() == "mermaid"
+          and opts.diagram
+          and opts.diagram(table.concat(body_lines, "\n"), math.max(1, width - 2))
+        if text then
+          for _, line in ipairs(text) do
+            ctx.emit({ { text = " " }, { text = line, group = "MdReadableCodeBlock" } }, block.start_row, false)
+          end
+          drawn = true
+        elseif block.language:lower() == "mermaid" and not opts.diagram then
           diagram = {
             kind = "mermaid",
             label_row = header_row,
@@ -355,7 +365,7 @@ function M.render(document, opts)
           }
           add_media(diagram, block.start_row, math.max(1, width - 2))
         end
-        if not diagram or diagram.height == 0 then
+        if not drawn and (not diagram or diagram.height == 0) then
           for row = block.body_start, block.body_end - 1 do
             local text = doc.lines[row + 1]
             local offset = math.min(block.indent or 0, #text)

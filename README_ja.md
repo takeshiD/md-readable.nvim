@@ -176,13 +176,23 @@ require("md-readable").setup({
   },
   mermaid = {
     enable = true,
-    command = "mmdc",
-    -- mmdcのChromiumを--no-sandboxで起動する（後述）
-    no_sandbox = false,
+    -- 図の描き方: "mmdc"（画像。Kitty・Ghostty）・"termaid"（Unicodeの文字。どの端末でも表示できる）
+    renderer = "mmdc",
+    -- 描画ツールのコマンド。引数を含めてもよい（例: "uvx termaid"）。nilならrendererと同じ名前
+    command = nil,
+    -- 描画ツールに追加で渡す引数
+    args = {},
     -- mmdcの出力倍率
     scale = 3,
     -- 図が使う行数の上限
     max_rows = 40,
+    -- mmdcだけの設定
+    mmdc_opts = {
+      -- mmdcのChromiumを--no-sandboxで起動する（後述）。ほかにtheme・background・width・height
+      no_sandbox = false,
+    },
+    -- termaidだけの設定: ascii・sharp_edges・inline_edge_labels（true）、gap・padding_x・padding_y（数値）
+    termaid_opts = {},
   },
   code = {
     -- コードブロックの配色:
@@ -221,7 +231,9 @@ require("md-readable").setup({
 
 各機能の`enable`で有効・無効を切り替えます。`links.enable = false`ではリンクの強調表示と種別記号を出さず、ラベルを本文として表示します（リンク一覧と移動は使えます）。`table.enable = false`では表を整形せずMarkdownのまま表示します。`focus.enable`と`minimap.enable`は読書表示を開いた時点でFocusとミニマップを有効にします（開いた後は`gz`・`go`で切り替え）。`images.enable`・`mermaid.enable`は画像・Mermaidの描画を切り替えます。以前の`images.enabled`・`mermaid.enabled`も引き続き使えます。
 
-Mermaidの図が表示されず、`:MdReadable diagnostics`に「Failed to launch the browser process」とSUID sandboxのエラーが出る場合は、mmdcが使うChromiumの隔離機能が動いていません（NixでChromiumを導入した環境でよく起きます）。`mermaid.no_sandbox = true`にすると`--no-sandbox`で起動します。隔離機能を切るため、信頼できる文書にだけ使ってください。
+Mermaidの図が表示されず、`:MdReadable diagnostics`に「Failed to launch the browser process」とSUID sandboxのエラーが出る場合は、mmdcが使うChromiumの隔離機能が動いていません（NixでChromiumを導入した環境でよく起きます）。`mermaid.mmdc_opts.no_sandbox = true`にすると`--no-sandbox`で起動します。隔離機能を切るため、信頼できる文書にだけ使ってください。
+
+`mermaid.command`は選んだ描画ツールを起動するコマンドで、引数を含められます。`command = "uvx termaid"`のようなパッケージ実行ツールも使えます（その場合はツールが自動で取得されることがあります。既定のコマンドは何も取得しません）。`mermaid.renderer = "termaid"`にすると、[termaid](https://pypi.org/project/termaid/)で図をUnicodeの罫線の文字として描き、コードブロックの枠の中に表示します。画像を表示できない端末（WezTerm、SSH先、tmuxなど）でも使えます。図は`--width`で枠の幅に合わせ、図ごとに結果を使い回します。termaidがない、または描けない図の場合はコードを表示し、理由は`:MdReadable diagnostics`で確認できます。
 
 Mermaidの図はコードブロックの枠の中に、コードの代わりに表示します（見出しの行と背景色はそのまま）。図を描けない場合はコードを表示します。図は本文幅いっぱいに表示し、縦横比を保つのに必要な行数を確保します（上限は`mermaid.max_rows`）。図を初めて生成するまでは`images.height`の行数で表示し、生成後に一度描き直します。`mermaid.scale`はmmdcの出力倍率で、拡大してもぼやけないようにします。
 

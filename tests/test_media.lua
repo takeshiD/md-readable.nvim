@@ -312,7 +312,6 @@ return function(t)
     local s = session(dir)
     s.config.mermaid.command = script
     local ok, err = pcall(function()
-      t.eq(nil, mermaid.command("a", "b", { command = "npx" }))
       t.eq(nil, mermaid.command("a", "b", { command = "/definitely/missing/mmdc" }))
       local result
       mermaid.render(s, { code = "flowchart LR\nA --> B" }, function(path)
@@ -327,7 +326,7 @@ return function(t)
         cached = path
       end)
       t.eq(result, cached)
-      s.config.mermaid.theme = "dark"
+      s.config.mermaid.mmdc_opts = { theme = "dark" }
       local different
       mermaid.render(s, { code = "flowchart LR\nA --> B" }, function(path)
         different = path
@@ -351,10 +350,17 @@ return function(t)
     t.ok(ok, err)
   end)
 
-  t.test("mermaid.no_sandbox passes a puppeteer config that disables the sandbox", function()
+  t.test("mermaid.command may carry arguments; mermaid.args follow it", function()
+    t.eq({ "sh", "-c", "true", "--extra" }, mermaid.base({ command = "  sh  -c true ", args = { "--extra" } }))
+    t.eq({ "sh", "--input" }, { unpack(assert(mermaid.command("in.mmd", "out.png", { command = "sh" })), 1, 2) })
+    local _, err = mermaid.base({ renderer = "termaid", command = "/no/such/uvx termaid" })
+    t.ok(err:find("install termaid", 1, true) and err:find("/no/such/uvx", 1, true), err)
+  end)
+
+  t.test("mermaid.mmdc_opts.no_sandbox passes a puppeteer config that disables the sandbox", function()
     local plain = assert(mermaid.command("in.mmd", "out.png", { command = "sh" }))
     t.ok(not vim.tbl_contains(plain, "--puppeteerConfigFile"))
-    local args = assert(mermaid.command("in.mmd", "out.png", { command = "sh", no_sandbox = true }))
+    local args = assert(mermaid.command("in.mmd", "out.png", { command = "sh", mmdc_opts = { no_sandbox = true } }))
     local index = assert(vim.iter(ipairs(args)):find(function(_, value)
       return value == "--puppeteerConfigFile"
     end))
