@@ -120,7 +120,24 @@ require("md-readable").setup({
   table = { enable = true, max_cell_width = 28 },
   focus = { enable = true, coefficient = 0.5, span = 0 },
   minimap = { enable = true, follow = true, width = 12, mode = "braille" }, -- follow: moving in it scrolls the view
-  navigation = { follow = true }, -- moving over a heading in a navigation panel scrolls the view; pages open with Enter
+  navigation = {
+    enable = true, -- open the book tree with the reading view (former name: auto_open)
+    follow = true, -- moving over a heading in a navigation panel scrolls the view; pages open with Enter
+    style = "auto", -- how gn opens the book tree: "auto" (by width and layout), "sidebar" or "float"
+    fold = {
+      -- one key, a list, or false per action
+      keys = {
+        collapse = { "h", "<Left>" }, -- collapse, or go to the parent
+        expand = { "l", "<Right>" },
+        toggle = "za",
+        collapse_recursive = "zC",
+        expand_recursive = "zO",
+        collapse_all = "zM",
+        expand_all = "zR",
+      },
+      icons = { collapsed = "+ ", expanded = "- ", leaf = "  ", current = "> " },
+    },
+  },
   images = { enable = true, remote = false, height = 10 },
   mermaid = { enable = true, command = "mmdc", no_sandbox = false, scale = 3, max_rows = 40 },
   code = {
@@ -166,6 +183,8 @@ git = {
 ```
 
 `git = { enable = false }` turns the signs and the sign column off.
+
+Navigation follows the book's content directory (the deepest directory holding all pages of the contents, such as `src/` or a GitBook space directory). A file outside it, like a repository README next to `gitbook-docs.yaml`, gets no book tree, only its own headings. A page inside it that is not in the contents shows its headings above the book tree.
 
 At narrow widths, navigation uses a floating chooser to preserve the reading area. Nerd Font glyphs are not required; an ASCII minimap mode is available.
 

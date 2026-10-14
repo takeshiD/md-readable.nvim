@@ -46,6 +46,16 @@ MkDocs, Zensical, Docusaurus, and Astro/Starlight. Dynamic repository scripts
 are never automatically executed. Missing documents stay visible but are not
 visited by prev/next. Missing anchors do not cause an arbitrary jump.
 
+Navigation follows the book's content directory (the deepest directory that
+holds all pages of the contents). A file outside it gets no book tree, only
+its own headings; a page inside it that is not in the contents shows its
+headings above the tree. navigation.style ("auto", "sidebar", "float") sets
+how :MdReadable nav opens the tree; a float never opens by itself.
+navigation.fold.keys sets one key, a list or false per fold action
+(collapse, expand, toggle, collapse_recursive, expand_recursive,
+collapse_all, expand_all); a list replaces the default list.
+navigation.fold.icons sets collapsed/expanded/leaf/current markers.
+
 In navigation buffers: j/k move, Enter visits, h/l fold/unfold, q or Esc closes,
 Tab returns to the document, t selects tree/adapter, r refreshes, ? diagnostics.
 
@@ -193,8 +203,18 @@ CONFIGURATION                                            *md-readable-setup*
       heading_rules = true,
       center = true,
       links = { enable = true, icons = 'unicode' },
-      navigation = { auto_open = true, follow = true, width = 28,
-                     min_body_width = 48 },
+      navigation = {
+        enable = true, follow = true, style = 'auto',
+        width = 28, min_body_width = 48,
+        fold = {
+          keys = { collapse = { 'h', '<Left>' }, expand = { 'l', '<Right>' },
+                   toggle = 'za', collapse_recursive = 'zC',
+                   expand_recursive = 'zO', collapse_all = 'zM',
+                   expand_all = 'zR' },
+          icons = { collapsed = '+ ', expanded = '- ', leaf = '  ',
+                    current = '> ' },
+        },
+      },
       table = { enable = true, max_cell_width = 28 },
       focus = { enable = true, coefficient = 0.5, span = 0, priority = 10 },
       minimap = { enable = true, follow = true, width = 12, mode = 'braille' },
@@ -254,6 +274,11 @@ Each feature section has an enable switch:
   images.enable, mermaid.enable
                   false turns image or Mermaid rendering off. The former
                   `enabled` key is still accepted.
+  navigation.enable
+                  Open the book tree with the reading view when a project
+                  is detected (a "float" style never opens by itself).
+                  false: only :MdReadable nav / gn opens it. The former
+                  name navigation.auto_open is still accepted.
 width is the body width in every mode. A float is at most width + 4 columns
 wide (float.width is the upper fraction of the screen). With center=true a
 wider window gets a blank 'statuscolumn' margin that centers the body;

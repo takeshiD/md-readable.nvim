@@ -185,4 +185,58 @@ function M.validate(snapshot)
   end
   return #diagnostics == 0, diagnostics
 end
+-- Content directory of a tree: the deepest directory (relative to rootDir)
+-- holding all of its documents, e.g. a book's src/, docs/ or GitBook space
+-- directory; "" when they share none or the tree lists no documents.
+---@param tree MdReadableNavTree
+---@return string
+function M.content_dir(tree)
+  local common ---@type string[]?
+  ---@param nodes MdReadableNavNode[]
+  local function visit(nodes)
+    for _, node in ipairs(nodes or {}) do
+      local target = node.target
+      if target and target.type == "document" and target.path then
+        local dir = vim.fs.dirname(target.path)
+        local parts = (dir == "." or dir == "") and {} or vim.split(dir, "/", { plain = true })
+        if not common then
+          common = parts
+        else
+          local shared = {}
+          for i = 1, math.min(#common, #parts) do
+            if common[i] ~= parts[i] then
+              break
+            end
+            shared[i] = parts[i]
+          end
+          common = shared
+        end
+      end
+      visit(node.children)
+    end
+  end
+  visit(tree.items)
+  return table.concat(common or {}, "/")
+end
+
+-- Whether an absolute path is part of a tree's content, not merely of the
+-- project (a repository README next to the configuration is not).
+---@param snapshot MdReadableNavSnapshot
+---@param path string Absolute path
+---@return boolean
+function M.contains(snapshot, path)
+  local root = snapshot.rootDir
+  if path:sub(1, #root + 1) ~= root .. "/" then
+    return false
+  end
+  local relative = path:sub(#root + 2)
+  for _, tree in ipairs(snapshot.trees or {}) do
+    local dir = M.content_dir(tree)
+    if dir == "" or relative:sub(1, #dir + 1) == dir .. "/" then
+      return true
+    end
+  end
+  return #(snapshot.trees or {}) == 0
+end
+
 return M

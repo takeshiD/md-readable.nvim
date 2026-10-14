@@ -32,7 +32,11 @@ M.prev_page = { callback = command("prev"), desc = "Previous page" }
 M.toggle_nav = {
   ---@param opts? MdReadableNavToggleOptions
   callback = function(opts)
-    local float = type(opts) == "table" and opts.float
+    -- Only an explicit true/false picks the style; nil leaves it to the config.
+    local float = nil ---@type boolean?
+    if type(opts) == "table" then
+      float = opts.float
+    end
     local args = float == true and { "float" } or float == false and { "sidebar" } or {}
     require("md-readable.errors").report(require("md-readable").action, "nav", args, {})
   end,

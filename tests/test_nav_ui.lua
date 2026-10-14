@@ -209,7 +209,7 @@ return function(t)
       end
       t.eq(false, found)
       key(panel, "l")
-      t.eq(false, s._navigation.collapsed["heading:intro"])
+      t.ok(not s._navigation.collapsed["heading:intro"], "expanded again")
       found = false
       for _, entry in ipairs(panel.entries) do
         if entry.id == "heading:child" then

@@ -5,10 +5,16 @@ local M = {}
 ---@field enable boolean false shows link labels as plain text without kind markers
 ---@field icons MdReadableLinkIcons Markers appended after labelled links
 ---@class MdReadableConfigNavigation : MdReadableUserConfigNavigation
----@field auto_open boolean Open the navigation panel when a project is detected
+---@field enable boolean Open the book tree with the reading view when a project is detected
 ---@field width integer Panel width in cells
 ---@field min_body_width integer
 ---@field follow boolean Moving over a heading in a panel scrolls the reading view
+---@field style "auto"|"sidebar"|"float" How toggle_nav opens the book tree; auto: by width and layout
+---@field fold MdReadableConfigNavigationFold
+---@alias MdReadableNavKeys string|string[]|false One key, a list, or false (none)
+---@class MdReadableConfigNavigationFold
+---@field keys table<MdReadableNavFoldAction, MdReadableNavKeys>
+---@field icons {collapsed:string, expanded:string, leaf:string, current:string}
 ---@class MdReadableConfigTable : MdReadableUserConfigTable
 ---@field enable boolean false shows tables as their Markdown source
 ---@field max_cell_width integer
@@ -101,8 +107,11 @@ local M = {}
 ---@field enable? boolean
 ---@field icons? MdReadableLinkIcons
 ---@class MdReadableUserConfigNavigation
----@field auto_open? boolean
+---@field enable? boolean
+---@field auto_open? boolean Former name of `enable`
 ---@field follow? boolean
+---@field style? "auto"|"sidebar"|"float"
+---@field fold? {keys?: table<MdReadableNavFoldAction, MdReadableNavKeys>, icons?: {collapsed?:string, expanded?:string, leaf?:string, current?:string}}
 ---@field width? integer
 ---@field min_body_width? integer
 ---@class MdReadableUserConfigTable
@@ -193,7 +202,25 @@ M.defaults = {
   center = true,
   links = { enable = true, icons = "unicode" }, -- "unicode", "ascii", false, or { external = "..", ... }
   layout = "integrated",
-  navigation = { auto_open = true, follow = true, width = 28, min_body_width = 48 },
+  navigation = {
+    enable = true,
+    follow = true,
+    style = "auto",
+    width = 28,
+    min_body_width = 48,
+    fold = {
+      keys = {
+        collapse = { "h", "<Left>" },
+        expand = { "l", "<Right>" },
+        toggle = "za",
+        collapse_recursive = "zC",
+        expand_recursive = "zO",
+        collapse_all = "zM",
+        expand_all = "zR",
+      },
+      icons = { collapsed = "+ ", expanded = "- ", leaf = "  ", current = "> " },
+    },
+  },
   table = { enable = true, max_cell_width = 28 },
   focus = { enable = true, coefficient = 0.5, span = 0, bop = "^\\s*$\\n\\zs", eop = "^\\s*$", priority = 10 },
   minimap = { enable = true, follow = true, width = 12, mode = "braille" },
@@ -228,6 +255,14 @@ function M.normalize(value, given)
       section.enabled = nil
     end
   end
+  -- navigation.auto_open is the former name of navigation.enable.
+  local navigation, written = rawget(value, "navigation"), rawget(given, "navigation")
+  if type(navigation) == "table" then
+    if type(written) == "table" and written.enable == nil and written.auto_open ~= nil then
+      navigation.enable = written.auto_open
+    end
+    navigation.auto_open = nil
+  end
   return value
 end
 ---@param opts? MdReadableUserConfig
@@ -246,8 +281,16 @@ function M.setup(opts)
     keymaps = nil
   end
   value.keymaps = require("md-readable.keymaps").merge(keymaps, value.use_default_keymaps)
+  -- A key list replaces the default list of that action instead of merging
+  -- index by index ({ "za" } over { "h", "<Left>" } must not keep "<Left>").
+  local fold_keys = ((opts.navigation or {}).fold or {}).keys
+  if type(fold_keys) == "table" then
+    for action, keys in pairs(fold_keys) do
+      value.navigation.fold.keys[action] = type(keys) == "table" and vim.deepcopy(keys) or keys
+    end
+  end
   M.normalize(value, opts)
-  for _, name in ipairs({ "links", "table", "focus", "minimap", "images", "mermaid", "watch", "git" }) do
+  for _, name in ipairs({ "links", "table", "focus", "minimap", "images", "mermaid", "watch", "git", "navigation" }) do
     assert(type(value[name].enable) == "boolean", name .. ".enable must be true or false")
   end
   assert(vim.tbl_contains({ "integrated", "separate", "ondemand" }, value.layout), "invalid reader layout")
@@ -258,6 +301,19 @@ function M.setup(opts)
   assert(value.float.width > 0 and value.float.width <= 1, "float.width must be a fraction between 0 and 1")
   assert(value.float.height > 0 and value.float.height <= 1, "float.height must be a fraction between 0 and 1")
   assert(value.images.height >= 1, "images.height must be positive")
+  assert(
+    vim.tbl_contains({ "auto", "sidebar", "float" }, value.navigation.style),
+    'navigation.style must be "auto", "sidebar" or "float"'
+  )
+  for action, keys in pairs(value.navigation.fold.keys) do
+    local list = type(keys) == "table" and keys or { keys }
+    for _, lhs in ipairs(keys == false and {} or list) do
+      assert(type(lhs) == "string" and lhs ~= "", "navigation.fold.keys." .. action .. " must be keys or false")
+    end
+  end
+  for name, icon in pairs(value.navigation.fold.icons) do
+    assert(type(icon) == "string", "navigation.fold.icons." .. name .. " must be a string")
+  end
   local code_err = require("md-readable.ui.code_theme").validate(value.code)
   assert(not code_err, code_err)
   for kind, sign in pairs(value.git.signs) do

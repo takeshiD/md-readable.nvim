@@ -148,8 +148,26 @@ require("md-readable").setup({
     mode = "braille",
   },
   navigation = {
+    -- 読書表示を開いた時点で目次を表示する（以前の名前はauto_open）
+    enable = true,
     -- 見出しにカーソルを合わせると本文が追従する（ページはEnterで開く）
     follow = true,
+    -- gnで目次を開く方法: "auto"（画面幅とlayoutで決める）・"sidebar"・"float"
+    style = "auto",
+    fold = {
+      -- 折りたたみのキー。キー1つ・キーの配列・false（無効）で指定
+      keys = {
+        collapse = { "h", "<Left>" }, -- 閉じる（閉じていれば親へ移動）
+        expand = { "l", "<Right>" },
+        toggle = "za",
+        collapse_recursive = "zC", -- 配下もまとめて閉じる
+        expand_recursive = "zO", -- 配下もまとめて開く
+        collapse_all = "zM",
+        expand_all = "zR",
+      },
+      -- 開閉状態などの記号
+      icons = { collapsed = "+ ", expanded = "- ", leaf = "  ", current = "> " },
+    },
   },
   images = {
     enable = true,
@@ -222,6 +240,8 @@ git = {
 ```
 
 `git = { enable = false }`にすると記号とsign columnを表示しません。
+
+ナビゲーションは本の中身のフォルダー（目次のページをすべて含む最も深いフォルダー。`src/`やGitBookのspaceのフォルダーなど）を基準にします。その外にあるファイル（`gitbook-docs.yaml`と同じ場所のリポジトリのREADMEなど）では目次を出さず、そのファイルの見出しだけを表示します。中身のフォルダーにあっても目次に載っていないページでは、目次の上にそのページの見出しを表示します。
 
 狭い画面では本文幅を優先し、目次をfloatingで選択できます。Nerd Fontは不要で、ミニマップには`mode = "ascii"`もあります。
 

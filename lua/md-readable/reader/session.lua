@@ -131,6 +131,21 @@ function Session:load_navigation()
     return require("md-readable.navigation.detect").load(path, self.config.adapters)
   end)
   if ok and result then
+    -- A file of the project outside the book's content (a repository README
+    -- beside gitbook-docs.yaml) gets no book navigation, only its headings.
+    if result.snapshot and not require("md-readable.navigation.model").contains(result.snapshot, path) then
+      result = {
+        status = "none",
+        candidates = result.candidates,
+        diagnostics = {
+          {
+            severity = "info",
+            code = "outside-content",
+            message = "This file is outside the book content of " .. result.snapshot.rootDir,
+          },
+        },
+      }
+    end
     self.nav_result = result
     if result.snapshot then
       self.snapshot = result.snapshot
@@ -645,7 +660,7 @@ function M.open(mode)
     M.close(self)
     error(err)
   end
-  if config.navigation.auto_open and self.snapshot and mode ~= "float" then
+  if config.navigation.enable and self.snapshot and mode ~= "float" then
     service("ui.navigation", "open", self)
   end
   if config.focus.enable then

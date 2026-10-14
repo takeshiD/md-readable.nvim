@@ -86,9 +86,10 @@ return function(t)
     require("md-readable.ui.navigation").outline(s)
     local panel = s._navigation.panels.outline
     local lines = vim.api.nvim_buf_get_lines(panel.buf, 0, -1, false)
-    t.ok(vim.tbl_contains(lines, "# Top"))
-    t.ok(vim.tbl_contains(lines, "  ## Middle"))
-    t.ok(vim.tbl_contains(lines, "    ### Low"))
+    -- Indent, fold icon (expanded "- " / leaf "  "), then the level marker.
+    t.ok(vim.tbl_contains(lines, "- # Top"), vim.inspect(lines))
+    t.ok(vim.tbl_contains(lines, "  - ## Middle"))
+    t.ok(vim.tbl_contains(lines, "      ### Low"), vim.inspect(lines))
     local found = {}
     for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(panel.buf, -1, 0, -1, { details = true })) do
       found[mark[4].hl_group or ""] = true

@@ -273,13 +273,35 @@ local function rebuild(session, st, panel)
     entries[#lines] = entry or { kind = "label" }
   end
   add(panel.kind == "outline" and "On this page" or (st.tree and st.tree.title or "Navigation"))
-  add("Enter open  h/l fold  q back")
+  -- The fold hint shows the first configured collapse/expand keys.
+  local fold_keys = ((session.config.navigation or {}).fold or {}).keys
+    or require("md-readable.config").defaults.navigation.fold.keys
+  ---@param keys MdReadableNavKeys?
+  ---@return string?
+  local function first(keys)
+    return type(keys) == "table" and keys[1] or (type(keys) == "string" and keys or nil)
+  end
+  local collapse, expand = first(fold_keys.collapse), first(fold_keys.expand)
+  local fold_hint = collapse and expand and (collapse .. "/" .. expand .. " fold  ") or ""
+  add("Enter open  " .. fold_hint .. "q back")
   if session.stale then
     add("[!] Stale navigation; r reload")
   elseif session.nav_result and session.nav_result.status == "partial" then
     add("[!] Partial navigation; ? details")
   end
   local headings = session.document and session.document.headings or {}
+  -- navigation.fold.icons: fold state of pages and headings, current page.
+  local icons = vim.tbl_extend(
+    "force",
+    { collapsed = "+ ", expanded = "- ", leaf = "  ", current = "> " },
+    ((session.config.navigation or {}).fold or {}).icons or {}
+  )
+  ---@param expandable boolean
+  ---@param id string
+  ---@return string
+  local function fold_icon(expandable, id)
+    return expandable and (st.collapsed[id] and icons.collapsed or icons.expanded) or icons.leaf
+  end
   ---@param depth integer
   ---@param parent? string
   local function add_headings(depth, parent)
@@ -305,7 +327,10 @@ local function rebuild(session, st, panel)
         -- A following deeper heading makes this item expandable.
         local index = #lines + 1
         -- Level markers and per-level highlights distinguish the hierarchy.
-        local marker = string.rep("  ", depth + math.max(0, level - 1)) .. string.rep("#", level) .. " "
+        local marker = string.rep("  ", depth + math.max(0, level - 1))
+          .. fold_icon(entry.expandable, id)
+          .. string.rep("#", level)
+          .. " "
         entry.marker_end, entry.group = #marker, "MdReadableHeading" .. math.min(level, 6)
         add(marker .. heading.title, entry)
         if #parents > 0 then
@@ -328,14 +353,14 @@ local function rebuild(session, st, panel)
       for _, node in ipairs(nodes) do
         local current = st.current and st.current.id == node.id
         local with_headings = current and session.config.layout ~= "separate" and #headings > 0
-        local expandable = #node.children > 0 or with_headings
-        local mark = expandable and (st.collapsed[node.id] and "+ " or "- ") or "  "
+        local expandable = #node.children > 0 or with_headings == true
+        local mark = fold_icon(expandable, node.id)
         local target = node.target
         local suffix = target and target.type == "unavailable" and " [unavailable]"
           or target and target.type == "external" and " [web]"
           or ""
         add(
-          string.rep("  ", depth) .. (current and "> " or mark) .. node.title .. suffix,
+          string.rep("  ", depth) .. (current and icons.current or mark) .. node.title .. suffix,
           { kind = "node", node = node, id = node.id, parent = parent, expandable = expandable }
         )
         if not st.collapsed[node.id] then
@@ -345,6 +370,12 @@ local function rebuild(session, st, panel)
           visit(node.children, depth + 1, node.id)
         end
       end
+    end
+    -- A page that is not in the contents still gets its headings, on top.
+    if not st.current and #headings > 0 and session.config.layout ~= "separate" then
+      add("Not in the contents")
+      add_headings(0)
+      add("")
     end
     visit(st.tree.items, 0)
     if #st.tree.items == 0 then
@@ -480,26 +511,129 @@ local function follow(session, st, panel)
   require("md-readable.minimap").update(session)
   M.update(session)
 end
+---@alias MdReadableNavFoldAction "collapse"|"expand"|"toggle"|"collapse_recursive"|"expand_recursive"|"collapse_all"|"expand_all"
+---@type table<MdReadableNavFoldAction, string>
+local fold_descriptions = {
+  collapse = "Collapse or select parent",
+  expand = "Expand item",
+  toggle = "Toggle item",
+  collapse_recursive = "Collapse item and its children",
+  expand_recursive = "Expand item and its children",
+  collapse_all = "Collapse all",
+  expand_all = "Expand all",
+}
+-- Heading ids with a deeper heading right after them (foldable), in order.
+---@param session MdReadableSession
+---@return {id:string, level:integer, foldable:boolean}[]
+local function heading_items(session)
+  local headings = session.document and session.document.headings or {}
+  local items = {}
+  for index, heading in ipairs(headings) do
+    local next_heading = headings[index + 1]
+    items[index] = {
+      id = heading_key(heading),
+      level = heading.level or 1,
+      foldable = next_heading ~= nil and (next_heading.level or 1) > (heading.level or 1),
+    }
+  end
+  return items
+end
+-- Ids folded by `entry` and everything below it, visible or not.
+---@param session MdReadableSession
+---@param st MdReadableNavUiState
+---@param entry MdReadableNavUiEntry
+---@return string[]
+local function subtree(session, st, entry)
+  local ids = { entry.id }
+  local items = heading_items(session)
+  if entry.kind == "heading" then
+    local level
+    for _, item in ipairs(items) do
+      if level then
+        if item.level <= level then
+          break
+        end
+        ids[#ids + 1] = item.id
+      elseif item.id == entry.id then
+        level = item.level
+      end
+    end
+  elseif entry.node then
+    ---@param node MdReadableNavNode
+    local function visit(node)
+      ids[#ids + 1] = node.id
+      for _, child in ipairs(node.children or {}) do
+        visit(child)
+      end
+    end
+    visit(entry.node)
+    if st.current and st.current.id == entry.id then
+      for _, item in ipairs(items) do
+        ids[#ids + 1] = item.id
+      end
+    end
+  end
+  return ids
+end
+-- Applies a fold action at the panel cursor (or to the whole panel).
 ---@param session MdReadableSession
 ---@param st MdReadableNavUiState
 ---@param panel MdReadableNavUiPanel
----@param expand boolean
-local function fold(session, st, panel, expand)
+---@param action MdReadableNavFoldAction
+local function fold(session, st, panel, action)
   local entry = panel_entry(panel)
-  if not entry then
-    return
+  local changed = false
+  ---@param id string
+  ---@param collapsed boolean
+  local function set(id, collapsed)
+    if (st.collapsed[id] or false) ~= collapsed then
+      st.collapsed[id] = collapsed or nil
+      changed = true
+    end
   end
-  if entry.expandable and (expand or not st.collapsed[entry.id]) then
-    st.collapsed[entry.id] = not expand
-    st.revision = st.revision + 1
-    M.update(session)
-  elseif not expand and entry.parent then
+  if action == "expand_all" then
+    for id in pairs(st.collapsed) do
+      set(id, false)
+    end
+  elseif action == "collapse_all" then
+    ---@param nodes MdReadableNavNode[]
+    local function visit(nodes)
+      for _, node in ipairs(nodes or {}) do
+        if #(node.children or {}) > 0 or (st.current and st.current.id == node.id) then
+          set(node.id, true)
+        end
+        visit(node.children)
+      end
+    end
+    visit(st.tree and st.tree.items or {})
+    for _, item in ipairs(heading_items(session)) do
+      if item.foldable then
+        set(item.id, true)
+      end
+    end
+  elseif not entry or entry.kind == "label" then
+    return
+  elseif action == "collapse_recursive" or action == "expand_recursive" then
+    for _, id in ipairs(subtree(session, st, entry)) do
+      set(id, action == "collapse_recursive")
+    end
+  elseif entry.expandable and action == "toggle" then
+    set(entry.id, not st.collapsed[entry.id])
+  elseif entry.expandable and action == "expand" then
+    set(entry.id, false)
+  elseif entry.expandable and action == "collapse" and not st.collapsed[entry.id] then
+    set(entry.id, true)
+  elseif action == "collapse" and entry.parent then
     for i, candidate in ipairs(panel.entries) do
       if candidate.id == entry.parent then
         vim.api.nvim_win_set_cursor(panel.win, { i, 0 })
         break
       end
     end
+  end
+  if changed then
+    st.revision = st.revision + 1
+    M.update(session)
   end
 end
 ---@param session MdReadableSession
@@ -554,18 +688,21 @@ local function create_panel(session, st, kind, floating, focus)
       follow(session, st, panel)
     end,
   })
-  key("h", function()
-    fold(session, st, panel, false)
-  end, "Collapse or select parent")
-  key("l", function()
-    fold(session, st, panel, true)
-  end, "Expand item")
-  key("<Left>", function()
-    fold(session, st, panel, false)
-  end, "Collapse or select parent")
-  key("<Right>", function()
-    fold(session, st, panel, true)
-  end, "Expand item")
+  -- navigation.fold.keys: one key or a list per action; false disables it.
+  local fold_keys = (cfg.fold or {}).keys or require("md-readable.config").defaults.navigation.fold.keys
+  for action, keys in
+    pairs(fold_keys --[[@as table<MdReadableNavFoldAction, MdReadableNavKeys>]])
+  do
+    if fold_descriptions[action] and keys then
+      local list = type(keys) == "table" and keys or { keys }
+      ---@cast list string[]
+      for _, lhs in ipairs(list) do
+        key(lhs, function()
+          fold(session, st, panel, action)
+        end, fold_descriptions[action])
+      end
+    end
+  end
   key("q", function()
     M.close(session)
     focus_reader(session)
@@ -704,11 +841,17 @@ function M.open(session, opts)
   if opts.float ~= nil then
     st.float = opts.float
   end
+  -- An explicit choice wins, then navigation.style; "auto" decides by width
+  -- and layout. Opening by itself only ever places a sidebar.
   local floating = st.float
-  if floating == nil then
+  if floating == nil and cfg.style == "float" then
+    floating = true
+  elseif floating == nil and cfg.style == "sidebar" then
+    floating = false
+  elseif floating == nil then
     floating = narrow or layout == "ondemand"
   end
-  if not st.panels.book and (opts.user or (not narrow and layout ~= "ondemand")) then
+  if not st.panels.book and (opts.user or (not narrow and layout ~= "ondemand" and not floating)) then
     create_panel(session, st, "book", floating, opts.user)
   end
   if layout == "separate" and not floating and not st.panels.outline and available >= minimum + width * 2 + 2 then
