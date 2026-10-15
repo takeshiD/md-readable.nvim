@@ -35,9 +35,13 @@ local M = {}
 ---@class MdReadableConfigImages : MdReadableUserConfigImages
 ---@field enable boolean
 ---@field remote boolean Allow downloading remote images
----@field height integer Reserved display rows
----@field max_bytes integer
+---@field width? integer Columns the image box always takes (nil: the body width)
+---@field height? integer Rows the image box always takes (nil: the reading window height)
+---@field min_width? integer
 ---@field max_width? integer Display cells; defaults to the reader width
+---@field min_height? integer
+---@field max_height? integer
+---@field max_bytes integer
 ---@field cache_dir? string
 ---@field cache_ttl? integer Remote cache lifetime in seconds
 ---@field converter? string Image conversion command
@@ -148,9 +152,13 @@ local M = {}
 ---@field enable? boolean
 ---@field enabled? boolean Deprecated name of `enable`
 ---@field remote? boolean
+---@field width? integer
 ---@field height? integer
----@field max_bytes? integer
+---@field min_width? integer
 ---@field max_width? integer
+---@field min_height? integer
+---@field max_height? integer
+---@field max_bytes? integer
 ---@field cache_dir? string
 ---@field cache_ttl? integer
 ---@field converter? string
@@ -242,7 +250,9 @@ M.defaults = {
   table = { enable = true, max_cell_width = 28 },
   focus = { enable = true, coefficient = 0.5, span = 0, bop = "^\\s*$\\n\\zs", eop = "^\\s*$", priority = 10 },
   minimap = { enable = true, follow = true, width = 12, mode = "braille" },
-  images = { enable = true, remote = false, height = 10, max_bytes = 20 * 1024 * 1024 },
+  -- Image box as in snacks.image: width/height fix it, min/max bound it; the
+  -- image keeps its aspect ratio and is not enlarged past its own size.
+  images = { enable = true, remote = false, max_height = 40, max_bytes = 20 * 1024 * 1024 },
   mermaid = {
     enable = true,
     renderer = "mmdc",
@@ -339,9 +349,12 @@ function M.setup(opts)
   assert(value.focus.coefficient >= 0 and value.focus.coefficient <= 1, "focus.coefficient must be between 0 and 1")
   assert(value.float.width > 0 and value.float.width <= 1, "float.width must be a fraction between 0 and 1")
   assert(value.float.height > 0 and value.float.height <= 1, "float.height must be a fraction between 0 and 1")
-  assert(value.images.height >= 1, "images.height must be positive")
   local alerts_err = require("md-readable.ui.alerts").validate(value.alerts)
   assert(not alerts_err, alerts_err)
+  for _, key in ipairs({ "width", "height", "min_width", "max_width", "min_height", "max_height" }) do
+    local size = value.images[key]
+    assert(size == nil or (type(size) == "number" and size >= 1), "images." .. key .. " must be a positive number")
+  end
   assert(
     vim.tbl_contains({ "mmdc", "termaid" }, value.mermaid.renderer),
     'mermaid.renderer must be "mmdc" or "termaid"'
