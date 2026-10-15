@@ -121,6 +121,9 @@ function M.highlights()
   for group, value in pairs(require("md-readable.ui.code_theme").highlights(code, normal.bg)) do
     result[group] = value
   end
+  for group, value in pairs(require("md-readable.ui.alerts").highlights(require("md-readable.config").options.alerts)) do
+    result[group] = value
+  end
   return result
 end
 
@@ -213,6 +216,13 @@ function M.apply(win, name, opts)
   end
   for group, value in pairs(require("md-readable.reader.git").highlights(opts.git)) do
     definitions[group] = value
+  end
+  -- Alert colors follow the session's options and the reading theme's background.
+  if opts.alerts then
+    local background = palette and name or nil
+    for group, value in pairs(require("md-readable.ui.alerts").highlights(opts.alerts, background)) do
+      definitions[group] = value
+    end
   end
   for group, value in pairs(opts.highlights or {}) do
     definitions[group] = value

@@ -110,6 +110,7 @@ local M = {}
 ---@field images MdReadableConfigImages
 ---@field mermaid MdReadableConfigMermaid
 ---@field code MdReadableConfigCode
+---@field alerts MdReadableConfigAlerts
 ---@field watch MdReadableConfigWatch
 ---@field git MdReadableConfigGit
 ---@field float MdReadableConfigFloat
@@ -170,6 +171,11 @@ local M = {}
 ---@field colors? table<string, string>
 ---@field label? "left"|"right"
 ---@field icons? "mini"|"web-devicons"
+---@class MdReadableUserConfigAlerts
+---@field enable? boolean
+---@field icons? MdReadableAlertIcons
+---@field kinds? table<string, MdReadableAlertKind>
+---@field aliases? table<string, string>
 ---@class MdReadableUserConfigWatch
 ---@field enable? boolean
 ---@class MdReadableUserConfigGit
@@ -196,6 +202,7 @@ local M = {}
 ---@field images? MdReadableUserConfigImages
 ---@field mermaid? MdReadableUserConfigMermaid
 ---@field code? MdReadableUserConfigCode
+---@field alerts? MdReadableUserConfigAlerts
 ---@field watch? MdReadableUserConfigWatch
 ---@field git? MdReadableUserConfigGit
 ---@field float? MdReadableUserConfigFloat
@@ -247,6 +254,7 @@ M.defaults = {
     termaid_opts = {},
   },
   code = { label = "left", colors = {} },
+  alerts = vim.deepcopy(require("md-readable.ui.alerts").defaults),
   watch = { enable = true },
   git = {
     enable = true,
@@ -310,7 +318,18 @@ function M.setup(opts)
     end
   end
   M.normalize(value, opts)
-  for _, name in ipairs({ "links", "table", "focus", "minimap", "images", "mermaid", "watch", "git", "navigation" }) do
+  for _, name in ipairs({
+    "links",
+    "table",
+    "focus",
+    "minimap",
+    "images",
+    "mermaid",
+    "watch",
+    "git",
+    "navigation",
+    "alerts",
+  }) do
     assert(type(value[name].enable) == "boolean", name .. ".enable must be true or false")
   end
   assert(vim.tbl_contains({ "integrated", "separate", "ondemand" }, value.layout), "invalid reader layout")
@@ -321,6 +340,8 @@ function M.setup(opts)
   assert(value.float.width > 0 and value.float.width <= 1, "float.width must be a fraction between 0 and 1")
   assert(value.float.height > 0 and value.float.height <= 1, "float.height must be a fraction between 0 and 1")
   assert(value.images.height >= 1, "images.height must be positive")
+  local alerts_err = require("md-readable.ui.alerts").validate(value.alerts)
+  assert(not alerts_err, alerts_err)
   assert(
     vim.tbl_contains({ "mmdc", "termaid" }, value.mermaid.renderer),
     'mermaid.renderer must be "mmdc" or "termaid"'

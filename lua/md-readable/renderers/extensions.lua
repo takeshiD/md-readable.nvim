@@ -47,15 +47,29 @@ function M.render(block, ctx)
     if block.type == "details" and open == nil then
       open = block.open
     end
+    -- A known kind gets its icon, color and, when the source names only the
+    -- kind ("> [!NOTE]"), its configured title; others keep the plain marker.
+    local style = require("md-readable.ui.alerts").style(
+      ctx.opts.alerts or require("md-readable.config").options.alerts,
+      block.kind
+    )
+    local group = style and style.group or "MdReadableCallout"
     local marker = block.type == "details" and (open and "▾ " or "▸ ") or "▌ "
+    if style and style.icon and style.icon ~= "" then
+      marker = (block.type == "details" and marker or "") .. style.icon .. " "
+    end
+    local text = block.title
+    if style and style.title and block.title:lower() == block.kind:lower() then
+      text = style.title
+    end
     local title_row = block.summary_row or block.start_row
     local source = ctx.document.lines[title_row + 1]
     local start = source and source:find(block.title, 1, true)
-    local title_piece = { text = block.title, group = "MdReadableCallout" }
+    local title_piece = { text = text, group = group }
     if start then
       title_piece.source_start, title_piece.source_end = start - 1, start - 1 + #block.title
     end
-    local row = ctx.emit({ { text = marker, group = "MdReadableCallout" }, title_piece }, title_row, true)
+    local row = ctx.emit({ { text = marker, group = group }, title_piece }, title_row, true)
     if block.type == "details" then
       ctx.result.controls[#ctx.result.controls + 1] =
         { row = row, source_row = block.start_row, kind = "details", expanded = not not open }
