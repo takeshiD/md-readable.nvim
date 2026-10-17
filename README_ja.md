@@ -2,48 +2,53 @@
 
 [English version](README.md)
 
-このプラグインはmarkdownを読解することに長けたプラグインです。
-原文と未保存の編集内容を保持しながら、別の読み取り専用画面でMarkdownを表示します。以下の機能を実装しています。SSGごとの対応範囲は[静的設定の対応表](tests/fixtures/navigation/SUPPORTED.md)を参照してください。
+![読書用バッファでミニマップ・アウトライン・Focus モードを使う様子](assets/readable.gif)
 
-- Appearance
+<table>
+  <tr>
+    <td><img src="assets/focus.png" alt="Focus モード"></td>
+    <td><img src="assets/minimap.png" alt="ミニマップ"></td>
+  </tr>
+  <tr>
+    <td align="center">Focus モード: カーソルのある段落以外を暗く表示</td>
+    <td align="center">ミニマップ: 見出しとコードブロックを色分け</td>
+  </tr>
+</table>
+
+![画像と Mermaid 図。左は mmdc、右は termaid で描画](assets/media.png)
+
+![mdBook の目次からページを切り替える様子](assets/ssg.gif)
+
+このプラグインはmarkdownを読解するための多くの機能を特徴とします。
+
+- `Appearance`
     - markdown構文ハイライト
     - テーブルレンダリング
     - コードブロック
-    - 読書表示だけのカラーテーマ切り替え
+    - カラーテーマ切り替え
     - テーブル内/URLの長文省略表示（本文の生URLと`links`一覧）
-    - リンク種別マーカー（外部 ↗、文書 →、アンカー #、ファイル ⧉。`links.icons`でASCII化・無効化）
-- Navigation
-    - ミニマップ
-        - 見出し・コードブロックの色分け、カーソル移動で本文が追従
+    - リンク種別マーカー（外部 ↗、文書 →、アンカー #、ファイル ⧉。など)
+- `Navigation`
     - 見出しツリー
+    - ミニマップ
     - Focus Mode
-    - 主要SSGの目次・前後
-        - mdBook, Docusaurus, MkDocs, Zensical, Astro/Starlight, HonKit, GitBook
-- Formatting
+    - 主要SSGに対応したナビゲーション
+        - 対応SSG: mdBook, Docusaurus, MkDocs, Zensical, Astro/Starlight, HonKit, GitBook
+- `Formatting`
     - テーブル整形
-    - 表の行・列の明示的な挿入削除
-- Contents
+    - 表の行・列の挿入削除
+- `Contents`
     - 画像表示(png,jpg,svg,webpなど)
-    - Mermaidダイアグラムレンダリング
-- Integration
-    - Telescope / Snacksのpreview連携（pickerは任意依存）
+    - Mermaidダイアグラムレンダリング(mmdc, termaid)
 
-一部Writingサポートもそなわっています。
-- Writing
-    - Read Buffer, Write Buffer のカーソル位置・ページ移動の双方向同期
+一部Writingサポートも備えています。
 
-読書表示の `/` は表示テキストを検索し、`y` は対応するMarkdown原文をコピーします。省略した内容を含めて原文全体を検索する専用コマンドも提供します。Neovim終了をまたぐ読書位置の保存は行いません。
-
-リンクラベルの一部を選択するとその文字列、ラベル全体を選択すると元のMarkdownリンク全体をコピーします。
-
-AGENTS.mdに記載したプラグインは参考実装であり、必須依存ではありません。描画・Focus・表編集・ミニマップを本体内に実装しています。
-
-[合意済み仕様](docs/final-spec-review.md)、[全体追跡Issue](https://github.com/takeshiD/md-readable.nvim/issues/33)、[検証記録](docs/verification.md)を参照してください。
 
 # Requirements
 - Neovim >= 0.12
 - 画像表示: Kitty graphics protocolに対応した端末が必要
-> []KittyとGhosttyに対応tmuxの中でも使えます（`allow-passthrough on`）。画像は代わり文字として置くので、スクロールに追従し、tmuxでウィンドウを切り替えれば消えます。WezTermは代わり文字に対応していないため、画像の代わりに文字で表示します。
+> [!NOTE]
+> KittyとGhosttyに対応したtmuxの中でも使えます（`allow-passthrough on`）。画像は代わり文字として置くので、スクロールに追従し、tmuxでウィンドウを切り替えれば消えます。WezTermは代わり文字に対応していないため、画像の代わりに文字で表示します。
 - 任意依存: 画像変換にImageMagick等、Mermaidに導入済みの`mmdc`、許可した外部画像の取得に`curl`。
 - Telescope / Snacksは連携を利用する場合だけ必要です。ツールを自動インストールすることはありません。
 
@@ -360,18 +365,12 @@ keymaps = {
 
 既定を使わず指定したキーだけにする場合は`use_default_keymaps = false`、読書bufferのキーマップをすべて無効にする場合は`keymaps = false`を指定します。
 
-# picker連携
+# Inspired
+- [render-markdown.nvim](https://github.com/meanderingprogrammer/render-markdown.nvim)
+- [limelight.vim](https://github.com/junegunn/limelight.vim)
+- [zen-mode.nvim](https://github.com/folke/zen-mode.nvim)
+- [md-render.nvim](https://github.com/delphinus/md-render.nvim)
 
-```lua
-local previewer = require("md-readable.integrations.telescope").previewer()
-require("telescope.builtin").find_files({ previewer = previewer })
-
-require("snacks").setup({
-  picker = { preview = require("md-readable.integrations.snacks").preview() },
-})
-```
-
-`:Telescope md_readable find_files` / `:Telescope md_readable live_grep`も利用できます。選択確定の動作はpicker側に任せ、非対応ファイルは標準previewへ戻します。詳細は`:help md-readable`、依存状況は`:checkhealth md-readable`で確認できます。
 
 # License
 MIT

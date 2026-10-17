@@ -2,6 +2,25 @@
 
 [日本語版](README_ja.md)
 
+![Reading view with the minimap, outline and Focus mode](assets/readable.gif)
+
+<table>
+  <tr>
+    <td><img src="assets/focus.png" alt="Focus mode"></td>
+    <td><img src="assets/minimap.png" alt="Minimap"></td>
+  </tr>
+  <tr>
+    <td align="center">Focus mode dims everything but the current paragraph</td>
+    <td align="center">Minimap with headings and code blocks in color</td>
+  </tr>
+</table>
+
+![Images and Mermaid diagrams drawn by mmdc (left) and termaid (right)](assets/media.png)
+
+![mdBook navigation: open chapters from the book tree](assets/ssg.gif)
+
+The demos are recorded with [VHS](https://github.com/charmbracelet/vhs); see `assets/tapes/`.
+
 A Neovim plugin specialized in making Markdown easy to read.
 Read Markdown in a separate, read-only view while keeping the original text and unsaved edits intact. The implementation includes the features below; SSG support covers the [documented static subsets](tests/fixtures/navigation/SUPPORTED.md).
 
@@ -272,26 +291,12 @@ keymaps = {
 
 Set `use_default_keymaps = false` to install only the keys you list, or `keymaps = false` to install no reading-buffer keymaps.
 
-# Picker previews
+# Inspired
+- [render-markdown.nvim](https://github.com/meanderingprogrammer/render-markdown.nvim)
+- [limelight.vim](https://github.com/junegunn/limelight.vim)
+- [zen-mode.nvim](https://github.com/folke/zen-mode.nvim)
+- [md-render.nvim](https://github.com/delphinus/md-render.nvim)
 
-```lua
-local previewer = require("md-readable.integrations.telescope").previewer()
-require("telescope.builtin").find_files({ previewer = previewer })
-
-require("snacks").setup({
-  picker = { preview = require("md-readable.integrations.snacks").preview() },
-})
-```
-
-`:Telescope md_readable find_files` and `:Telescope md_readable live_grep` are also available. Preview integrations preserve the picker's selection action and fall back to its normal preview for unsupported files. See `:help md-readable` and `:checkhealth md-readable`.
-
-# Development
-
-```sh
-nvim --headless -n -u NONE -i NONE -l tests/run.lua
-```
-
-Tests cover parsers, all seven static SSG adapters, actual reading sessions, source copying, synchronization, narrow layouts, table edits, the minimap, media protocols and cancellation, and installed picker integrations when available. See [verification notes](docs/verification.md) for the remaining real-terminal/Mermaid checks.
 
 # License
 MIT
