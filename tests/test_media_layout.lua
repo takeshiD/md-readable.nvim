@@ -106,7 +106,7 @@ return function(t)
       vim.uv.fs_write(fd, png, 0)
       vim.uv.fs_close(fd)
       s:refresh()
-      t.eq(5, s.rendered.images[1].height, "an existing file reserves rows")
+      t.eq(1, s.rendered.images[1].height, "an existing 1x1 image reserves the rows of its own size")
     end)
   end)
 

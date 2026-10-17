@@ -128,6 +128,7 @@ setup({ highlights = { Group = {...} } }) overrides them per reading window.
     MdReadableFootnote      Footnote references and the notes section
     MdReadableQuote, MdReadableRule, MdReadableMuted, MdReadableOmission,
     MdReadableTableBorder, MdReadableTableHeader, MdReadableCallout,
+    MdReadableAlert{Kind} (see alerts.kinds),
     MdReadableCheckbox, MdReadableTabActive, MdReadableBold,
     MdReadableItalic, MdReadableStrike, MdReadableMinimapCurrent,
     MdReadableMinimapCode
@@ -218,11 +219,21 @@ CONFIGURATION                                            *md-readable-setup*
       table = { enable = true, max_cell_width = 28 },
       focus = { enable = true, coefficient = 0.5, span = 0, priority = 10 },
       minimap = { enable = true, follow = true, width = 12, mode = 'braille' },
-      images = { enable = true, remote = false, height = 10 },
+      images = { enable = true, remote = false, width = nil, height = nil,
+                 min_width = nil, max_width = nil,
+                 min_height = nil, max_height = 40 },
       mermaid = { enable = true, renderer = 'mmdc', command = nil, args = {},
                   scale = 3, max_rows = 40,
                   mmdc_opts = { no_sandbox = false }, termaid_opts = {} },
       code = { theme = nil, colors = {}, label = 'left', icons = nil },
+      alerts = {
+        enable = true, icons = 'auto',
+        kinds = { note = { title = 'Note' }, tip = { title = 'Tip' },
+                  important = { title = 'Important' },
+                  warning = { title = 'Warning' },
+                  caution = { title = 'Caution' } },
+        aliases = { info = 'note', hint = 'tip', danger = 'caution', ... },
+      },
       watch = { enable = true },
       git = {
         enable = true,
@@ -270,7 +281,7 @@ Each feature section has an enable switch:
                   of the code (the code returns when it cannot be drawn).
                   It fills the body width with the rows its aspect
                   ratio needs, at most this many. Before the first
-                  generation it uses images.height rows.
+                  generation it uses images.height rows (10 when unset).
   mermaid.scale   mmdc --scale, so enlarged diagrams stay sharp.
   mermaid.renderer
                   "mmdc" draws images (Kitty/Ghostty). "termaid" draws
@@ -292,6 +303,30 @@ Each feature section has an enable switch:
   images.enable, mermaid.enable
                   false turns image or Mermaid rendering off. The former
                   `enabled` key is still accepted.
+  alerts.enable   Callouts (GitHub alerts "> [!NOTE]", MkDocs "!!! note",
+                  Docusaurus ":::note") show the kind's icon and title in
+                  its color. false: a plain "▌ Title".
+  alerts.icons    "auto": GitHub's Octicons as Nerd Font glyphs when
+                  mini.icons or nvim-web-devicons is installed (a sign of
+                  a Nerd Font; neither ships alert icons), else Unicode.
+                  "nerd", "unicode", or false for none.
+  alerts.kinds.{kind}
+                  title (shown when the source names only the kind), icon
+                  (false: none) and color ("#rrggbb" or a highlight group;
+                  default: GitHub's color for 'background'). Adding a
+                  kind styles it on its own. Groups: MdReadableAlertNote,
+                  MdReadableAlertTip, ... after the kind name.
+  alerts.aliases  Other kind names styled as a configured kind, such as
+                  info = 'note' or danger = 'caution'.
+  images.width, images.height, images.min_width, images.max_width,
+  images.min_height, images.max_height
+                  The image box, as in snacks.image: width/height fix it
+                  (default: the body width and the reading window
+                  height), min_*/max_* bound it. An image takes the rows
+                  of its own size fitted into the box, keeping its aspect
+                  ratio and never enlarged. Cell pixels come from the
+                  terminal. A converted or downloaded image is measured
+                  when first shown, then the view is redrawn once.
   navigation.enable
                   Open the book tree with the reading view when a project
                   is detected (a "float" style never opens by itself).

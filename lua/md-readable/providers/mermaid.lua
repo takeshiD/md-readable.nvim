@@ -136,7 +136,8 @@ function M.rows(session, descriptor)
   ---@cast height integer
   local max_rows = (session.config.mermaid or {}).max_rows or 40
   local columns = math.max(1, descriptor.width or 80)
-  return math.max(1, math.min(max_rows, math.ceil(columns * height / (2 * width))))
+  local _, rows = require("md-readable.image.display").fit(width, height, columns, max_rows, true)
+  return rows
 end
 
 -- Reason the diagram cannot be drawn without starting a job, or nil.

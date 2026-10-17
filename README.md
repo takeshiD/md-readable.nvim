@@ -157,7 +157,10 @@ require("md-readable").setup({
       icons = { collapsed = "+ ", expanded = "- ", leaf = "  ", current = "> " },
     },
   },
-  images = { enable = true, remote = false, height = 10 },
+  -- Image size as in snacks.image: width/height fix the box (default: body width
+  -- and window height), min_*/max_* bound it; images keep their aspect ratio and
+  -- are never enlarged past their own size
+  images = { enable = true, remote = false, width = nil, height = nil, max_width = nil, max_height = 40 },
   mermaid = {
     enable = true,
     renderer = "mmdc", -- "mmdc": images (Kitty/Ghostty); "termaid": Unicode text in any terminal
@@ -177,6 +180,19 @@ require("md-readable").setup({
     --              func, type, variable, parameter, property, operator, punctuation, tag
     label = "left", -- icon and language in the "left" or "right" top corner
     icons = nil, -- language icon provider: "mini" (mini.icons) or "web-devicons"; nil shows none
+  },
+  alerts = {
+    enable = true, -- false: plain "▌ Title" without icon or kind color
+    icons = "auto", -- "auto": GitHub's Octicons (Nerd Font) with mini.icons or nvim-web-devicons
+    --                 installed, else Unicode; "nerd", "unicode", or false for none
+    kinds = { -- per kind: title, icon (false: none) and color ("#rrggbb" or a highlight group)
+      note = { title = "Note" },
+      tip = { title = "Tip" },
+      important = { title = "Important" },
+      warning = { title = "Warning" },
+      caution = { title = "Caution" },
+    },
+    aliases = { info = "note", hint = "tip", danger = "caution" --[[, ...]] },
   },
   watch = { enable = true }, -- reload the source when its file changes outside Neovim
   git = {
@@ -198,7 +214,21 @@ If Mermaid diagrams stay blank and `:MdReadable diagnostics` reports "Failed to 
 
 `mermaid.command` runs the selected renderer; it may contain arguments, so a package runner works too, e.g. `command = "uvx termaid"` (a runner may download the tool; the defaults never do). With `mermaid.renderer = "termaid"`, diagrams are drawn as Unicode box-drawing text by [termaid](https://pypi.org/project/termaid/) inside the code block panel, so they also work in terminals without image support (WezTerm, SSH, plain tmux). The output is fitted to the panel width with `--width` and cached per diagram; when termaid is missing or cannot draw a diagram, the code is shown and `:MdReadable diagnostics` gives the reason.
 
-A Mermaid diagram is drawn inside its code block panel, in place of the code, under the same label row and background; when it cannot be drawn the code is shown. It fills the body width and gets the rows that keep its aspect ratio, up to `mermaid.max_rows`. Until a diagram is first generated it uses `images.height` rows, then the view is redrawn once. `mermaid.scale` is passed to mmdc so enlarged diagrams stay sharp.
+Callouts — GitHub alerts (`> [!NOTE]`), MkDocs `!!! note` and Docusaurus `:::note` — show the kind's icon and title in its color. The defaults follow GitHub: its Octicons (`info`, `light-bulb`, `report`, `alert`, `stop`) as Nerd Font glyphs when mini.icons or nvim-web-devicons is installed (neither ships alert icons, so their presence is taken as a sign of a Nerd Font), Unicode symbols otherwise, and GitHub's alert colors for a dark or light background. Other admonition names (`info`, `danger`, ...) use the closest kind through `alerts.aliases`; add a kind to `alerts.kinds` to style it on its own. The groups are `MdReadableAlertNote`, `MdReadableAlertTip`, ... after the kind name.
+
+```lua
+alerts = {
+  kinds = {
+    note = { icon = "ℹ", color = "DiagnosticInfo" },
+    warning = { title = "Heads up", color = "#e0af68" },
+    danger = { icon = "✖", title = "Danger", color = "DiagnosticError" }, -- a kind of its own
+  },
+},
+```
+
+Images take the rows of their own size, fitted into the image box the way snacks.image does: `images.width`/`images.height` fix the box (by default the body width and the reading window height), `min_width`/`max_width`/`min_height`/`max_height` bound it, and the image keeps its aspect ratio without being enlarged. The cell size comes from the terminal. A converted or downloaded image is measured when it is first shown, then the view is redrawn once.
+
+A Mermaid diagram is drawn inside its code block panel, in place of the code, under the same label row and background; when it cannot be drawn the code is shown. It fills the body width and gets the rows that keep its aspect ratio, up to `mermaid.max_rows`. Until a diagram is first generated it uses `images.height` rows (10 when unset), then the view is redrawn once. `mermaid.scale` is passed to mmdc so enlarged diagrams stay sharp.
 
 Code blocks are drawn as a full-width panel whose background is the page background shifted slightly toward gray. `code.theme` applies a Shiki-derived palette to code blocks only (background included); `code.colors` overrides single colors on top of it, or on top of the colorscheme when no theme is set.
 

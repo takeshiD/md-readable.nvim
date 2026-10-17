@@ -174,10 +174,15 @@ require("md-readable").setup({
       icons = { collapsed = "+ ", expanded = "- ", leaf = "  ", current = "> " },
     },
   },
+  -- 画像の大きさ（snacks.imageと同じ考え方）: width・heightで枠を固定し（既定は本文幅と窓の高さ）、
+  -- min_*・max_*で範囲を決める。画像は縦横比を保ち、元の大きさより拡大しない
   images = {
     enable = true,
     remote = false,
-    height = 10,
+    width = nil,
+    height = nil,
+    max_width = nil,
+    max_height = 40,
   },
   mermaid = {
     enable = true,
@@ -214,6 +219,24 @@ require("md-readable").setup({
     icons = "mini",
   },
 
+  alerts = {
+    -- falseなら、アイコンと種類ごとの色を付けずに「▌ 見出し」で表示する
+    enable = true,
+    -- アイコンの種類: "auto"（mini.iconsかnvim-web-deviconsがあればGitHubと同じOcticons（Nerd Font）、
+    --   なければUnicodeの記号）・"nerd"・"unicode"・false（アイコンなし）
+    icons = "auto",
+    -- 種類ごとの見出し・アイコン（falseで非表示）・色（"#rrggbb"か強調表示グループ名）
+    kinds = {
+      note = { title = "Note" },
+      tip = { title = "Tip" },
+      important = { title = "Important" },
+      warning = { title = "Warning" },
+      caution = { title = "Caution" },
+    },
+    -- 別名（MkDocs・Docusaurusなどの種類名）を近い種類の表示にそろえる
+    aliases = { info = "note", hint = "tip", danger = "caution" --[[, ...]] },
+  },
+
   watch = {
     -- 原文ファイルが外部（別のエディターやgitなど）で更新されたら読み込み直して反映する
     enable = true,
@@ -240,7 +263,21 @@ Mermaidの図が表示されず、`:MdReadable diagnostics`に「Failed to launc
 
 `mermaid.command`は選んだ描画ツールを起動するコマンドで、引数を含められます。`command = "uvx termaid"`のようなパッケージ実行ツールも使えます（その場合はツールが自動で取得されることがあります。既定のコマンドは何も取得しません）。`mermaid.renderer = "termaid"`にすると、[termaid](https://pypi.org/project/termaid/)で図をUnicodeの罫線の文字として描き、コードブロックの枠の中に表示します。画像を表示できない端末（WezTerm、SSH先、tmuxなど）でも使えます。図は`--width`で枠の幅に合わせ、図ごとに結果を使い回します。termaidがない、または描けない図の場合はコードを表示し、理由は`:MdReadable diagnostics`で確認できます。
 
-Mermaidの図はコードブロックの枠の中に、コードの代わりに表示します（見出しの行と背景色はそのまま）。図を描けない場合はコードを表示します。図は本文幅いっぱいに表示し、縦横比を保つのに必要な行数を確保します（上限は`mermaid.max_rows`）。図を初めて生成するまでは`images.height`の行数で表示し、生成後に一度描き直します。`mermaid.scale`はmmdcの出力倍率で、拡大してもぼやけないようにします。
+コールアウト（GitHubのアラート`> [!NOTE]`、MkDocsの`!!! note`、Docusaurusの`:::note`）には、種類ごとのアイコンと見出しを種類の色で表示します。既定はGitHubに合わせています。アイコンはGitHubと同じOcticons（`info`・`light-bulb`・`report`・`alert`・`stop`）のNerd Font版で、mini.iconsかnvim-web-deviconsがあるときに使います（どちらもアラート用のアイコンは持たないため、入っていることをNerd Fontがある目安にしています）。ないときはUnicodeの記号を使います。色はGitHubのアラートの色で、背景が暗いか明るいかで切り替えます。ほかの種類名（`info`・`danger`など）は`alerts.aliases`で近い種類の表示になります。独自の表示にしたい種類は`alerts.kinds`に追加してください。強調表示グループは種類名から`MdReadableAlertNote`・`MdReadableAlertTip`のように決まります。
+
+```lua
+alerts = {
+  kinds = {
+    note = { icon = "ℹ", color = "DiagnosticInfo" },
+    warning = { title = "注意", color = "#e0af68" },
+    danger = { icon = "✖", title = "Danger", color = "DiagnosticError" }, -- 独自の種類
+  },
+},
+```
+
+画像は元の大きさの行数を確保し、snacks.imageと同じ方法で画像の枠に収めます。`images.width`・`images.height`で枠を固定し（既定は本文幅と読書窓の高さ）、`min_width`・`max_width`・`min_height`・`max_height`で範囲を決めます。画像は縦横比を保ち、元の大きさより拡大しません。1文字分の大きさ（ピクセル）は端末から取得します。変換や取得が必要な画像は初めて表示した時に大きさを測り、一度描き直します。
+
+Mermaidの図はコードブロックの枠の中に、コードの代わりに表示します（見出しの行と背景色はそのまま）。図を描けない場合はコードを表示します。図は本文幅いっぱいに表示し、縦横比を保つのに必要な行数を確保します（上限は`mermaid.max_rows`）。図を初めて生成するまでは`images.height`の行数（未指定なら10）で表示し、生成後に一度描き直します。`mermaid.scale`はmmdcの出力倍率で、拡大してもぼやけないようにします。
 
 コードブロックは本文幅いっぱいの枠で表示し、背景はページの背景色を少し灰色に寄せた色になります。`code.theme`はShikiの配色を元にしたプリセットをコードブロックだけに適用します（背景色を含む）。`code.colors`はその上から、またはプリセットなしならカラースキームの色の上から、個別の色を上書きします。
 
