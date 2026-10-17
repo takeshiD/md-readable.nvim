@@ -78,8 +78,88 @@ function M.dimensions(data)
   return width, height
 end
 
+---@type {width:number, height:number}?
+local cell
+
+-- Pixel size of one terminal cell from TIOCGWINSZ (as snacks.image does),
+-- else a common 9x18. The UI may run in another process, so the controlling
+-- terminal is tried after stdout and stderr.
+---@return {width:number, height:number}
+function M.cell_size()
+  if cell then
+    return cell
+  end
+  cell = { width = 9, height = 18 }
+  local request = vim.fn.has("linux") == 1 and 0x5413
+    or (vim.fn.has("mac") == 1 or vim.fn.has("bsd") == 1) and 0x40087468
+    or nil
+  local ok, ffi = pcall(require, "ffi")
+  if not ok or not request then
+    return cell
+  end
+  -- Declared one by one: another plugin may have declared some already.
+  for _, declaration in ipairs({
+    "typedef struct { unsigned short row, col, xpixel, ypixel; } md_readable_winsize;",
+    "int ioctl(int, unsigned long, ...);",
+    "int open(const char *, int, ...);",
+    "int close(int);",
+  }) do
+    pcall(ffi.cdef, declaration)
+  end
+  pcall(function()
+    local size = ffi.new("md_readable_winsize")
+    local function query(fd)
+      return fd >= 0 and ffi.C.ioctl(fd, request, size) == 0 and size.col > 0 and size.xpixel > 0
+    end
+    local found = query(1) or query(2)
+    if not found then
+      local tty = ffi.C.open("/dev/tty", 0)
+      found = query(tty)
+      if tty >= 0 then
+        ffi.C.close(tty)
+      end
+    end
+    if found then
+      cell = { width = size.xpixel / size.col, height = size.ypixel / size.row }
+    end
+  end)
+  return cell
+end
+
+-- Forgets the measured cell size (the font or the terminal may change).
+function M.reset_cell_size()
+  cell = nil
+end
+
+-- Cells an image takes inside a box of columns x rows, as snacks.image fits
+-- it: its own size in cells when that fits, else the largest size with its
+-- aspect ratio. `enlarge` fills the box even past the image's own size.
+---@param pixel_width integer
+---@param pixel_height integer
+---@param columns integer Box width
+---@param rows integer Box height
+---@param enlarge? boolean
+---@return integer columns
+---@return integer rows
+function M.fit(pixel_width, pixel_height, columns, rows, enlarge)
+  local size = M.cell_size()
+  local ratio = size.height / size.width -- cell height in cell widths
+  columns, rows = math.max(1, columns), math.max(1, rows)
+  if not enlarge then
+    local natural_columns = math.max(1, math.ceil(pixel_width / size.width))
+    local natural_rows = math.max(1, math.ceil(pixel_height / size.height))
+    if natural_columns <= columns and natural_rows <= rows then
+      return natural_columns, natural_rows
+    end
+  end
+  local fit_columns = math.max(1, math.min(columns, math.floor(rows * ratio * pixel_width / pixel_height + 0.5)))
+  local fit_rows = math.max(1, math.min(rows, math.ceil(fit_columns * pixel_height / (ratio * pixel_width) - 0.01)))
+  return fit_columns, fit_rows
+end
+
 -- Cells the image covers: within the reserved rows and the text width,
--- keeping its aspect ratio (cells are about twice as tall as wide).
+-- keeping its aspect ratio. Images keep at most their own size; generated
+-- diagrams fill their panel.
 ---@param win integer
 ---@param descriptor MdReadableRenderedImage
 ---@param pixel_width integer
@@ -92,9 +172,7 @@ function M.size(win, descriptor, pixel_width, pixel_height)
   available = math.max(1, available - (descriptor.col or 0))
   local rows = math.min(#diacritics, math.max(1, descriptor.height or 8))
   local columns = math.min(#diacritics, descriptor.width or available, available)
-  columns = math.max(1, math.min(columns, math.floor(rows * 2 * pixel_width / pixel_height)))
-  rows = math.max(1, math.min(rows, math.ceil(columns * pixel_height / (2 * pixel_width))))
-  return columns, rows
+  return M.fit(pixel_width, pixel_height, columns, rows, descriptor.kind == "mermaid")
 end
 
 -- Transmits the PNG and creates its virtual (placeholder) placement.

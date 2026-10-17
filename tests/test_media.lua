@@ -221,9 +221,17 @@ return function(t)
       sent[#sent + 1] = data
     end
     local ns = vim.api.nvim_create_namespace("MdReadableImages")
+    local cell_size = display.cell_size
+    display.cell_size = function()
+      return { width = 10, height = 20 }
+    end
     local ok, err = pcall(function()
-      t.eq({ 8, 4 }, { display.size(s.read_win, { row = 1, height = 4, width = 20 }, 1, 1) })
-      local _, cancel = display.show(path, s.read_win, { row = 1, height = 4, width = 20 }, {}, function(id)
+      -- Images keep at most their own size; diagrams fill the reserved box.
+      t.eq({ 1, 1 }, { display.size(s.read_win, { row = 1, height = 4, width = 20 }, 1, 1) })
+      t.eq({ 20, 3 }, { display.size(s.read_win, { row = 1, height = 4, width = 20 }, 400, 100) })
+      t.eq({ 8, 4 }, { display.size(s.read_win, { row = 1, height = 4, width = 20, kind = "mermaid" }, 1, 1) })
+      local descriptor = { row = 1, height = 4, width = 20, kind = "mermaid" }
+      local _, cancel = display.show(path, s.read_win, descriptor, {}, function(id)
         shown = id
       end)
       t.ok(vim.wait(1000, function()
@@ -248,7 +256,7 @@ return function(t)
       t.eq({}, vim.api.nvim_buf_get_extmarks(s.read_buf, ns, 0, -1, {}))
       t.eq(s.rendered.lines, vim.api.nvim_buf_get_lines(s.read_buf, 0, -1, false))
     end)
-    vim.api.nvim_ui_send, vim.env.TMUX = original, tmux
+    vim.api.nvim_ui_send, vim.env.TMUX, display.cell_size = original, tmux, cell_size
     s.cleanup()
     t.ok(ok, err)
   end)

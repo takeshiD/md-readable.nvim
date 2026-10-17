@@ -204,7 +204,8 @@ function Session:refresh()
   local capable = image_ok and image.capabilities and image.capabilities()
   opts.media = {
     enabled = self.config.images.enable and not not capable,
-    image_height = self.config.images.height,
+    -- Rows held for media whose size is not known yet (images.height when set).
+    image_height = self.config.images.height or 10,
     reserve = image_ok and image.reserver and image.reserver(self) or nil,
   }
   local mermaid = self.config.mermaid or {}

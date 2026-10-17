@@ -138,7 +138,10 @@ require("md-readable").setup({
       icons = { collapsed = "+ ", expanded = "- ", leaf = "  ", current = "> " },
     },
   },
-  images = { enable = true, remote = false, height = 10 },
+  -- Image size as in snacks.image: width/height fix the box (default: body width
+  -- and window height), min_*/max_* bound it; images keep their aspect ratio and
+  -- are never enlarged past their own size
+  images = { enable = true, remote = false, width = nil, height = nil, max_width = nil, max_height = 40 },
   mermaid = {
     enable = true,
     renderer = "mmdc", -- "mmdc": images (Kitty/Ghostty); "termaid": Unicode text in any terminal
@@ -204,7 +207,9 @@ alerts = {
 },
 ```
 
-A Mermaid diagram is drawn inside its code block panel, in place of the code, under the same label row and background; when it cannot be drawn the code is shown. It fills the body width and gets the rows that keep its aspect ratio, up to `mermaid.max_rows`. Until a diagram is first generated it uses `images.height` rows, then the view is redrawn once. `mermaid.scale` is passed to mmdc so enlarged diagrams stay sharp.
+Images take the rows of their own size, fitted into the image box the way snacks.image does: `images.width`/`images.height` fix the box (by default the body width and the reading window height), `min_width`/`max_width`/`min_height`/`max_height` bound it, and the image keeps its aspect ratio without being enlarged. The cell size comes from the terminal. A converted or downloaded image is measured when it is first shown, then the view is redrawn once.
+
+A Mermaid diagram is drawn inside its code block panel, in place of the code, under the same label row and background; when it cannot be drawn the code is shown. It fills the body width and gets the rows that keep its aspect ratio, up to `mermaid.max_rows`. Until a diagram is first generated it uses `images.height` rows (10 when unset), then the view is redrawn once. `mermaid.scale` is passed to mmdc so enlarged diagrams stay sharp.
 
 Code blocks are drawn as a full-width panel whose background is the page background shifted slightly toward gray. `code.theme` applies a Shiki-derived palette to code blocks only (background included); `code.colors` overrides single colors on top of it, or on top of the colorscheme when no theme is set.
 
