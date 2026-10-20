@@ -28,7 +28,7 @@ fi
 env "$@" ghostty \
   --config-default-files=false \
   --font-family="Ioskeley Mono JP NF" \
-  --font-size=12 \
+  --font-size=16 \
   --theme="TokyoNight" \
   --window-decoration=false \
   --window-width="$cols" \

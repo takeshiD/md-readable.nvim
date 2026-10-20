@@ -4,12 +4,15 @@
 
 ![Top Demo](assets/readable.gif)
 
-| Focus Mode                      | Minimap                        |
+
+| Focus Mode                      | Minimap Navigation             |
 | -----------                     | -------                        |
 | ![Focus Mode](assets/focus.gif) | ![Minimap](assets/minimap.png) |
 
 
-![画像と Mermaid 図。左は mmdc、右は termaid で描画](assets/media.png)
+| Mermaid(mmdc)                  | Termaid                              |
+| ---------------                | -----------                          |
+| ![MMDC](assets/media-mmdc.png) | ![Termaid](assets/media-termaid.png) |
 
 ![mdBook の目次からページを切り替える様子](assets/ssg.gif)
 
