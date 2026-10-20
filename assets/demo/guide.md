@@ -3,7 +3,8 @@
 A walkthrough of a small, dependency-free task runner. It reads a task file, \
 resolves dependencies, and runs each task once, in the right order.
 
-> **Note** This guide targets Lua 5.1 / LuaJIT, so it also runs inside Neovim.
+> [!NOTE]
+> This guide targets Lua 5.1 / LuaJIT, so it also runs inside Neovim.
 > Every snippet is self-contained; paste it into `:lua` and try it.
 
 ## Overview

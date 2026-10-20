@@ -934,15 +934,25 @@ function M.toggle(session, opts)
     end
   end
 end
+-- Focuses the page headings panel, or opens it. opts.float picks the style
+-- (true floating window, the default for a new panel; false sidebar on the
+-- right); a panel open in the other style is reopened in the requested one.
 ---@param session MdReadableSession
-function M.outline(session)
+---@param opts? {float?: boolean}
+function M.outline(session, opts)
+  opts = opts or {}
   local st = state(session)
   st.open = true
   refresh_model(session, st)
-  if st.panels.outline and valid(st.panels.outline.win) then
-    vim.api.nvim_set_current_win(st.panels.outline.win)
+  local panel = st.panels.outline
+  if panel and valid(panel.win) and (opts.float == nil or panel.floating == opts.float) then
+    vim.api.nvim_set_current_win(panel.win)
   else
-    create_panel(session, st, "outline", true, true)
+    if panel then
+      destroy(panel)
+      st.panels.outline = nil
+    end
+    create_panel(session, st, "outline", opts.float ~= false, true)
   end
   M.update(session)
 end

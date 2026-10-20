@@ -1,5 +1,6 @@
 # デモ3: ミニマップのスクショ（見出し・コードを色分けし、現在行を強調）
 # 実行: リポジトリ直下で `vhs assets/tapes/minimap.tape`
+Output "assets/minimap.gif"
 Source "assets/tapes/settings.tape"
 
 Hide
@@ -17,6 +18,9 @@ Sleep 800ms
 Type ":nohlsearch | echo" Enter
 Sleep 300ms
 Show
+
+Sleep 1000ms
+Type "jj"
 Sleep 500ms
-Screenshot "assets/minimap.png"
-Sleep 300ms
+Type "jjjj"
+Sleep 700ms

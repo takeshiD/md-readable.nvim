@@ -1,6 +1,6 @@
--- デモ録画用の最小構成
--- 使い方: nvim -u assets/demo/init.lua <file.md>
--- 環境変数 MD_READABLE_DEMO_MERMAID に "termaid" を渡すと Mermaid を文字で描画する
+-- Minimap setup for demo
+-- Usage: nvim -u assets/demo/init.lua <file.md>
+-- When environment variable `MD_READABLE_DEMO_MERMAID` set "termaid", mermaid codeblock is drawn ascii diagram via termaid.
 local here = vim.fs.dirname(debug.getinfo(1, "S").source:sub(2))
 local root = vim.fs.dirname(vim.fs.dirname(here))
 
@@ -20,17 +20,35 @@ vim.g.mapleader = " "
 
 require("md-readable").setup({
   width = 80,
-  focus = { enable = false, coefficient = 0.65 },
+  focus = { enable = true, coefficient = 0.65 },
   minimap = { enable = false, width = 16 },
   navigation = { enable = false },
-  git = { enable = false },
-  watch = { enable = false },
-  code = { theme = "tokyonight", label = "right" },
+  git = { enable = true },
+  watch = { enable = true },
+  code = { theme = "ayu-dark", label = "right" },
   mermaid = {
     renderer = vim.env.MD_READABLE_DEMO_MERMAID or "mmdc",
     mmdc_opts = { no_sandbox = true, theme = "dark" },
     termaid_opts = { padding_y = 0, gap = 2 },
     max_rows = 16,
   },
-  images = { height = 10 },
+  images = { height = 14 },
 })
+
+-- Key display for demos. Loaded from `MD_READABLE_DEMO_SCREENKEY` (a screenkey.nvim checkout),
+-- or lazy.nvim's install path; a tape turns it on with `:Screenkey`.
+local screenkey = vim.env.MD_READABLE_DEMO_SCREENKEY or (vim.fn.stdpath("data") .. "/lazy/screenkey.nvim")
+if vim.fn.isdirectory(screenkey) == 1 then
+  vim.opt.runtimepath:append(screenkey)
+  require("screenkey").setup({
+    win_opts = {
+      row = vim.o.lines - vim.o.cmdheight - 2,
+      col = vim.o.columns - 2,
+      width = 28,
+      height = 1,
+      border = "rounded",
+      title = " Keys ",
+    },
+    clear_after = 2,
+  })
+end

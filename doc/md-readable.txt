@@ -30,7 +30,9 @@ NAVIGATION                                               *md-readable-navigation
     :MdReadable nav [float|sidebar]
                                  Toggle the book tree; float/sidebar force
                                  the style (the other style reopens)
-    :MdReadable outline          Show page headings
+    :MdReadable outline [float|sidebar]
+                                 Show page headings (floating by default);
+                                 sidebar opens them on the right
     :MdReadable select           Select a tree or ambiguous project adapter
     :MdReadable prev             Previous available document
     :MdReadable next             Next available document
@@ -64,8 +66,16 @@ doc, anchor, file, image and missing; long targets are clipped with ...
 Enter opens the link, o moves the reading cursor to it, q or Esc closes.
 Footnotes are not listed.
 
-The three layouts are integrated, separate, and ondemand. Narrow windows use
-a floating chooser instead of squeezing the document.
+The layout option arranges the book tree and the page headings:
+  integrated  (default) the book tree opens as a left sidebar and holds the
+              current page's headings, folded, under its entry
+  separate    the book tree opens on the left with pages only, and a page
+              headings panel opens on the right when there is room
+  ondemand    nothing opens with the reading view; gn opens a floating tree
+              unless navigation.style says otherwise
+The tree opens by itself only for a page of a recognized book, read with
+:MdReadable or :MdReadable vert, while navigation.enable is true. Narrow
+windows use a floating chooser instead of squeezing the document.
 
 COPYING                                                  *md-readable-copy*
 

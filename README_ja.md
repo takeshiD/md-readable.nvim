@@ -2,25 +2,29 @@
 
 [English version](README.md)
 
-![読書用バッファでミニマップ・アウトライン・Focus モードを使う様子](assets/readable.gif)
+| Jump Link                            | SSG Index Navigation   |
+| ------------------------------------ | ---------------------- |
+| ![Jump Link](assets/jump_link.gif)   | ![SSG](assets/ssg.gif)
 
-<table>
-  <tr>
-    <td><img src="assets/focus.png" alt="Focus モード"></td>
-    <td><img src="assets/minimap.png" alt="ミニマップ"></td>
-  </tr>
-  <tr>
-    <td align="center">Focus モード: カーソルのある段落以外を暗く表示</td>
-    <td align="center">ミニマップ: 見出しとコードブロックを色分け</td>
-  </tr>
-</table>
 
-![画像と Mermaid 図。左は mmdc、右は termaid で描画](assets/media.png)
+| Focus Mode                      | Minimap Navigation             |
+| -----------                     | -------                        |
+| ![Focus Mode](assets/focus.gif) | ![Minimap](assets/minimap.gif) |
 
-![mdBook の目次からページを切り替える様子](assets/ssg.gif)
 
-このプラグインはmarkdownを読解するための多くの機能を特徴とします。
+| Mermaid(mmdc)                  | Termaid                              |
+| ---------------                | -----------                          |
+| ![MMDC](assets/media-mmdc.png) | ![Termaid](assets/media-termaid.png) |
 
+`md-readable`はmarkdownを読解するためのナビゲーション機能が特徴です。
+ミニマップ、ファイルリンク間ジャンプ、主要SSGのインデックスナビゲーション機能などを提供します。
+
+- `Navigation`
+    - 見出しツリー
+    - ミニマップ
+    - Focus Mode
+    - 主要SSGに対応したナビゲーション
+        - 対応SSG: mdBook, Docusaurus, MkDocs, Zensical, Astro/Starlight, HonKit, GitBook
 - `Appearance`
     - markdown構文ハイライト
     - テーブルレンダリング
@@ -28,12 +32,6 @@
     - カラーテーマ切り替え
     - テーブル内/URLの長文省略表示（本文の生URLと`links`一覧）
     - リンク種別マーカー（外部 ↗、文書 →、アンカー #、ファイル ⧉。など)
-- `Navigation`
-    - 見出しツリー
-    - ミニマップ
-    - Focus Mode
-    - 主要SSGに対応したナビゲーション
-        - 対応SSG: mdBook, Docusaurus, MkDocs, Zensical, Astro/Starlight, HonKit, GitBook
 - `Formatting`
     - テーブル整形
     - 表の行・列の挿入削除
@@ -297,6 +295,16 @@ git = {
 
 ナビゲーションは本の中身のフォルダー（目次のページをすべて含む最も深いフォルダー。`src/`やGitBookのspaceのフォルダーなど）を基準にします。その外にあるファイル（`gitbook-docs.yaml`と同じ場所のリポジトリのREADMEなど）では目次を出さず、そのファイルの見出しだけを表示します。中身のフォルダーにあっても目次に載っていないページでは、目次の上にそのページの見出しを表示します。
 
+`layout`は、目次（`gn`）とページ見出し（`gO`）の窓の並べ方を決めます。
+
+| `layout`               | 読書表示を開いたとき                                                      | 目次の中身                                                 |
+| ---------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `"integrated"`（既定） | 左に目次のサイドバーを開く                                                | 現在のページの下に、そのページの見出しを折りたたんで含める |
+| `"separate"`           | 左に目次、右にページ見出しの窓を開く（右の窓は幅に余裕があるときだけ）    | ページだけを並べ、見出しは右の窓に分ける                   |
+| `"ondemand"`           | 何も開かない。`gn`で開くと既定（`navigation.style = "auto"`）ではfloating | `"integrated"`と同じ                                       |
+
+目次が自動で開くのは、SSGの本として認識したページを`:MdReadable`か`:MdReadable vert`で開き、`navigation.enable = true`のときです。`"separate"`では、目次に載っていないページでも目次の上に見出しを表示しません（右の窓に表示します）。
+
 狭い画面では本文幅を優先し、目次をfloatingで選択できます。Nerd Fontは不要で、ミニマップには`mode = "ascii"`もあります。
 
 動的なSSG設定は実行しません。必要に応じてLua / JSONの共通ナビゲーションproviderを指定できます。詳細は`:help md-readable-providers`と[SSG対応表](tests/fixtures/navigation/SUPPORTED.md)を参照してください。
@@ -346,7 +354,7 @@ keymaps = {
 }
 ```
 
-`:MdReadable nav float|sidebar`でも同じです。次のキーは常に有効で、設定では変更しません。
+`:MdReadable nav float|sidebar`でも同じです。ページ見出しは`:MdReadable outline sidebar`で、既定の浮動ウィンドウの代わりに右側のサイドバーとして開きます。次のキーは常に有効で、設定では変更しません。
 
 - `y` / `Y`: 対応するMarkdown原文をコピー
 - `/` `?` `n` `N`: 表示テキストを検索
