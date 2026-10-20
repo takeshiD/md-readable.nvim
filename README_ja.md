@@ -7,7 +7,7 @@
 
 | Focus Mode                      | Minimap Navigation             |
 | -----------                     | -------                        |
-| ![Focus Mode](assets/focus.gif) | ![Minimap](assets/minimap.png) |
+| ![Focus Mode](assets/focus.gif) | ![Minimap](assets/minimap.gif) |
 
 
 | Mermaid(mmdc)                  | Termaid                              |
