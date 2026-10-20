@@ -1,5 +1,5 @@
-# デモ1: 読書用バッファを開き、ミニマップ・アウトライン・Focus モードを順に見せる
-# 実行: リポジトリ直下で `vhs assets/tapes/readable.tape`
+# Main demo: 読書用バッファを開き、ミニマップ・アウトライン・Focus モードを順に見せる
+# Usage: vhs assets/tapes/readable.tape
 Output "assets/readable.gif"
 Source "assets/tapes/settings.tape"
 
