@@ -2,7 +2,9 @@
 
 [English version](README.md)
 
-![Top Demo](assets/readable.gif)
+| Jump Link                            | SSG Index Navigation   |
+| ------------------------------------ | ---------------------- |
+| ![Jump Link](assets/jump_link.gif)   | ![SSG](assets/ssg.gif)
 
 
 | Focus Mode                      | Minimap Navigation             |
