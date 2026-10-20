@@ -2,70 +2,57 @@
 
 [日本語版](README_ja.md)
 
-![Reading view with the minimap, outline and Focus mode](assets/readable.gif)
+| Jump Link                          | SSG Index Navigation   |
+| ---------------------------------- | ---------------------- |
+| ![Jump Link](assets/jump_link.gif) | ![SSG](assets/ssg.gif) |
 
-<table>
-  <tr>
-    <td><img src="assets/focus.png" alt="Focus mode"></td>
-    <td><img src="assets/minimap.png" alt="Minimap"></td>
-  </tr>
-  <tr>
-    <td align="center">Focus mode dims everything but the current paragraph</td>
-    <td align="center">Minimap with headings and code blocks in color</td>
-  </tr>
-</table>
 
-![Images and Mermaid diagrams drawn by mmdc (left) and termaid (right)](assets/media.png)
+| Focus Mode                      | Minimap Navigation             |
+| -----------                     | -------                        |
+| ![Focus Mode](assets/focus.gif) | ![Minimap](assets/minimap.gif) |
 
-![mdBook navigation: open chapters from the book tree](assets/ssg.gif)
 
-The demos are recorded with [VHS](https://github.com/charmbracelet/vhs); see `assets/tapes/`.
+| Mermaid(mmdc)                  | Termaid                              |
+| ---------------                | -----------                          |
+| ![MMDC](assets/media-mmdc.png) | ![Termaid](assets/media-termaid.png) |
 
-A Neovim plugin specialized in making Markdown easy to read.
-Read Markdown in a separate, read-only view while keeping the original text and unsaved edits intact. The implementation includes the features below; SSG support covers the [documented static subsets](tests/fixtures/navigation/SUPPORTED.md).
+`md-readable` is built around navigation features for reading and understanding Markdown.
+It provides a minimap, jumps across file links, index navigation for major SSGs, and more.
 
-- Appearance
+- `Navigation`
+    - Heading tree
+    - Minimap
+    - Focus Mode
+    - Navigation for major SSGs
+        - Supported SSGs: mdBook, Docusaurus, MkDocs, Zensical, Astro/Starlight, HonKit, GitBook
+- `Appearance`
     - Markdown syntax highlighting
     - Table rendering
     - Code blocks
-    - Color theme switching for the reading view only
-    - Truncated display of long text in tables / URLs
-    - Link kind markers (external ↗, document →, anchor #, file ⧉; ASCII or off via `links.icons`)
-- Navigation
-    - Minimap
-        - Headings and code blocks in color; moving in it scrolls the document
-    - Heading tree
-    - Focus Mode
-    - Table of contents and previous/next navigation for major SSGs
-        - mdBook, Docusaurus, MkDocs, Zensical, Astro/Starlight, HonKit, GitBook
-- Formatting
+    - Color theme switching
+    - Truncated display of long text in tables / URLs (raw URLs in the text and the `links` list)
+    - Link kind markers (external ↗, document →, anchor #, file ⧉, etc.)
+- `Formatting`
     - Table formatting
-    - Explicit table row and column insertion/deletion
-- Contents
+    - Table row and column insertion/deletion
+- `Contents`
     - Image display (png, jpg, svg, webp, etc.)
-    - Mermaid diagram rendering
-- Integration
-    - Telescope and Snacks previewers (optional picker dependencies)
+    - Mermaid diagram rendering (mmdc, termaid)
 
 Some writing support is also included.
-- Writing
-    - Bidirectional cursor and page synchronization between the Read Buffer and the Write Buffer
 
-The reading view will search displayed text with `/` and copy the corresponding Markdown source with `y`. Selecting part of a link label copies that text; selecting the entire label copies the original Markdown link. A separate command will search the full source, including omitted content. Reading positions will not be persisted across Neovim sessions.
-
-The reference plugins listed in AGENTS.md are implementation references, not required dependencies. Rendering, Focus, table editing, and the minimap are implemented inside this plugin.
-
-See the [agreed specification](docs/final-spec-review.md), [implementation tracker](https://github.com/takeshiD/md-readable.nvim/issues/33), and [verification notes](docs/verification.md).
 
 # Requirements
 - Neovim >= 0.12
-- Inline images require a terminal with Kitty graphics Unicode placeholders: Kitty or Ghostty, also inside tmux (`allow-passthrough on`). Images are placeholder text, so they scroll with the view and disappear when you switch tmux windows. WezTerm lacks placeholders and gets the text fallback.
-- Optional: ImageMagick/rsvg-convert/FFmpeg for image conversion; installed `mmdc` for Mermaid; `curl` for explicitly allowed web images.
-- Telescope and Snacks are optional, only for their preview integrations. No reference plugin is required and no tool is automatically installed.
+- Image display: a terminal that supports the Kitty graphics protocol
+> [!NOTE]
+> Works inside tmux with Kitty and Ghostty too (`allow-passthrough on`). Images are placed as placeholder text, so they scroll with the view and disappear when you switch tmux windows. WezTerm lacks placeholders, so images are shown as text instead.
+- Optional: ImageMagick or similar for image conversion, an installed `mmdc` for Mermaid, and `curl` for explicitly allowed web images.
+- Telescope / Snacks are needed only for their integrations. No tool is installed automatically.
 
-# Quick start
+# Usage
 
-Load this repository with your plugin manager. For example, while this implementation is on its feature branch:
+Load this repository with your plugin manager. For example, with lazy.nvim on the implementation branch:
 
 ```lua
 {
@@ -77,7 +64,7 @@ Load this repository with your plugin manager. For example, while this implement
     { "<leader>mf", "<cmd>MdReadable float<cr>", ft = "markdown", desc = "Reader: float" },
   },
   opts = {
-    -- Reading-buffer keymaps, merged per key with the defaults
+    -- Reading-buffer keymaps; override, add or disable defaults per key
     keymaps = {
       ["]]"] = { mode = "n", "actions.heading_next", desc = "Next Heading" },
       ["[["] = { mode = "n", "actions.heading_prev", desc = "Previous Heading" },
@@ -86,7 +73,7 @@ Load this repository with your plugin manager. For example, while this implement
       ["za"] = false, -- disable a default key
     },
     -- Feature switches (all default to true)
-    links = { enable = true }, -- false: plain link labels without highlights or markers
+    links = { enable = true }, -- false: no link highlights or kind markers
     table = { enable = true }, -- false: show tables as their Markdown source
     focus = { enable = true }, -- start Focus mode when a reading view opens
     minimap = { enable = true }, -- open the minimap when a reading view opens
@@ -96,114 +83,175 @@ Load this repository with your plugin manager. For example, while this implement
 }
 ```
 
-Open a Markdown file and run one of:
+Open a Markdown file and run:
 
 ```vim
-:MdReadable          " use the current window
+:MdReadable          " use the current window as the reading view
 :MdReadable vert     " original on the left, reading view on the right
 :MdReadable float    " floating reading view
 :MdReadable source   " return to the corresponding original position
 :MdReadable close
 ```
 
-Setup is optional. See [Keymaps](#keymaps) for reading-buffer keys; every action is also available as a command.
+Setup is optional. See [Keymaps](#keymaps) for reading-buffer keys. Every action is also available as a command.
 
-| Command after `MdReadable`                      | Action                                                                                          |
-| ---                                             | ---                                                                                             |
-| `nav`, `outline`, `select`                      | Book tree, page headings, adapter/tree selection                                                |
-| `prev`, `next`, `heading-prev`, `heading-next`  | Chapter/heading navigation                                                                      |
-| `links`, `open`                                 | Floating link list (Enter open, o show in text, q close) or open the item/cell under the cursor |
-| `search [pattern]`                              | Search the complete original, including hidden text                                             |
-| `focus on/off/toggle`                           | Limelight-style paragraph focus; a visual range fixes the focused lines                         |
-| `theme default/dark/light`                      | Change only the reading window's colors                                                         |
-| `minimap on/off/toggle/focus`                   | Minimap; moving in it scrolls the document, Enter returns there                                 |
-| `table format`                                  | Align the original table explicitly                                                             |
-| `table row-before/row-after/row-delete [count]` | Insert/delete data rows                                                                         |
-| `table col-before/col-after/col-delete [count]` | Insert/delete columns                                                                           |
-| `expand`, `tab [index]`                         | Expand omitted content or select a static tab                                                   |
-| `images allow/deny`                             | Permit/deny web image retrieval for this reading session                                        |
-| `refresh`, `diagnostics`                        | Reload structure or inspect navigation/media errors                                             |
+| Command after `MdReadable`                        | Action                                                                                              |
+| ---                                               | ---                                                                                                 |
+| `nav` / `outline` / `select`                      | Book tree, page headings, adapter/tree selection                                                    |
+| `prev` / `next` / `heading-prev` / `heading-next` | Chapter/heading navigation                                                                          |
+| `links` / `open`                                  | Floating link list (Enter open, o show in text, q close), or open the link/cell under the cursor    |
+| `search [pattern]`                                | Search the original, including omitted text                                                         |
+| `focus on/off/toggle`                             | Paragraph Focus; started with a Visual range, it fixes the focused lines                            |
+| `theme default/dark/light`                        | Change only the reading view's colors                                                               |
+| `minimap on/off/toggle/focus`                     | Minimap; moving in it scrolls the document, Enter returns there                                     |
+| `table format`                                    | Align the original table explicitly                                                                 |
+| `table row-before/row-after/row-delete [count]`   | Insert/delete data rows                                                                             |
+| `table col-before/col-after/col-delete [count]`   | Insert/delete columns                                                                               |
+| `expand` / `tab [index]`                          | Expand omitted content, select a static tab                                                         |
+| `images allow/deny`                               | Permit/deny web image retrieval for this reading session                                            |
+| `refresh` / `diagnostics`                         | Reload structure, inspect navigation/image errors                                                   |
 
-Table edits are undoable and do not save the file. Decoration-only selections do not overwrite registers. Selecting a cell's ellipsis copies the complete original cell.
+Table edits are undoable and do not save the file. Copying decoration only leaves the registers unchanged. Copying a truncated cell including its `…` copies the whole original cell.
 
 # Configuration
 
 ```lua
 require("md-readable").setup({
-  layout = "integrated", -- integrated, separate, ondemand
-  width = 100, -- body width; floats are at most width + 4 columns
-  center = true, -- center the body in wider windows
-  links = { enable = true, icons = "unicode" }, -- "ascii", false, or a table of markers per kind
-  keymaps = {}, -- reading-buffer keymaps; see Keymaps below
+  -- Layout: "integrated", "separate" or "ondemand"
+  layout = "integrated",
+  -- Body width; floats are at most width + 4 columns
+  width = 100,
+  -- Center the body in wider windows
+  center = true,
+  -- Reading-buffer keymaps; see Keymaps below
+  keymaps = {},
   use_default_keymaps = true,
-  table = { enable = true, max_cell_width = 28 },
-  focus = { enable = true, coefficient = 0.5, span = 0 },
-  minimap = { enable = true, follow = true, width = 12, mode = "braille" }, -- follow: moving in it scrolls the view
+
+  links = {
+    enable = true,
+    -- Link kind markers: "unicode", "ascii", false, or a table per kind
+    icons = "unicode",
+  },
+  table = {
+    enable = true,
+    max_cell_width = 28,
+  },
+  focus = {
+    -- Start Focus mode when a reading view opens
+    enable = true,
+    coefficient = 0.5,
+    span = 0,
+  },
+  minimap = {
+    -- Open the minimap when a reading view opens
+    enable = true,
+    -- Moving in the minimap scrolls the document
+    follow = true,
+    width = 14,
+    mode = "braille",
+  },
   navigation = {
-    enable = true, -- open the book tree with the reading view (former name: auto_open)
-    follow = true, -- moving over a heading in a navigation panel scrolls the view; pages open with Enter
-    style = "auto", -- how gn opens the book tree: "auto" (by width and layout), "sidebar" or "float"
+    -- Open the book tree with the reading view (former name: auto_open)
+    enable = true,
+    -- Moving over a heading scrolls the document (pages open with Enter)
+    follow = true,
+    -- How gn opens the book tree: "auto" (by width and layout), "sidebar" or "float"
+    style = "auto",
     fold = {
-      -- one key, a list, or false per action
+      -- Fold keys: one key, a list of keys, or false (disabled)
       keys = {
-        collapse = { "h", "<Left>" }, -- collapse, or go to the parent
+        collapse = { "h", "<Left>" }, -- collapse (or go to the parent when collapsed)
         expand = { "l", "<Right>" },
         toggle = "za",
-        collapse_recursive = "zC",
-        expand_recursive = "zO",
+        collapse_recursive = "zC", -- collapse with all descendants
+        expand_recursive = "zO", -- expand with all descendants
         collapse_all = "zM",
         expand_all = "zR",
       },
+      -- Markers for fold state and the current page
       icons = { collapsed = "+ ", expanded = "- ", leaf = "  ", current = "> " },
     },
   },
-  -- Image size as in snacks.image: width/height fix the box (default: body width
-  -- and window height), min_*/max_* bound it; images keep their aspect ratio and
-  -- are never enlarged past their own size
-  images = { enable = true, remote = false, width = nil, height = nil, max_width = nil, max_height = 40 },
+  -- Image size (as in snacks.image): width/height fix the box (default: body width and
+  -- window height), min_*/max_* bound it. Images keep their aspect ratio and are never
+  -- enlarged past their own size
+  images = {
+    enable = true,
+    remote = false,
+    width = nil,
+    height = nil,
+    max_width = nil,
+    max_height = 40,
+  },
   mermaid = {
     enable = true,
-    renderer = "mmdc", -- "mmdc": images (Kitty/Ghostty); "termaid": Unicode text in any terminal
-    command = nil, -- the renderer's command, arguments allowed ("uvx termaid"); nil: "mmdc" / "termaid"
-    args = {}, -- extra arguments for the renderer
-    scale = 3, -- mmdc output scale
-    max_rows = 40, -- most rows a diagram fills
+    -- How diagrams are drawn: "mmdc" (images; Kitty, Ghostty) or "termaid" (Unicode text; any terminal)
+    renderer = "mmdc",
+    -- The renderer's command, arguments allowed (e.g. "uvx termaid"); nil: same name as renderer
+    command = nil,
+    -- Extra arguments for the renderer
+    args = {},
+    -- mmdc output scale
+    scale = 3,
+    -- Most rows a diagram fills
+    max_rows = 40,
+    -- mmdc-only options
     mmdc_opts = {
-      no_sandbox = false, -- see below; also theme, background, width, height
+      -- Start mmdc's Chromium with --no-sandbox (see below); also theme, background, width, height
+      no_sandbox = false,
     },
-    termaid_opts = {}, -- ascii, sharp_edges, inline_edge_labels (true) / gap, padding_x, padding_y (number)
+    -- termaid-only options: ascii, sharp_edges, inline_edge_labels (true) / gap, padding_x, padding_y (number)
+    termaid_opts = {},
   },
   code = {
-    theme = nil, -- code block syntax colors: "github-dark", "github-light", "ayu-dark", "ayu-light",
-    --              "dracula", "catppuccin", "gruvbox-dark", "gruvbox-light", "tokyonight"
-    colors = {}, -- "#rrggbb" per key: bg, fg, label, comment, keyword, string, number, constant,
-    --              func, type, variable, parameter, property, operator, punctuation, tag
-    label = "left", -- icon and language in the "left" or "right" top corner
-    icons = nil, -- language icon provider: "mini" (mini.icons) or "web-devicons"; nil shows none
+    -- Code block colors:
+    --   "github-dark", "github-light", "ayu-dark", "ayu-light", "dracula",
+    --   "catppuccin", "gruvbox-dark", "gruvbox-light", "tokyonight"
+    theme = "github-dark",
+    -- Single colors ("#rrggbb"):
+    --   bg, fg, label, comment, keyword, string, number, constant, func,
+    --   type, variable, parameter, property, operator, punctuation, tag
+    colors = {},
+    -- Position of the icon and language name: "left" (top left) or "right" (top right)
+    label = "left",
+    -- Language icon provider: "mini" (mini.icons) or "web-devicons"; nil shows no icon
+    icons = "mini",
   },
+
   alerts = {
-    enable = true, -- false: plain "▌ Title" without icon or kind color
-    icons = "auto", -- "auto": GitHub's Octicons (Nerd Font) with mini.icons or nvim-web-devicons
-    --                 installed, else Unicode; "nerd", "unicode", or false for none
-    kinds = { -- per kind: title, icon (false: none) and color ("#rrggbb" or a highlight group)
+    -- false: plain "▌ Title" without icon or kind color
+    enable = true,
+    -- Icons: "auto" (GitHub's Octicons (Nerd Font) when mini.icons or nvim-web-devicons is
+    --   installed, else Unicode symbols), "nerd", "unicode", or false (no icons)
+    icons = "auto",
+    -- Per kind: title, icon (false: none) and color ("#rrggbb" or a highlight group name)
+    kinds = {
       note = { title = "Note" },
       tip = { title = "Tip" },
       important = { title = "Important" },
       warning = { title = "Warning" },
       caution = { title = "Caution" },
     },
+    -- Aliases (MkDocs, Docusaurus, ... kind names) shown as the closest kind
     aliases = { info = "note", hint = "tip", danger = "caution" --[[, ...]] },
   },
-  watch = { enable = true }, -- reload the source when its file changes outside Neovim
+
+  watch = {
+    -- Reload the source when its file changes outside Neovim (another editor, git, ...)
+    enable = true,
+  },
   git = {
-    enable = true, -- Git status of the source in the sign column
+    -- Git status of the source in the sign column
+    enable = true,
     signs = {
-      -- text: 1-2 cells; color: "#rrggbb" or a highlight group name (default Added/Changed/Removed)
+      -- text: 1-2 cells
+      -- color: "#rrggbb" or a highlight group name (default Added/Changed/Removed)
       add = { text = "▎" },
       change = { text = "▎" },
       delete = { text = "▁" },
     },
   },
+
   -- adapters = { adapter = "mdbook", root_dir = "/path/to/book" },
 })
 ```
@@ -248,13 +296,23 @@ git = {
 
 Navigation follows the book's content directory (the deepest directory holding all pages of the contents, such as `src/` or a GitBook space directory). A file outside it, like a repository README next to `gitbook-docs.yaml`, gets no book tree, only its own headings. A page inside it that is not in the contents shows its headings above the book tree.
 
+`layout` decides how the book tree (`gn`) and the page headings (`gO`) are arranged.
+
+| `layout`                 | When a reading view opens                                                               | Book tree contents                                   |
+| ------------------------ | --------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `"integrated"` (default) | Opens the book tree as a left sidebar                                                   | The current page's headings, folded, under its entry |
+| `"separate"`             | Opens the book tree on the left and the page headings on the right (when there is room) | Pages only; headings live in the right panel         |
+| `"ondemand"`             | Opens nothing; `gn` opens a floating tree by default (`navigation.style = "auto"`)      | Same as `"integrated"`                               |
+
+The book tree opens by itself only when `navigation.enable = true` and a page of a recognized book is opened with `:MdReadable` or `:MdReadable vert`. With `"separate"`, a page that is not in the contents shows its headings in the right panel instead of above the book tree.
+
 At narrow widths, navigation uses a floating chooser to preserve the reading area. Nerd Font glyphs are not required; an ASCII minimap mode is available.
 
 Dynamic SSG configuration is not executed. Supply a custom Lua/JSON navigation provider when needed; see `:help md-readable-providers` and the [SSG compatibility table](tests/fixtures/navigation/SUPPORTED.md).
 
 # Keymaps
 
-No global keymaps are installed; map the commands that open a reading view yourself, as in the lazy.nvim example above. Reading buffers get these defaults. Press `g?` to list the active keymaps. The same keymaps also work in the navigation, minimap and links panels; there the panel keys (`<CR>`, `q`, `<Esc>`, `h`/`l`, ...) take precedence on the same key.
+No global keymaps are installed; map the keys that open a reading view with `keys`, as in the lazy.nvim example above. Reading buffers get these keymaps by default. Press `g?` to list the active keymaps. The same keymaps also work in the navigation, minimap and links panels; there the panel keys (`<CR>`, `q`, `<Esc>`, `h`/`l`, ...) take precedence on the same key.
 
 | Key         | Action                                          | Description                                            |
 | ---         | ---                                             | ---                                                    |
@@ -264,15 +322,38 @@ No global keymaps are installed; map the commands that open a reading view yours
 | `gs`        | `actions.source`                                | Jump to the source position                            |
 | `]]` / `[[` | `actions.heading_next` / `actions.heading_prev` | Next / previous heading                                |
 | `]p` / `[p` | `actions.next_page` / `actions.prev_page`       | Next / previous page                                   |
+| `gn`        | `actions.toggle_nav`                            | Book tree                                              |
 | `gO`        | `actions.outline`                               | Page headings                                          |
-| `gl`        | `actions.links`                                 | Document links                                         |
+| `gl`        | `actions.links`                                 | Link list                                              |
 | `g/`        | `actions.search`                                | Search the source, including omitted text              |
 | `gz`        | `actions.toggle_focus`                          | Toggle Focus; in Visual mode, focus the selected lines |
-| `go`        | `actions.toggle_minimap`                        | Toggle Minimap                                         |
-| `gn`        | `actions.toggle_nav`                            | Toggle Book navigation                                 |
+| `go`        | `actions.toggle_minimap`                        | Minimap                                                |
 | `za`        | `actions.expand`                                | Expand or collapse omitted content                     |
 
-`actions.select`, `actions.focus_minimap`, `actions.next_tab`, `actions.refresh`, `actions.diagnostics`, `actions.toggle_nav_float` and `actions.toggle_nav_sidebar` are also available. Action names accept `-` or `_` (`actions.heading-next` works too). Actions can also be called from a function keymap, e.g. `require("md-readable.actions").toggle_nav({ float = true })` (`float = false` for a sidebar, omitted to choose by width and `layout`); `:MdReadable nav float|sidebar` does the same. These keys are always installed and are not configured here:
+You can also map
+
+- `actions.select`
+- `actions.focus_minimap`
+- `actions.next_tab`
+- `actions.refresh`
+- `actions.diagnostics`
+- `actions.toggle_nav_float`
+- `actions.toggle_nav_sidebar`
+
+Actions can also be called from a function keymap: `require("md-readable.actions").toggle_nav({ float = true })` opens the book tree in a floating window.
+For further customization, configure it like this:
+
+```lua
+keymaps = {
+    ["gN"] = { mode = "n", function()
+            require("md-readable.actions").toggle_nav({float = true})
+        end,
+        desc = "Toggle Nav on Floating Window"
+    }
+}
+```
+
+`:MdReadable nav float|sidebar` does the same. `:MdReadable outline sidebar` opens the page headings as a right sidebar instead of the default floating window. These keys are always installed and are not configured here:
 
 - `y` / `Y`: copy the corresponding Markdown source
 - `/` `?` `n` `N`: search the displayed text

@@ -16,10 +16,15 @@
 | ---------------                | -----------                          |
 | ![MMDC](assets/media-mmdc.png) | ![Termaid](assets/media-termaid.png) |
 
-![mdBook の目次からページを切り替える様子](assets/ssg.gif)
+`md-readable`はmarkdownを読解するためのナビゲーション機能が特徴です。
+ミニマップ、ファイルリンク間ジャンプ、主要SSGのインデックスナビゲーション機能などを提供します。
 
-このプラグインはmarkdownを読解するための多くの機能を特徴とします。
-
+- `Navigation`
+    - 見出しツリー
+    - ミニマップ
+    - Focus Mode
+    - 主要SSGに対応したナビゲーション
+        - 対応SSG: mdBook, Docusaurus, MkDocs, Zensical, Astro/Starlight, HonKit, GitBook
 - `Appearance`
     - markdown構文ハイライト
     - テーブルレンダリング
@@ -27,12 +32,6 @@
     - カラーテーマ切り替え
     - テーブル内/URLの長文省略表示（本文の生URLと`links`一覧）
     - リンク種別マーカー（外部 ↗、文書 →、アンカー #、ファイル ⧉。など)
-- `Navigation`
-    - 見出しツリー
-    - ミニマップ
-    - Focus Mode
-    - 主要SSGに対応したナビゲーション
-        - 対応SSG: mdBook, Docusaurus, MkDocs, Zensical, Astro/Starlight, HonKit, GitBook
 - `Formatting`
     - テーブル整形
     - 表の行・列の挿入削除
