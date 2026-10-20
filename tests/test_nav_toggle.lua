@@ -78,6 +78,31 @@ return function(t)
     vim.o.columns, vim.o.lines = columns, lines
   end)
 
+  t.test(":MdReadable outline opens page headings as a float or a right sidebar", function()
+    local columns, lines = vim.o.columns, vim.o.lines
+    local s = open()
+    local function outline()
+      local panel = s._navigation and s._navigation.panels.outline
+      return panel and vim.api.nvim_win_is_valid(panel.win) and panel or nil
+    end
+    vim.cmd("MdReadable outline")
+    t.ok(outline() and outline().floating, "floating by default")
+    vim.api.nvim_set_current_win(s.read_win)
+    vim.cmd("MdReadable outline sidebar")
+    local panel = assert(outline())
+    t.ok(not panel.floating, "the other style reopens as a sidebar")
+    t.eq("", vim.api.nvim_win_get_config(panel.win).relative)
+    t.eq(panel.win, vim.api.nvim_get_current_win())
+    t.ok(vim.api.nvim_win_get_position(panel.win)[2] > vim.api.nvim_win_get_position(s.read_win)[2], "right side")
+    t.eq(nil, book(s), "the book tree stays closed")
+    vim.api.nvim_set_current_win(s.read_win)
+    vim.cmd("MdReadable outline")
+    t.eq(panel.win, assert(outline()).win, "no style given: the open panel is focused")
+    t.eq(panel.win, vim.api.nvim_get_current_win())
+    cleanup()
+    vim.o.columns, vim.o.lines = columns, lines
+  end)
+
   t.test("configured keymaps also work in the navigation, minimap and links panels", function()
     local columns, lines = vim.o.columns, vim.o.lines
     local minimap = require("md-readable.minimap")

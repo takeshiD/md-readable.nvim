@@ -1,9 +1,11 @@
 local M = {}
 ---@alias MdReadableLayout "integrated"|"separate"|"ondemand"
 ---@alias MdReadableLinkIcons "unicode"|"ascii"|false|table<MdReadableLinkKind, string>
+
 ---@class MdReadableConfigLinks : MdReadableUserConfigLinks
 ---@field enable boolean false shows link labels as plain text without kind markers
 ---@field icons MdReadableLinkIcons Markers appended after labelled links
+
 ---@class MdReadableConfigNavigation : MdReadableUserConfigNavigation
 ---@field enable boolean Open the book tree with the reading view when a project is detected
 ---@field width integer Panel width in cells
@@ -12,12 +14,15 @@ local M = {}
 ---@field style "auto"|"sidebar"|"float" How toggle_nav opens the book tree; auto: by width and layout
 ---@field fold MdReadableConfigNavigationFold
 ---@alias MdReadableNavKeys string|string[]|false One key, a list, or false (none)
+
 ---@class MdReadableConfigNavigationFold
 ---@field keys table<MdReadableNavFoldAction, MdReadableNavKeys>
 ---@field icons {collapsed:string, expanded:string, leaf:string, current:string}
+
 ---@class MdReadableConfigTable : MdReadableUserConfigTable
 ---@field enable boolean false shows tables as their Markdown source
 ---@field max_cell_width integer
+
 ---@class MdReadableConfigFocus : MdReadableUserConfigFocus
 ---@field enable boolean Start Focus mode when a reading view opens
 ---@field coefficient number Dim ratio, 0 (foreground) .. 1 (background)
@@ -27,11 +32,13 @@ local M = {}
 ---@field priority integer matchadd() priority
 ---@field color? string Explicit dim colour ("#rrggbb")
 ---@field cterm_color? integer
+
 ---@class MdReadableConfigMinimap : MdReadableUserConfigMinimap
 ---@field enable boolean Open the minimap when a reading view opens
 ---@field follow boolean Moving in the minimap scrolls the reading view
 ---@field width integer
 ---@field mode MdReadableMinimapMode
+
 ---@class MdReadableConfigImages : MdReadableUserConfigImages
 ---@field enable boolean
 ---@field remote boolean Allow downloading remote images
@@ -46,12 +53,14 @@ local M = {}
 ---@field cache_ttl? integer Remote cache lifetime in seconds
 ---@field converter? string Image conversion command
 ---@field timeout? integer Milliseconds
+
 ---@class MdReadableMermaidMmdcOpts
 ---@field no_sandbox? boolean Start mmdc's Chromium with --no-sandbox
 ---@field theme? string mmdc --theme (default "default")
 ---@field background? string mmdc --backgroundColor (default "transparent")
 ---@field width? integer Page width in pixels (default 1600)
 ---@field height? integer Page height in pixels (default 1000)
+
 ---@class MdReadableMermaidTermaidOpts
 ---@field ascii? boolean --ascii
 ---@field sharp_edges? boolean --sharp-edges
@@ -59,6 +68,7 @@ local M = {}
 ---@field gap? integer --gap
 ---@field padding_x? integer --padding-x
 ---@field padding_y? integer --padding-y
+
 ---@class MdReadableConfigMermaid : MdReadableUserConfigMermaid
 ---@field enable boolean
 ---@field renderer "mmdc"|"termaid" mmdc draws images; termaid draws Unicode text (any terminal)
@@ -69,34 +79,43 @@ local M = {}
 ---@field mmdc_opts MdReadableMermaidMmdcOpts
 ---@field termaid_opts MdReadableMermaidTermaidOpts
 ---@field timeout? integer Milliseconds
+
 ---@class MdReadableConfigCode : MdReadableUserConfigCode
 ---@field theme? string Syntax palette preset (see md-readable.ui.code_theme); nil keeps the colorscheme
 ---@field colors table<string, string> "#rrggbb" per role, bg, fg or label; overrides the preset
 ---@field label "left"|"right" Corner of the icon and language name
 ---@field icons? "mini"|"web-devicons" Language icon provider; nil shows no icon
+
 ---@class MdReadableConfigWatch : MdReadableUserConfigWatch
 ---@field enable boolean Reload the source when its file changes outside Neovim
+
 ---@class MdReadableGitSign
 ---@field text string 1-2 cells in the sign column
 ---@field color? string "#rrggbb" or a highlight group name; nil uses the default group
+
 ---@class MdReadableUserGitSign
 ---@field text? string
 ---@field color? string
+
 ---@class MdReadableConfigGitSigns : MdReadableUserConfigGitSigns
 ---@field add MdReadableGitSign
 ---@field change MdReadableGitSign
 ---@field delete MdReadableGitSign
+
 ---@class MdReadableUserConfigGitSigns
 ---@field add? MdReadableUserGitSign
 ---@field change? MdReadableUserGitSign
 ---@field delete? MdReadableUserGitSign
+
 ---@class MdReadableConfigGit : MdReadableUserConfigGit
 ---@field enable boolean Git status of the source in the reading sign column
 ---@field signs MdReadableConfigGitSigns
+
 ---@class MdReadableConfigFloat : MdReadableUserConfigFloat
 ---@field width number Fraction of the editor width (0, 1]
 ---@field height number Fraction of the editor height (0, 1]
 ---@field border string|string[]
+
 ---@class MdReadableConfig
 ---@field width integer Body width in cells
 ---@field debounce integer Refresh delay in milliseconds
@@ -120,9 +139,11 @@ local M = {}
 ---@field float MdReadableConfigFloat
 ---@field adapters MdReadableNavOptions
 ---@field highlights? table<string, vim.api.keyset.highlight> Highlight group overrides
+
 ---@class MdReadableUserConfigLinks
 ---@field enable? boolean
 ---@field icons? MdReadableLinkIcons
+
 ---@class MdReadableUserConfigNavigation
 ---@field enable? boolean
 ---@field auto_open? boolean Former name of `enable`
@@ -131,9 +152,11 @@ local M = {}
 ---@field fold? {keys?: table<MdReadableNavFoldAction, MdReadableNavKeys>, icons?: {collapsed?:string, expanded?:string, leaf?:string, current?:string}}
 ---@field width? integer
 ---@field min_body_width? integer
+
 ---@class MdReadableUserConfigTable
 ---@field enable? boolean
 ---@field max_cell_width? integer
+
 ---@class MdReadableUserConfigFocus
 ---@field enable? boolean
 ---@field coefficient? number
@@ -143,11 +166,13 @@ local M = {}
 ---@field priority? integer
 ---@field color? string
 ---@field cterm_color? integer
+
 ---@class MdReadableUserConfigMinimap
 ---@field enable? boolean
 ---@field follow? boolean
 ---@field width? integer
 ---@field mode? MdReadableMinimapMode
+
 ---@class MdReadableUserConfigImages
 ---@field enable? boolean
 ---@field enabled? boolean Deprecated name of `enable`
@@ -163,6 +188,7 @@ local M = {}
 ---@field cache_ttl? integer
 ---@field converter? string
 ---@field timeout? integer
+
 ---@class MdReadableUserConfigMermaid
 ---@field enable? boolean
 ---@field enabled? boolean Deprecated name of `enable`
@@ -174,25 +200,31 @@ local M = {}
 ---@field mmdc_opts? MdReadableMermaidMmdcOpts
 ---@field termaid_opts? MdReadableMermaidTermaidOpts
 ---@field timeout? integer
+
 ---@class MdReadableUserConfigCode
 ---@field theme? string
 ---@field colors? table<string, string>
 ---@field label? "left"|"right"
 ---@field icons? "mini"|"web-devicons"
+
 ---@class MdReadableUserConfigAlerts
 ---@field enable? boolean
 ---@field icons? MdReadableAlertIcons
 ---@field kinds? table<string, MdReadableAlertKind>
 ---@field aliases? table<string, string>
+
 ---@class MdReadableUserConfigWatch
 ---@field enable? boolean
+
 ---@class MdReadableUserConfigGit
 ---@field enable? boolean
 ---@field signs? MdReadableUserConfigGitSigns
+
 ---@class MdReadableUserConfigFloat
 ---@field width? number
 ---@field height? number
 ---@field border? string|string[]
+
 ---@class MdReadableUserConfig
 ---@field width? integer
 ---@field debounce? integer
@@ -216,6 +248,7 @@ local M = {}
 ---@field float? MdReadableUserConfigFloat
 ---@field adapters? MdReadableNavOptions
 ---@field highlights? table<string, vim.api.keyset.highlight>
+
 ---@type MdReadableConfig
 M.defaults = {
   width = 100,

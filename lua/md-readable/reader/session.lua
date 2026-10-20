@@ -19,6 +19,7 @@ local function switch_buffer(win, buf)
     vim.cmd("keepjumps keepalt hide buffer " .. tostring(buf))
   end)
 end
+
 -- Calls an optional module function; missing modules or functions are ignored.
 ---@param name string Module name below "md-readable."
 ---@param action string
@@ -30,6 +31,7 @@ local function service(name, action, ...)
     return module[action](...)
   end
 end
+
 -- Sets the cursor clamped to the buffer; row and col are 0-based.
 ---@param win integer
 ---@param row integer
@@ -47,6 +49,7 @@ end
 function M.all()
   return M.sessions
 end
+
 -- Session whose reader, source, navigation panel, minimap or links panel
 -- window is current.
 ---@return MdReadableSession?
@@ -79,6 +82,7 @@ function M.current()
     end
   end
 end
+
 ---@param row integer 0-based source row
 ---@param col? integer 0-based source byte column
 function Session:jump_source(row, col)

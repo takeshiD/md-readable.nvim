@@ -39,6 +39,7 @@ local arguments = {
   table = { "format", "row-before", "row-after", "row-delete", "col-before", "col-after", "col-delete" },
   images = { "allow", "deny" },
   nav = { "float", "sidebar" },
+  outline = { "float", "sidebar" },
 }
 ---@param command string
 ---@param value? string
@@ -51,6 +52,7 @@ local function check_argument(command, value, required)
     )
   end
 end
+
 ---@return MdReadableSession
 local function session()
   local s = require("md-readable.reader.session").current()
@@ -60,6 +62,7 @@ local function session()
   ---@cast s MdReadableSession
   return s
 end
+
 ---@param opts? MdReadableUserConfig
 function M.setup(opts)
   require("md-readable.config").setup(opts)
@@ -135,6 +138,7 @@ local function edit_table(s, action, count)
   end
   errors.user("Cursor is not in a Markdown table")
 end
+
 ---@param command? string Subcommand; empty opens the current-window reader
 ---@param args? string[]
 ---@param opts? MdReadableCommandOpts|vim.api.keyset.create_user_command.command_args
@@ -172,7 +176,8 @@ function M.action(command, args, opts)
     local float = ({ float = true, sidebar = false })[args[1]]
     require("md-readable.ui.navigation").toggle(s, { float = float })
   elseif command == "outline" then
-    require("md-readable.ui.navigation").outline(s)
+    local float = ({ float = true, sidebar = false })[args[1]]
+    require("md-readable.ui.navigation").outline(s, { float = float })
   elseif command == "prev" or command == "next" then
     require("md-readable.ui.navigation").move(s, command)
   elseif command == "select" then
@@ -279,12 +284,15 @@ function M.action(command, args, opts)
     errors.user("Unknown MdReadable command: " .. command)
   end
 end
+
+-- Entrypoint
 ---@param opts vim.api.keyset.create_user_command.command_args
 function M.command(opts)
   local args = vim.deepcopy(opts.fargs)
   local command = table.remove(args, 1)
   errors.report(M.action, command, args, opts)
 end
+
 -- Completes the subcommand, then the fixed argument list of that subcommand.
 ---@param lead string
 ---@param line? string
