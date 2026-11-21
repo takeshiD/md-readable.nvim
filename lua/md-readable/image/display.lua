@@ -108,6 +108,7 @@ function M.cell_size()
   end
   pcall(function()
     local size = ffi.new("md_readable_winsize")
+    ---@cast size {row:integer, col:integer, xpixel:integer, ypixel:integer}
     local function query(fd)
       return fd >= 0 and ffi.C.ioctl(fd, request, size) == 0 and size.col > 0 and size.xpixel > 0
     end
