@@ -143,6 +143,7 @@ require("md-readable").setup({
     span = 0,
   },
   minimap = {
+    -- 縮小表示のみ。Git差分・LSP診断の注釈欄はありません
     -- 読書表示を開いた時点でミニマップを表示する
     enable = true,
     -- ミニマップでカーソルを動かすと本文が追従する
@@ -254,6 +255,8 @@ require("md-readable").setup({
   -- adapters = { adapter = "mdbook", root_dir = "/path/to/book" },
 })
 ```
+
+ミニマップは文書の縮小表示と現在位置、見出し・コードの色を表示し、Git差分・LSP診断は表示しません。旧 `minimap.git` / `minimap.diagnostic` 設定は無視します。ミニマップ自体はGitプロセスやindex監視を開始しません。本文のsign columnは独立した `git.enable` で制御します（そのGitプロセス・index監視も止める場合は `false`）。Neovim標準の診断、ナビゲーション・画像エラーを確認する `:MdReadable diagnostics`、読書専用テーマ切り替えは引き続き使えます。
 
 各機能の`enable`で有効・無効を切り替えます。`links.enable = false`ではリンクの強調表示と種別記号を出さず、ラベルを本文として表示します（リンク一覧と移動は使えます）。`table.enable = false`では表を整形せずMarkdownのまま表示します。`focus.enable`と`minimap.enable`は読書表示を開いた時点でFocusとミニマップを有効にします（開いた後は`gz`・`go`で切り替え）。`images.enable`・`mermaid.enable`は画像・Mermaidの描画を切り替えます。以前の`images.enabled`・`mermaid.enabled`も引き続き使えます。
 

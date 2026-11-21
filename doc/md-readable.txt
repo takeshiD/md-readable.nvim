@@ -184,6 +184,13 @@ the minimap keeps focus; Enter jumps there and returns to the reading view;
 q/Esc closes it. Heading rows use the MdReadableHeading{1-6} colors and code
 block rows use MdReadableMinimapCode. Braille and ASCII modes are available.
 minimap.width is the window width in cells, all of it used by the picture.
+There are no Git/LSP annotation columns or annotation highlights. Former
+minimap.git and minimap.diagnostic options are ignored. The minimap starts
+no Git processes or index watchers and subscribes to no diagnostic events.
+The independent reading-view Git signs use git.enable (disable it to stop
+that provider's Git processes/index watcher). Native Neovim diagnostics,
+:MdReadable diagnostics for navigation/media errors, and reading-only theme
+switching remain available.
 
 IMAGES AND MERMAID                                       *md-readable-images*
 
@@ -228,6 +235,7 @@ CONFIGURATION                                            *md-readable-setup*
       },
       table = { enable = true, max_cell_width = 28 },
       focus = { enable = true, coefficient = 0.5, span = 0, priority = 10 },
+      -- Document picture/current position only, without Git/LSP annotations.
       minimap = { enable = true, follow = true, width = 12, mode = 'braille' },
       images = { enable = true, remote = false, width = nil, height = nil,
                  min_width = nil, max_width = nil,

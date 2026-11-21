@@ -1,5 +1,26 @@
 # Verification
 
+## Issue #51: minimap annotations (2026-11-21)
+
+On Neovim 0.12.6, the baseline full suite passed **224 tests, 0 failures**;
+after the change it passed **226 tests, 0 failures**. Changed Lua files pass
+StyLua, `git diff --check` passes, and help tags generate successfully.
+
+The baseline already removed the minimap Git/diagnostic providers, annotation
+columns and highlights in `e1ca7de`. This change drops obsolete configuration
+keys and locks that behavior down with a real reading-session regression test.
+With the separate reader Git signs and source-file watcher disabled, opening,
+refreshing, jumping, closing and reopening the Braille/ASCII minimap produces
+zero Git process launches, filesystem poll handles or DiagnosticChanged
+subscriptions. Current-position highlighting and native diagnostic data survive.
+Existing tests also cover cursor following, floating windows, reader Git signs,
+reading-only themes and the navigation/media diagnostics command.
+
+The independent top-level `git.enable` feature still starts its own Git
+processes/index watcher when enabled. The minimap default and cursor-sync
+semantics are unchanged. No performance improvement is claimed; interactive
+terminal appearance was not visually inspected in this headless verification.
+
 Implementation and verification date: 2026-10-04. Neovim: 0.12.5 (LuaJIT).
 
 ## Automated checks
