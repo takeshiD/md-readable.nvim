@@ -111,7 +111,7 @@ To edit a table, use `gs` to return to its corresponding source position. Readin
 
 ```lua
 require("md-readable").setup({
-  -- Layout: "integrated", "separate" or "ondemand"
+  -- Contents panel: placement follows the available width
   -- Body width; floats are at most width + 4 columns
   width = 100,
   -- Center the body in wider windows

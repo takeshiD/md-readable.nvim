@@ -875,11 +875,30 @@ function M.open(session, opts)
           end
           local active = vim.api.nvim_get_current_win()
           local was_focused = st.panels.book and st.panels.book.win == active
+          local selected = st.panels.book and panel_entry(st.panels.book)
           for kind, panel in pairs(st.panels) do
             destroy(panel)
             st.panels[kind] = nil
           end
           M.open(session, { user = was_focused })
+          local panel = st.panels.book
+          if was_focused and panel and valid(panel.win) then
+            local heading = current_heading(session)
+            local selected_id = selected and selected.id
+            local heading_id = heading and heading_key(heading)
+            local chosen, score = 1, 0
+            for row, entry in ipairs(panel.entries) do
+              local priority = entry.id and entry.id == selected_id and 4
+                or entry.id and entry.id == heading_id and 3
+                or st.current and entry.id == st.current.id and 2
+                or entry.kind ~= "label" and 1
+                or 0
+              if priority > score then
+                chosen, score = row, priority
+              end
+            end
+            vim.api.nvim_win_set_cursor(panel.win, { chosen, 0 })
+          end
         end)
       end,
     })

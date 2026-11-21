@@ -317,6 +317,8 @@ return function(t)
       end, 5))
       t.eq(st.panels.book.win, vim.api.nvim_get_current_win())
       t.ok(st.collapsed["heading:intro"])
+      local panel = st.panels.book
+      t.eq("heading:intro", panel.entries[vim.api.nvim_win_get_cursor(panel.win)[1]].id)
       vim.api.nvim_win_close(other, true)
       vim.api.nvim_exec_autocmds("WinResized", {})
       t.ok(vim.wait(100, function()
@@ -324,6 +326,8 @@ return function(t)
       end, 5))
       t.eq(st.panels.book.win, vim.api.nvim_get_current_win())
       t.ok(st.collapsed["heading:intro"])
+      local panel = st.panels.book
+      t.eq("heading:intro", panel.entries[vim.api.nvim_win_get_cursor(panel.win)[1]].id)
       vim.o.columns = 60
       vim.api.nvim_exec_autocmds("VimResized", {})
       t.ok(vim.wait(100, function()
@@ -363,6 +367,24 @@ return function(t)
       t.eq(s.read_win, vim.api.nvim_get_current_win())
       t.eq(nil, s._navigation.panels.book)
       t.eq(false, s._navigation.open)
+    end)
+  end)
+  t.test("resize falls back to current heading when the selected entry disappears", function()
+    with_session(120, nil, function(s)
+      UI.toggle(s)
+      local st = s._navigation
+      select_entry(st.panels.book, function(e)
+        return e.id == "heading:end"
+      end)
+      table.remove(s.document.headings)
+      s.generation = s.generation + 1
+      vim.o.columns = 60
+      vim.api.nvim_exec_autocmds("VimResized", {})
+      t.ok(vim.wait(100, function()
+        return st.panels.book and st.panels.book.floating
+      end, 5))
+      local panel = st.panels.book
+      t.eq("heading:intro", panel.entries[vim.api.nvim_win_get_cursor(panel.win)[1]].id)
     end)
   end)
   t.test("below minimum dimensions contents remain closed", function()

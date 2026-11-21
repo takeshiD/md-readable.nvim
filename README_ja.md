@@ -111,7 +111,7 @@ setupは任意です。読書bufferのキーマップは[キーマップ](#キ�
 
 ```lua
 require("md-readable").setup({
-  -- 配置: "integrated"・"separate"・"ondemand"
+  -- 目次パネル: 利用可能な幅に応じて自動配置
   -- 本文幅。floatは最大でwidth + 4列
   width = 100,
   -- 広いwindowでは本文を中央に寄せる

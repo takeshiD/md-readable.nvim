@@ -310,7 +310,7 @@ return function(t)
       t.eq(root .. "/chapters/second.md", s.document.path)
     end)
   end)
-  t.test("1000-page mdBook actual Session initial load and reparse benchmark", function()
+  t.test("1000-page mdBook reader startup and first navigation benchmark", function()
     local summary = { "# Summary" }
     local files = {}
     for i = 1, 1000 do
