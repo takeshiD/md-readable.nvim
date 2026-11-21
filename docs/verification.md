@@ -1,5 +1,26 @@
 # Verification
 
+## Issue #51: minimap annotations (2026-11-21)
+
+On Neovim 0.12.6, the baseline full suite passed **224 tests, 0 failures**;
+after the change it passed **226 tests, 0 failures**. Changed Lua files pass
+StyLua, `git diff --check` passes, and help tags generate successfully.
+
+The baseline already removed the minimap Git/diagnostic providers, annotation
+columns and highlights in `e1ca7de`. This change drops obsolete configuration
+keys and locks that behavior down with a real reading-session regression test.
+With the separate reader Git signs and source-file watcher disabled, opening,
+refreshing, jumping, closing and reopening the Braille/ASCII minimap produces
+zero Git process launches, filesystem poll handles or DiagnosticChanged
+subscriptions. Current-position highlighting and native diagnostic data survive.
+Existing tests also cover cursor following, floating windows, reader Git signs,
+reading-only themes and the navigation/media diagnostics command.
+
+The independent top-level `git.enable` feature still starts its own Git
+processes/index watcher when enabled. The minimap default and cursor-sync
+semantics are unchanged. No performance improvement is claimed; interactive
+terminal appearance was not visually inspected in this headless verification.
+
 Implementation and verification date: 2026-10-04. Neovim: 0.12.5 (LuaJIT).
 
 ## Automated checks
@@ -17,6 +38,19 @@ Latest full run in this environment: **150 tests, 0 failures**. StyLua checks, `
 Covered behavior includes Markdown and static extensions, source byte ranges and copying, all seven SSG adapters, ambiguous detection and errors, real reading sessions in current/vertical/floating windows, unsaved changes, native jump history, missing anchors, original table edits, theme and Focus isolation, the minimap, narrow layouts, media conversion/caching/cancellation, and picker cleanup. Named/append/black-hole registers and UTF-8 rectangular copying are exercised through actual Neovim yank operations.
 
 Real installed Telescope and Snacks APIs were exercised. ImageMagick was used to convert actual SVG/JPEG/WebP data. Media protocol tests intercept terminal output; Mermaid process tests use a controlled executable fixture.
+
+## Issue #50 verification (2026-11-21)
+
+Before removal: **224 tests, 0 failures**, including the original table formatting
+and row/column editing tests. After removal: **221 tests, 0 failures**; obsolete
+editing tests were removed and replaced with rejection and reader regressions.
+The new tests cover all removed actions, completion, and current/vertical/floating
+views of an unsaved quoted table: clipped rendering, full-cell inspection, source
+copying, SourceMap byte positions, theme switching, refresh and the actual gs key.
+Source content, changedtick and modified state remain unchanged.
+StyLua, help-tag generation and git diff --check also pass. These checks are
+headless; no interactive terminal visual inspection or performance improvement
+measurement was performed for this removal.
 
 ## Performance observation
 

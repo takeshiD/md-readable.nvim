@@ -88,16 +88,27 @@ return function(t)
     t.ok(vim.bo[source].modified)
     cleanup()
   end)
-  t.test("table commands edit the original buffer and refresh projection", function()
-    local source = fixture()
+  t.test("removed table actions reject without changing unsaved source", function()
+    local source, lines = fixture()
     local s = api.open("vert")
     s:jump_source(5, 3)
-    api.action("table", { "col-after", "2" })
-    t.eq(4, #s.document.tables[1].rows[1].cells)
-    t.eq(4, #s.document.tables[1].rows[2].cells)
+    local tick = vim.api.nvim_buf_get_changedtick(source)
+    for _, action in ipairs({
+      "",
+      "format",
+      "row-before",
+      "row-after",
+      "row-delete",
+      "col-before",
+      "col-after",
+      "col-delete",
+    }) do
+      local ok, err = pcall(api.action, "table", { action, "2" })
+      t.ok(not ok and tostring(err):find("Unknown MdReadable command: table", 1, true), tostring(err))
+    end
+    t.eq(lines, vim.api.nvim_buf_get_lines(source, 0, -1, false))
+    t.eq(tick, vim.api.nvim_buf_get_changedtick(source))
     t.ok(vim.bo[source].modified)
-    api.action("table", { "row-after" })
-    t.eq(3, #s.document.tables[1].rows)
     cleanup()
   end)
   t.test("Focus and theme leave source window untouched", function()
@@ -209,22 +220,43 @@ return function(t)
     t.eq(s, sessions.current())
     cleanup()
   end)
-  t.test("table formatting and insertion preserve the surrounding quoted callout", function()
-    local source = fixture()
-    vim.api.nvim_buf_set_lines(source, 0, -1, false, { "> [!NOTE]", "> | A | B |", "> |---|---|", "> |x|y|" })
-    local s = api.open("vert")
-    s:jump_source(3, 4)
-    api.action("table", { "format" })
-    for _, line in ipairs(vim.api.nvim_buf_get_lines(source, 1, -1, false)) do
-      t.eq("> ", line:sub(1, 2))
-    end
-    api.action("table", { "col-after" })
-    t.eq(3, #s.document.tables[1].rows[1].cells)
-    for _, line in ipairs(vim.api.nvim_buf_get_lines(source, 1, -1, false)) do
-      t.eq("> ", line:sub(1, 2))
-    end
-    cleanup()
-  end)
+  for _, mode in ipairs({ "current", "vert", "float" }) do
+    t.test("table reading and gs preserve unsaved quoted source in " .. mode, function()
+      local source = fixture()
+      local value = "hidden-tail-secret"
+      local lines = { "> [!NOTE]", "> | A | B |", "> |---|---|", "> |x|" .. value .. "|" }
+      vim.api.nvim_buf_set_lines(source, 0, -1, false, lines)
+      local tick = vim.api.nvim_buf_get_changedtick(source)
+      local s = api.open(mode)
+      local cell
+      for _, item in ipairs(s.rendered.cells) do
+        if item.text == value then
+          cell = item
+        end
+      end
+      t.ok(cell, "long quoted table cell is rendered")
+      t.ok(s.rendered.lines[cell.row + 1]:find("…", 1, true), "long cell is truncated")
+      t.eq(value, s.map:copy(cell.row, cell.start_col, cell.row, cell.end_col, "char"))
+      vim.api.nvim_win_set_cursor(s.read_win, { cell.row + 1, cell.start_col })
+      api.action("open")
+      t.eq({ value }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+      t.ok(not vim.bo.modifiable)
+      vim.cmd("normal q")
+      vim.api.nvim_set_current_win(s.read_win)
+      api.action("theme", { "dark" })
+      api.action("refresh")
+      s:jump_source(3, 5)
+      local pos = vim.api.nvim_win_get_cursor(s.read_win)
+      t.eq({ 3, 5 }, { s.map:to_source(pos[1] - 1, pos[2]) })
+      vim.cmd("normal gs")
+      t.eq(source, vim.api.nvim_get_current_buf())
+      t.eq({ 4, 5 }, vim.api.nvim_win_get_cursor(0))
+      t.eq(lines, vim.api.nvim_buf_get_lines(source, 0, -1, false))
+      t.eq(tick, vim.api.nvim_buf_get_changedtick(source))
+      t.ok(vim.bo[source].modified)
+      cleanup()
+    end)
+  end
   t.test("failed projection never installs new source metadata over the previous rendered view", function()
     local source = fixture()
     local s = api.open("vert")
