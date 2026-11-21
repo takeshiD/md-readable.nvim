@@ -138,6 +138,7 @@ require("md-readable").setup({
     span = 0,
   },
   minimap = {
+    -- Picture only: no Git/LSP annotations or annotation columns
     -- Open the minimap when a reading view opens
     enable = true,
     -- Moving in the minimap scrolls the document
@@ -250,6 +251,8 @@ require("md-readable").setup({
   -- adapters = { adapter = "mdbook", root_dir = "/path/to/book" },
 })
 ```
+
+The minimap shows the document and current position, with heading/code colors; it does not show Git differences or LSP diagnostics. Former `minimap.git` and `minimap.diagnostic` options are ignored. It starts no Git processes or index watchers. The independent reading-view signs use top-level `git.enable` (set it to `false` to avoid their Git processes/index watcher). Native Neovim diagnostics, `:MdReadable diagnostics` for navigation/media errors, and reading-only themes remain available.
 
 Each feature section has an `enable` switch. `links.enable = false` shows link labels as plain text without highlights or kind markers (the link list and following still work); `table.enable = false` shows tables as their Markdown source; `focus.enable` and `minimap.enable` start Focus mode and the minimap whenever a reading view opens (toggle them afterwards with `gz` / `go`); `images.enable` and `mermaid.enable` turn media rendering off. The former `images.enabled` / `mermaid.enabled` keys are still accepted.
 

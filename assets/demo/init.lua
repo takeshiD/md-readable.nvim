@@ -21,6 +21,7 @@ vim.g.mapleader = " "
 require("md-readable").setup({
   width = 80,
   focus = { enable = true, coefficient = 0.65 },
+  -- Picture/current position only; Git signs below belong to the reader.
   minimap = { enable = false, width = 16 },
   navigation = { enable = false },
   git = { enable = true },
