@@ -28,79 +28,96 @@ return function(t)
     return panel and vim.api.nvim_win_is_valid(panel.win) and panel or nil
   end
 
-  t.test("toggle_nav opens a sidebar or a floating window on request", function()
+  t.test("nav and outline toggle the same automatically placed panel", function()
     local columns, lines = vim.o.columns, vim.o.lines
     local s = open()
-    actions.toggle_nav({ float = true })
-    t.ok(book(s) and book(s).floating, "floating window")
-    t.eq("editor", vim.api.nvim_win_get_config(book(s).win).relative)
-    vim.api.nvim_set_current_win(s.read_win)
-    actions.toggle_nav({ float = false })
-    t.ok(book(s) and not book(s).floating, "the other style reopens as a sidebar")
-    t.eq("", vim.api.nvim_win_get_config(book(s).win).relative)
-    vim.api.nvim_set_current_win(s.read_win)
-    actions.toggle_nav({ float = false })
-    t.eq(nil, book(s), "the same style closes it")
-    -- The plain action keeps choosing by width and layout.
-    actions.toggle_nav()
-    t.ok(book(s) and not book(s).floating, "wide integrated layout: sidebar")
-    vim.api.nvim_set_current_win(s.read_win)
-    actions.toggle_nav()
     t.eq(nil, book(s))
-    cleanup()
-    vim.o.columns, vim.o.lines = columns, lines
-  end)
-
-  t.test("float and sidebar toggles are available as keymaps, commands and named actions", function()
-    local columns, lines = vim.o.columns, vim.o.lines
-    local s = open({
-      keymaps = {
-        ["gN"] = {
-          mode = "n",
-          function()
-            require("md-readable.actions").toggle_nav({ float = true })
-          end,
-          desc = "Toggle Nav on Floating Window",
-        },
-        ["gS"] = "actions.toggle_nav_sidebar",
-      },
-    })
-    vim.api.nvim_feedkeys(vim.keycode("gN"), "xt", false)
-    t.ok(book(s) and book(s).floating, "function keymap")
-    vim.api.nvim_set_current_win(s.read_win)
-    vim.api.nvim_feedkeys(vim.keycode("gS"), "xt", false)
-    t.ok(book(s) and not book(s).floating, "named action")
-    vim.api.nvim_set_current_win(s.read_win)
+    actions.toggle_nav({ float = true })
+    t.ok(book(s) and not book(s).floating, "legacy float argument does not override width")
+    vim.cmd("MdReadable outline sidebar")
+    t.eq(nil, book(s), "outline closes the same panel")
+    vim.cmd("MdReadable outline")
+    t.ok(book(s))
+    t.eq(nil, s._navigation.panels.outline)
     vim.cmd("MdReadable nav float")
-    t.ok(book(s) and book(s).floating, ":MdReadable nav float")
-    t.eq("Toggle book navigation in a floating window", actions.get("toggle_nav_float").desc)
+    t.eq(nil, book(s))
+    vim.o.columns = 60
+    actions.toggle_nav({ float = false })
+    t.ok(book(s).floating, "narrow width wins over legacy sidebar argument")
+    local p = book(s)
+    for i, entry in ipairs(p.entries) do
+      if entry.kind == "heading" and entry.heading.title == "Two" then
+        vim.api.nvim_win_set_cursor(p.win, { i, 0 })
+      end
+    end
+    vim.api.nvim_feedkeys(vim.keycode("<CR>"), "xt", false)
+    t.eq(nil, book(s))
+    t.eq(false, s._navigation.open)
+    t.eq(s.read_win, vim.api.nvim_get_current_win())
+    local row = s.map:to_source(vim.api.nvim_win_get_cursor(s.read_win)[1] - 1, 0)
+    t.eq(4, row)
+    vim.o.columns = 160
+    vim.api.nvim_exec_autocmds("VimResized", {})
+    vim.wait(30)
+    t.eq(nil, book(s), "selection closes the panel even after resize")
     cleanup()
     vim.o.columns, vim.o.lines = columns, lines
   end)
 
-  t.test(":MdReadable outline opens page headings as a float or a right sidebar", function()
+  t.test("floating readers use floating contents even on wide screens", function()
     local columns, lines = vim.o.columns, vim.o.lines
     local s = open()
-    local function outline()
-      local panel = s._navigation and s._navigation.panels.outline
-      return panel and vim.api.nvim_win_is_valid(panel.win) and panel or nil
-    end
+    sessions.close(s)
+    s = api.open("float")
+    t.eq(nil, s.snapshot)
+    t.eq(nil, book(s))
+    local source_win = s.source_win
     vim.cmd("MdReadable outline")
-    t.ok(outline() and outline().floating, "floating by default")
-    vim.api.nvim_set_current_win(s.read_win)
-    vim.cmd("MdReadable outline sidebar")
-    local panel = assert(outline())
-    t.ok(not panel.floating, "the other style reopens as a sidebar")
-    t.eq("", vim.api.nvim_win_get_config(panel.win).relative)
-    t.eq(panel.win, vim.api.nvim_get_current_win())
-    t.ok(vim.api.nvim_win_get_position(panel.win)[2] > vim.api.nvim_win_get_position(s.read_win)[2], "right side")
-    t.eq(nil, book(s), "the book tree stays closed")
-    vim.api.nvim_set_current_win(s.read_win)
-    vim.cmd("MdReadable outline")
-    t.eq(panel.win, assert(outline()).win, "no style given: the open panel is focused")
-    t.eq(panel.win, vim.api.nvim_get_current_win())
+    t.ok(book(s) and book(s).floating)
+    t.ok(vim.api.nvim_win_is_valid(source_win))
+    t.eq(s.source_buf, vim.api.nvim_win_get_buf(source_win))
+    vim.api.nvim_feedkeys(vim.keycode("q"), "xt", false)
+    t.eq(nil, book(s))
+    t.eq(s.read_win, vim.api.nvim_get_current_win())
     cleanup()
     vim.o.columns, vim.o.lines = columns, lines
+  end)
+
+  t.test("SSG detection waits for navigation, including saves and link navigation", function()
+    local columns, lines = vim.o.columns, vim.o.lines
+    local detect = require("md-readable.navigation.detect")
+    local original, calls = detect.load, 0
+    detect.load = function(...)
+      calls = calls + 1
+      return original(...)
+    end
+    local ok, err = xpcall(function()
+      local root = t.tempdir()
+      t.write(root .. "/book.toml", { "[book]" })
+      t.write(root .. "/src/SUMMARY.md", { "- [One](one.md)", "- [Two](two.md)" })
+      t.write(root .. "/src/one.md", { "# One" })
+      t.write(root .. "/src/two.md", { "# Two" })
+      local s = open()
+      s:navigate(root .. "/src/one.md")
+      s:refresh()
+      vim.api.nvim_exec_autocmds("BufWritePost", { buffer = s.source_buf })
+      t.eq(0, calls, "open, link, refresh and write do not scan")
+      t.ok(require("md-readable.ui.navigation").move(s, "next"))
+      t.eq(1, calls, "first page move detects once")
+      t.eq(root .. "/src/two.md", s.document.path)
+      t.eq(nil, book(s), "page move does not open a panel")
+      actions.toggle_nav()
+      t.eq(1, calls, "opening uses the loaded snapshot")
+      actions.toggle_nav()
+      actions.toggle_nav()
+      t.eq(1, calls, "reopening does not scan again")
+    end, debug.traceback)
+    detect.load = original
+    cleanup()
+    vim.o.columns, vim.o.lines = columns, lines
+    if not ok then
+      error(err)
+    end
   end)
 
   t.test("configured keymaps also work in the navigation, minimap and links panels", function()
@@ -122,11 +139,13 @@ return function(t)
     local function press(keys)
       vim.api.nvim_feedkeys(vim.keycode(keys), "xt", false)
     end
-    -- Navigation sidebar: a user key reopens it as a float.
+    -- Navigation sidebar: a user key toggles the same panel.
     actions.toggle_nav({ float = false })
     t.eq(book(s).win, vim.api.nvim_get_current_win())
     press("gN")
-    t.ok(book(s) and book(s).floating, "gN in the sidebar")
+    t.eq(nil, book(s), "gN in the sidebar closes it")
+    press("gN")
+    t.ok(book(s))
     -- Panel keys win over reader keys on the same key: q closes the panel.
     press("q")
     t.eq(nil, book(s), "q closes the panel")

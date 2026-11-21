@@ -132,7 +132,7 @@ return function(t)
     for _, follow in ipairs({ true, false }) do
       local s = open(lines, { navigation = { follow = follow }, minimap = { enable = false } })
       navigation.outline(s)
-      local panel = s._navigation.panels.outline
+      local panel = s._navigation.panels.book
       t.eq(panel.win, vim.api.nvim_get_current_win())
       local target
       for index, entry in ipairs(panel.entries) do

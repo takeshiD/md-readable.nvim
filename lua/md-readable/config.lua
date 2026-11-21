@@ -7,11 +7,9 @@ local M = {}
 ---@field icons MdReadableLinkIcons Markers appended after labelled links
 
 ---@class MdReadableConfigNavigation : MdReadableUserConfigNavigation
----@field enable boolean Open the book tree with the reading view when a project is detected
 ---@field width integer Panel width in cells
 ---@field min_body_width integer
 ---@field follow boolean Moving over a heading in a panel scrolls the reading view
----@field style "auto"|"sidebar"|"float" How toggle_nav opens the book tree; auto: by width and layout
 ---@field fold MdReadableConfigNavigationFold
 ---@alias MdReadableNavKeys string|string[]|false One key, a list, or false (none)
 
@@ -125,7 +123,6 @@ local M = {}
 ---@field heading_rules boolean
 ---@field center boolean
 ---@field links MdReadableConfigLinks
----@field layout MdReadableLayout
 ---@field navigation MdReadableConfigNavigation
 ---@field table MdReadableConfigTable
 ---@field focus MdReadableConfigFocus
@@ -145,10 +142,10 @@ local M = {}
 ---@field icons? MdReadableLinkIcons
 
 ---@class MdReadableUserConfigNavigation
----@field enable? boolean
----@field auto_open? boolean Former name of `enable`
+---@field enable? boolean Deprecated; ignored (navigation always starts closed)
+---@field auto_open? boolean Deprecated; ignored (navigation always starts closed)
 ---@field follow? boolean
----@field style? "auto"|"sidebar"|"float"
+---@field style? "auto"|"sidebar"|"float" Deprecated; ignored (placement follows width)
 ---@field fold? {keys?: table<MdReadableNavFoldAction, MdReadableNavKeys>, icons?: {collapsed?:string, expanded?:string, leaf?:string, current?:string}}
 ---@field width? integer
 ---@field min_body_width? integer
@@ -234,7 +231,7 @@ local M = {}
 ---@field heading_rules? boolean
 ---@field center? boolean
 ---@field links? MdReadableUserConfigLinks
----@field layout? MdReadableLayout
+---@field layout? MdReadableLayout Deprecated; ignored (one contents panel)
 ---@field navigation? MdReadableUserConfigNavigation
 ---@field table? MdReadableUserConfigTable
 ---@field focus? MdReadableUserConfigFocus
@@ -260,11 +257,8 @@ M.defaults = {
   heading_rules = true,
   center = true,
   links = { enable = true, icons = "unicode" }, -- "unicode", "ascii", false, or { external = "..", ... }
-  layout = "integrated",
   navigation = {
-    enable = true,
     follow = true,
-    style = "auto",
     width = 28,
     min_body_width = 48,
     fold = {
@@ -332,13 +326,11 @@ function M.normalize(value, given)
       section.enabled = nil
     end
   end
-  -- navigation.auto_open is the former name of navigation.enable.
-  local navigation, written = rawget(value, "navigation"), rawget(given, "navigation")
+  -- Retired placement/startup options remain accepted for migration.
+  rawset(value, "layout", nil)
+  local navigation = rawget(value, "navigation")
   if type(navigation) == "table" then
-    if type(written) == "table" and written.enable == nil and written.auto_open ~= nil then
-      navigation.enable = written.auto_open
-    end
-    navigation.auto_open = nil
+    navigation.enable, navigation.auto_open, navigation.style = nil, nil, nil
   end
   return value
 end
@@ -376,12 +368,10 @@ function M.setup(opts)
     "mermaid",
     "watch",
     "git",
-    "navigation",
     "alerts",
   }) do
     assert(type(value[name].enable) == "boolean", name .. ".enable must be true or false")
   end
-  assert(vim.tbl_contains({ "integrated", "separate", "ondemand" }, value.layout), "invalid reader layout")
   assert(type(value.width) == "number" and value.width >= 12, "reader width must be >= 12")
   assert(type(value.debounce) == "number" and value.debounce >= 0, "debounce must be nonnegative")
   assert(value.table.max_cell_width >= 3, "table.max_cell_width must be >= 3")
@@ -415,10 +405,6 @@ function M.setup(opts)
       "mermaid.termaid_opts." .. name .. " is not a termaid option"
     )
   end
-  assert(
-    vim.tbl_contains({ "auto", "sidebar", "float" }, value.navigation.style),
-    'navigation.style must be "auto", "sidebar" or "float"'
-  )
   for action, keys in pairs(value.navigation.fold.keys) do
     local list = type(keys) == "table" and keys or { keys }
     for _, lhs in ipairs(keys == false and {} or list) do

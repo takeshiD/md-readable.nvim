@@ -28,23 +28,12 @@ M.heading_prev = { callback = command("heading-prev"), desc = "Previous heading"
 M.next_page = { callback = command("next"), desc = "Next page" }
 M.prev_page = { callback = command("prev"), desc = "Previous page" }
 ---@class MdReadableNavToggleOptions
----@field float? boolean true: floating window, false: sidebar, nil: by width and layout
-M.toggle_nav = {
-  ---@param opts? MdReadableNavToggleOptions
-  callback = function(opts)
-    -- Only an explicit true/false picks the style; nil leaves it to the config.
-    local float = nil ---@type boolean?
-    if type(opts) == "table" then
-      float = opts.float
-    end
-    local args = float == true and { "float" } or float == false and { "sidebar" } or {}
-    require("md-readable.errors").report(require("md-readable").action, "nav", args, {})
-  end,
-  desc = "Toggle book navigation",
-}
-M.toggle_nav_float = { callback = command("nav", "float"), desc = "Toggle book navigation in a floating window" }
-M.toggle_nav_sidebar = { callback = command("nav", "sidebar"), desc = "Toggle book navigation in a sidebar" }
-M.outline = { callback = command("outline"), desc = "Page headings" }
+---@field float? boolean Deprecated; ignored (placement follows available width)
+M.toggle_nav = { callback = command("nav"), desc = "Toggle contents" }
+-- Compatibility names for the unified automatically placed panel.
+M.toggle_nav_float = M.toggle_nav
+M.toggle_nav_sidebar = M.toggle_nav
+M.outline = { callback = command("outline"), desc = "Toggle contents (including page headings)" }
 M.select = { callback = command("select"), desc = "Select navigation adapter or tree" }
 M.links = { callback = command("links"), desc = "Document links" }
 M.search = { callback = command("search"), desc = "Search source including omitted text" }

@@ -28,11 +28,10 @@ displayed text.
 NAVIGATION                                               *md-readable-navigation*
 
     :MdReadable nav [float|sidebar]
-                                 Toggle the book tree; float/sidebar force
-                                 the style (the other style reopens)
+                                 Toggle unified contents; legacy style
+                                 arguments are accepted but ignored
     :MdReadable outline [float|sidebar]
-                                 Show page headings (floating by default);
-                                 sidebar opens them on the right
+                                 Alias of nav (includes page headings)
     :MdReadable select           Select a tree or ambiguous project adapter
     :MdReadable prev             Previous available document
     :MdReadable next             Next available document
@@ -51,8 +50,7 @@ visited by prev/next. Missing anchors do not cause an arbitrary jump.
 Navigation follows the book's content directory (the deepest directory that
 holds all pages of the contents). A file outside it gets no book tree, only
 its own headings; a page inside it that is not in the contents shows its
-headings above the tree. navigation.style ("auto", "sidebar", "float") sets
-how :MdReadable nav opens the tree; a float never opens by itself.
+headings above the tree. Standalone Markdown shows its own headings.
 navigation.fold.keys sets one key, a list or false per fold action
 (collapse, expand, toggle, collapse_recursive, expand_recursive,
 collapse_all, expand_all); a list replaces the default list.
@@ -66,16 +64,21 @@ doc, anchor, file, image and missing; long targets are clipped with ...
 Enter opens the link, o moves the reading cursor to it, q or Esc closes.
 Footnotes are not listed.
 
-The layout option arranges the book tree and the page headings:
-  integrated  (default) the book tree opens as a left sidebar and holds the
-              current page's headings, folded, under its entry
-  separate    the book tree opens on the left with pages only, and a page
-              headings panel opens on the right when there is room
-  ondemand    nothing opens with the reading view; gn opens a floating tree
-              unless navigation.style says otherwise
-The tree opens by itself only for a page of a recognized book, read with
-:MdReadable or :MdReadable vert, while navigation.enable is true. Narrow
-windows use a floating chooser instead of squeezing the document.
+Contents start closed. :MdReadable nav / gn and :MdReadable outline / gO
+both toggle one panel containing the book and current page headings.
+SSG detection and book parsing wait until the first contents operation
+(including select or explicit refresh) or previous/next page movement.
+At navigation.width + navigation.min_body_width + 1 available columns
+(default 77), use a left sidebar; below that, use a temporary float.
+Resize changes placement. Selecting a page/heading in the float closes it
+and returns to the body. A floating reader always uses floating contents.
+Opening needs at least 24 columns and 8 rows.
+
+Migration: remove layout (integrated/separate/ondemand), navigation.auto_open,
+navigation.enable and navigation.style. They are accepted but ignored.
+Legacy nav/outline float|sidebar, toggle_nav({float = ...}) and the named
+(toggle_nav_float/sidebar) actions now toggle the same automatic panel.
+Reader current/vert/float modes and reading-only themes are unchanged.
 
 COPYING                                                  *md-readable-copy*
 
@@ -118,7 +121,7 @@ paragraph span to 0. Focus and themes affect only reading windows.
 
 Headings use a separate highlight per level. H1 and H2 are followed by a
 display-only rule (= and - style), disabled with heading_rules = false. The
-outline panel shows # markers per level with the same highlights.
+contents panel shows # markers per level with the same highlights.
 
 HIGHLIGHTS                                           *md-readable-highlights*
 
@@ -208,7 +211,6 @@ reasons; :MdReadable refresh retries failed items.
 CONFIGURATION                                            *md-readable-setup*
 >
     require('md-readable').setup({
-      layout = 'integrated',
       width = 100,
       keymaps = {},
       use_default_keymaps = true,
@@ -216,7 +218,7 @@ CONFIGURATION                                            *md-readable-setup*
       center = true,
       links = { enable = true, icons = 'unicode' },
       navigation = {
-        enable = true, follow = true, style = 'auto',
+        follow = true, -- contents start closed; gn / gO toggle
         width = 28, min_body_width = 48,
         fold = {
           keys = { collapse = { 'h', '<Left>' }, expand = { 'l', '<Right>' },
@@ -282,8 +284,7 @@ Each feature section has an enable switch:
   minimap.follow  Moving the cursor in the minimap scrolls the reading view
                   while the minimap keeps focus; false: only Enter jumps.
   navigation.follow
-                  Moving over a heading in a navigation panel (book tree
-                  or outline) scrolls the reading view to it; pages still
+                  Moving over a heading in the contents panel scrolls the reading view to it; pages still
                   open with Enter. false: only Enter jumps.
   mermaid.mmdc_opts.no_sandbox
                   Start mmdc's Chromium with --no-sandbox, for systems
@@ -340,11 +341,6 @@ Each feature section has an enable switch:
                   ratio and never enlarged. Cell pixels come from the
                   terminal. A converted or downloaded image is measured
                   when first shown, then the view is redrawn once.
-  navigation.enable
-                  Open the book tree with the reading view when a project
-                  is detected (a "float" style never opens by itself).
-                  false: only :MdReadable nav / gn opens it. The former
-                  name navigation.auto_open is still accepted.
 width is the body width in every mode. A float is at most width + 4 columns
 wide (float.width is the upper fraction of the screen). With center=true a
 wider window gets a blank 'statuscolumn' margin that centers the body;
@@ -365,7 +361,7 @@ navigation, minimap and links panels get them too, below their own keys
     ]] [[      actions.heading_next/prev  Next / previous heading
     ]p [p      actions.next_page/prev_page  Next / previous page
     gn         actions.toggle_nav       Book navigation
-    gO         actions.outline          Page headings
+    gO         actions.outline          Toggle contents (alias)
     gl         actions.links            Document links
     g/         actions.search           Search source incl. omitted text
     gz         actions.toggle_focus     Focus (n, x: focus selected lines)

@@ -124,6 +124,8 @@ return function(t)
   for _, mode in ipairs({ "current", "vert", "float" }) do
     t.test("real Session " .. mode .. ": mdBook next/previous preserves unsaved text and paired source", function()
       with_book({ mode = mode, columns = 180 }, function(s, root, original)
+        t.eq(nil, s.snapshot, "startup does not detect a book")
+        t.eq(false, Navigation.move(s, "prev"))
         t.eq("mdbook", s.snapshot.adapterId)
         t.eq("ok", s.nav_result.status)
         local original_lines = vim.api.nvim_buf_get_lines(original, 0, -1, false)
@@ -198,15 +200,10 @@ return function(t)
     t.test("real Session " .. layout .. " layout at 120/80/60 columns and explicit narrow navigation", function()
       with_book({ columns = 120, layout = layout }, function(s)
         local st = s._navigation
-        if layout == "ondemand" then
-          t.eq(nil, st.panels.book)
-        else
-          t.ok(st.panels.book)
-          t.ok(vim.api.nvim_win_get_width(s.read_win) >= 48)
-        end
-        if layout == "separate" then
-          t.ok(st.panels.outline)
-        end
+        t.eq(nil, st.panels.book)
+        Navigation.toggle(s)
+        t.ok(st.panels.book and not st.panels.book.floating)
+        t.eq(nil, st.panels.outline)
         vim.o.columns = 80
         vim.api.nvim_exec_autocmds("VimResized", {})
         vim.wait(100, function()
@@ -220,9 +217,8 @@ return function(t)
         vim.o.columns = 60
         vim.api.nvim_exec_autocmds("VimResized", {})
         t.ok(vim.wait(100, function()
-          return st.panels.book == nil
+          return st.panels.book and st.panels.book.floating
         end, 5))
-        Navigation.toggle(s)
         t.ok(st.panels.book)
         t.eq("editor", vim.api.nvim_win_get_config(st.panels.book.win).relative)
         t.eq(false, s.closed)
@@ -275,6 +271,7 @@ return function(t)
         }
       end,
     }, function(s, root)
+      Navigation.toggle(s)
       local tree = s.snapshot.trees[1]
       t.eq("first-intro", s._navigation.current.id)
       t.eq(true, Navigation.move(s, "next"))
@@ -290,6 +287,7 @@ return function(t)
   end)
   t.test("failed unsaved config reparse keeps stale navigation and recovery replaces snapshot", function()
     with_book({}, function(s, root)
+      Navigation.toggle(s)
       local old = s.snapshot
       local config = vim.fn.bufadd(root .. "/book.toml")
       vim.fn.bufload(config)
@@ -312,7 +310,7 @@ return function(t)
       t.eq(root .. "/chapters/second.md", s.document.path)
     end)
   end)
-  t.test("1000-page mdBook actual Session initial load and reparse benchmark", function()
+  t.test("1000-page mdBook reader startup and first navigation benchmark", function()
     local summary = { "# Summary" }
     local files = {}
     for i = 1, 1000 do
@@ -324,8 +322,8 @@ return function(t)
     with_book({ files = files, initial_path = "chapters/page-0001.md" }, function(s, root, _, initial)
       local clock = vim.uv or vim.loop
       local start = clock.hrtime()
-      s:load_navigation()
-      s:refresh()
+      t.eq(nil, s.snapshot)
+      Navigation.toggle(s)
       local reparse = (clock.hrtime() - start) / 1e6
       t.eq(1000, #s.snapshot.trees[1].items)
       local order = require("md-readable.navigation.order").reading_order(s.snapshot.trees[1], root)
@@ -333,7 +331,7 @@ return function(t)
       t.eq("chapters/page-1000.md", order[1000].target.path)
       print(
         string.format(
-          "BENCH navigation mdBook 1000 pages: initial Session.open %.2f ms; load_navigation+refresh %.2f ms (integrated UI enabled; fixture creation excluded)",
+          "BENCH navigation mdBook 1000 pages: initial Session.open %.2f ms; first navigation toggle %.2f ms (lazy unified panel; fixture creation excluded)",
           initial,
           reparse
         )

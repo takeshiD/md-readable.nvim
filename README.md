@@ -94,7 +94,7 @@ Setup is optional. See [Keymaps](#keymaps) for reading-buffer keys. Every action
 
 | Command after `MdReadable`                        | Action                                                                                              |
 | ---                                               | ---                                                                                                 |
-| `nav` / `outline` / `select`                      | Book tree, page headings, adapter/tree selection                                                    |
+| `nav` / `outline` / `select`                      | Unified contents (nav/outline), adapter/tree selection                                                    |
 | `prev` / `next` / `heading-prev` / `heading-next` | Chapter/heading navigation                                                                          |
 | `links` / `open`                                  | Floating link list (Enter open, o show in text, q close), or open the link/cell under the cursor    |
 | `search [pattern]`                                | Search the original, including omitted text                                                         |
@@ -111,8 +111,7 @@ To edit a table, use `gs` to return to its corresponding source position. Readin
 
 ```lua
 require("md-readable").setup({
-  -- Layout: "integrated", "separate" or "ondemand"
-  layout = "integrated",
+  -- Contents panel: placement follows the available width
   -- Body width; floats are at most width + 4 columns
   width = 100,
   -- Center the body in wider windows
@@ -147,12 +146,11 @@ require("md-readable").setup({
     mode = "braille",
   },
   navigation = {
-    -- Open the book tree with the reading view (former name: auto_open)
-    enable = true,
+    -- Contents start closed; gn / gO toggle the panel
     -- Moving over a heading scrolls the document (pages open with Enter)
     follow = true,
-    -- How gn opens the book tree: "auto" (by width and layout), "sidebar" or "float"
-    style = "auto",
+    width = 28,
+    min_body_width = 48,
     fold = {
       -- Fold keys: one key, a list of keys, or false (disabled)
       keys = {
@@ -294,15 +292,11 @@ git = {
 
 Navigation follows the book's content directory (the deepest directory holding all pages of the contents, such as `src/` or a GitBook space directory). A file outside it, like a repository README next to `gitbook-docs.yaml`, gets no book tree, only its own headings. A page inside it that is not in the contents shows its headings above the book tree.
 
-`layout` decides how the book tree (`gn`) and the page headings (`gO`) are arranged.
+Contents start closed. `:MdReadable nav` / `gn` and `:MdReadable outline` / `gO` toggle the same panel. It includes the current page's headings inside the book tree; standalone Markdown shows its own headings. SSG detection and book parsing wait until the first contents operation (including `select` or explicit `refresh`) or previous/next page movement.
 
-| `layout`                 | When a reading view opens                                                               | Book tree contents                                   |
-| ------------------------ | --------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| `"integrated"` (default) | Opens the book tree as a left sidebar                                                   | The current page's headings, folded, under its entry |
-| `"separate"`             | Opens the book tree on the left and the page headings on the right (when there is room) | Pages only; headings live in the right panel         |
-| `"ondemand"`             | Opens nothing; `gn` opens a floating tree by default (`navigation.style = "auto"`)      | Same as `"integrated"`                               |
+The panel uses a left sidebar when available width is at least `navigation.width + navigation.min_body_width + 1` (77 columns by default), otherwise a temporary float. Resizing changes placement; selecting a page or heading in the float closes it and returns to the body. Floating reading views always use floating contents. Opening requires at least 24 columns and 8 rows.
 
-The book tree opens by itself only when `navigation.enable = true` and a page of a recognized book is opened with `:MdReadable` or `:MdReadable vert`. With `"separate"`, a page that is not in the contents shows its headings in the right panel instead of above the book tree.
+Migration: remove `layout = "integrated" | "separate" | "ondemand"`, `navigation.auto_open`, `navigation.enable`, and `navigation.style`. They remain accepted but are ignored. Legacy `nav/outline float|sidebar`, `toggle_nav({ float = ... })`, and `toggle_nav_float/sidebar` also toggle this automatically placed panel. Source/reader `current / vert / float` modes and reading-only themes are unchanged.
 
 At narrow widths, navigation uses a floating chooser to preserve the reading area. Nerd Font glyphs are not required; an ASCII minimap mode is available.
 
@@ -321,7 +315,7 @@ No global keymaps are installed; map the keys that open a reading view with `key
 | `]]` / `[[` | `actions.heading_next` / `actions.heading_prev` | Next / previous heading                                |
 | `]p` / `[p` | `actions.next_page` / `actions.prev_page`       | Next / previous page                                   |
 | `gn`        | `actions.toggle_nav`                            | Book tree                                              |
-| `gO`        | `actions.outline`                               | Page headings                                          |
+| `gO`        | `actions.outline`                               | Toggle contents (alias) |
 | `gl`        | `actions.links`                                 | Link list                                              |
 | `g/`        | `actions.search`                                | Search the source, including omitted text              |
 | `gz`        | `actions.toggle_focus`                          | Toggle Focus; in Visual mode, focus the selected lines |
@@ -338,20 +332,7 @@ You can also map
 - `actions.toggle_nav_float`
 - `actions.toggle_nav_sidebar`
 
-Actions can also be called from a function keymap: `require("md-readable.actions").toggle_nav({ float = true })` opens the book tree in a floating window.
-For further customization, configure it like this:
-
-```lua
-keymaps = {
-    ["gN"] = { mode = "n", function()
-            require("md-readable.actions").toggle_nav({float = true})
-        end,
-        desc = "Toggle Nav on Floating Window"
-    }
-}
-```
-
-`:MdReadable nav float|sidebar` does the same. `:MdReadable outline sidebar` opens the page headings as a right sidebar instead of the default floating window. These keys are always installed and are not configured here:
+Function keymaps can call `require("md-readable.actions").toggle_nav()`. These keys are always installed and are not configured here:
 
 - `y` / `Y`: copy the corresponding Markdown source
 - `/` `?` `n` `N`: search the displayed text

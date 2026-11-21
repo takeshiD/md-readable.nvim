@@ -66,3 +66,33 @@ The image/Mermaid implementations are present, but these real-environment checks
 ## Compatibility boundaries
 
 See `tests/fixtures/navigation/SUPPORTED.md` for exact static parser/SSG subsets and limitations. HTML details and tab components are static multiline forms; arbitrary components are shown as source, never executed. Images need a compatible terminal and optional local converters. Missing tools leave readable alt text or code.
+
+## Issue #52 verification (2026-11-21)
+
+Integrated `origin/main` at `ea0ae0c` (#50 and #51 included). Neovim 0.12.6.
+
+- `nvim --headless -n -u NONE -i NONE -l tests/run.lua`: **227 tests, 0 failures**.
+- `nvim --headless -n -u NONE -i NONE -l tests/pty_navigation.lua`: PASS. A real
+  Neovim TUI runs in a PTY, with terminal capability response and VimEnter wait.
+  A heading selected before 120 → 60 → 120 → 60 column resizes stays selected
+  and opens with Enter. Page selection, Escape, return to the reader, keeping
+  closed contents closed and source preservation also pass.
+- Unit/integration coverage includes one panel for both nav/outline, all legacy
+  placement inputs, standalone headings, closed startup, no SSG load on startup,
+  ordinary refresh, save or link movement, lazy previous/next, all seven adapters,
+  fold/focus/selection preservation, missing-selection fallback and tiny screens.
+- StyLua, `git diff --check`, and help-tag generation pass. LuaLS with Neovim's
+  runtime library reports 12 warnings: 3 in the minimap migration inherited from main
+  (config.lua), and 9 in image/display.lua, providers/image.lua and
+  renderers/extensions.lua. No warnings point to the Issue #52 changes.
+- Reviewer-provided selected-heading resize reproduction passes.
+
+The headless resize round-trip regression uses actual split opening/closing to
+supply stable geometry; the PTY test covers actual terminal resizing. This does
+not constitute a visual review of fonts, colors or image protocols.
+
+The 1,000-page fixture measured startup at 51.46 ms before this change. An
+observed post-change run measured startup at 1.42 ms and the first contents
+operation at 51.24 ms. Work is deferred to first use, not eliminated. These are
+single-run observations, not performance guarantees; fixture setup is excluded.
+Reading-only themes, source/reader modes and cursor synchronization are retained.

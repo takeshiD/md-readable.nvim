@@ -86,6 +86,7 @@
 ---@field nav_result? MdReadableNavResult Last navigation load result
 ---@field snapshot? MdReadableNavSnapshot
 ---@field stale? boolean Snapshot kept although the last load failed
+---@field navigation_loaded? boolean SSG detection has been explicitly requested
 ---@field focus_enabled? boolean
 ---@field watching? {buf:integer, path:string, timer:uv.uv_timer_t, handle?:uv.uv_fs_event_t} Source file watcher
 ---@field yank_previous? table<string, table> Register name to getreginfo() before a yank
