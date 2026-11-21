@@ -26,7 +26,7 @@ return function(t)
       { "nav", "md-readable: Open a reading view with :MdReadable first" },
       { "focus maybe", "md-readable: focus: expected on | off | toggle, got maybe" },
       { "images", "md-readable: images: expected allow | deny" },
-      { "table format x", "md-readable: table: count must be a number, got x" },
+      { "table format x", "md-readable: Unknown MdReadable command: table" },
     }
     for _, case in ipairs(cases) do
       local messages = capture(function()
@@ -46,7 +46,7 @@ return function(t)
       vim.cmd("MdReadable table")
     end)
     t.eq("md-readable: theme: expected default | dark | light, got sepia", messages[1].message)
-    t.eq("md-readable: Cursor is not in a Markdown table", messages[2].message)
+    t.eq("md-readable: Unknown MdReadable command: table", messages[2].message)
     cleanup()
   end)
   t.test("internal errors keep their traceback in message history", function()
@@ -70,17 +70,18 @@ return function(t)
       return api.complete(lead, line, #line)
     end
     t.ok(vim.tbl_contains(complete("MdReadable "), "focus"))
-    t.eq({ "theme", "table", "tab" }, complete("MdReadable t"))
+    t.eq({ "theme", "tab" }, complete("MdReadable t"))
     t.eq({ "on", "off", "toggle" }, complete("MdReadable focus "))
     t.eq({ "off" }, complete("MdReadable focus of"))
     t.eq({ "default", "dark", "light" }, complete("MdReadable theme "))
     t.eq({ "on", "off", "toggle", "focus" }, complete("MdReadable minimap "))
-    t.eq({ "row-before", "row-after", "row-delete" }, complete("MdReadable table row"))
+    t.eq({}, complete("MdReadable table row"))
     t.eq({ "allow", "deny" }, complete("MdReadable images "))
     t.eq({ "on", "off", "toggle" }, complete("'<,'>MdReadable focus "))
     t.eq({ "float", "sidebar" }, complete("MdReadable nav "))
     t.eq({}, complete("MdReadable close "))
     t.eq({}, complete("MdReadable focus on "))
+    t.eq({}, complete("MdReadable table "))
     t.eq({}, complete("MdReadable table format "))
     t.eq({ "focus" }, vim.fn.getcompletion("MdReadable foc", "cmdline"))
     t.eq({ "toggle" }, vim.fn.getcompletion("MdReadable focus t", "cmdline"))

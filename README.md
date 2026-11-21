@@ -32,9 +32,6 @@ It provides a minimap, jumps across file links, index navigation for major SSGs,
     - Color theme switching
     - Truncated display of long text in tables / URLs (raw URLs in the text and the `links` list)
     - Link kind markers (external ↗, document →, anchor #, file ⧉, etc.)
-- `Formatting`
-    - Table formatting
-    - Table row and column insertion/deletion
 - `Contents`
     - Image display (png, jpg, svg, webp, etc.)
     - Mermaid diagram rendering (mmdc, termaid)
@@ -104,14 +101,11 @@ Setup is optional. See [Keymaps](#keymaps) for reading-buffer keys. Every action
 | `focus on/off/toggle`                             | Paragraph Focus; started with a Visual range, it fixes the focused lines                            |
 | `theme default/dark/light`                        | Change only the reading view's colors                                                               |
 | `minimap on/off/toggle/focus`                     | Minimap; moving in it scrolls the document, Enter returns there                                     |
-| `table format`                                    | Align the original table explicitly                                                                 |
-| `table row-before/row-after/row-delete [count]`   | Insert/delete data rows                                                                             |
-| `table col-before/col-after/col-delete [count]`   | Insert/delete columns                                                                               |
 | `expand` / `tab [index]`                          | Expand omitted content, select a static tab                                                         |
 | `images allow/deny`                               | Permit/deny web image retrieval for this reading session                                            |
 | `refresh` / `diagnostics`                         | Reload structure, inspect navigation/image errors                                                   |
 
-Table edits are undoable and do not save the file. Copying decoration only leaves the registers unchanged. Copying a truncated cell including its `…` copies the whole original cell.
+To edit a table, use `gs` to return to its corresponding source position. Reading operations leave unsaved source content unchanged. Copying decoration only leaves the registers unchanged. Copying a truncated cell including its `…` copies the whole original cell.
 
 # Configuration
 
@@ -132,6 +126,7 @@ require("md-readable").setup({
     -- Link kind markers: "unicode", "ascii", false, or a table per kind
     icons = "unicode",
   },
+  -- Display only; use gs to return to the source for table editing.
   table = {
     enable = true,
     max_cell_width = 28,

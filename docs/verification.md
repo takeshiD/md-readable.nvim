@@ -18,6 +18,19 @@ Covered behavior includes Markdown and static extensions, source byte ranges and
 
 Real installed Telescope and Snacks APIs were exercised. ImageMagick was used to convert actual SVG/JPEG/WebP data. Media protocol tests intercept terminal output; Mermaid process tests use a controlled executable fixture.
 
+## Issue #50 verification (2026-11-21)
+
+Before removal: **224 tests, 0 failures**, including the original table formatting
+and row/column editing tests. After removal: **221 tests, 0 failures**; obsolete
+editing tests were removed and replaced with rejection and reader regressions.
+The new tests cover all removed actions, completion, and current/vertical/floating
+views of an unsaved quoted table: clipped rendering, full-cell inspection, source
+copying, SourceMap byte positions, theme switching, refresh and the actual gs key.
+Source content, changedtick and modified state remain unchanged.
+StyLua, help-tag generation and git diff --check also pass. These checks are
+headless; no interactive terminal visual inspection or performance improvement
+measurement was performed for this removal.
+
 ## Performance observation
 
 An actual mdBook fixture with 1,000 Markdown files and integrated sidebar took approximately 50 ms for initial Session.open and 47 ms for load_navigation + refresh on this environment, excluding fixture creation. These are observations, not latency guarantees. The fixture and measurement are in `tests/test_end_to_end.lua`; context is in `tests/fixtures/navigation/END_TO_END.md`.
