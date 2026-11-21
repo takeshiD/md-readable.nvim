@@ -5,7 +5,7 @@ local M = {}
 local namespace = vim.api.nvim_create_namespace("md-readable-navigation")
 local next_id = 0
 
----@alias MdReadableNavUiPanelKind "book"|"outline"
+---@alias MdReadableNavUiPanelKind "book"
 ---@class MdReadableNavUiEntry One panel row
 ---@field kind "label"|"heading"|"node"
 ---@field heading? MdReadableHeading
@@ -35,7 +35,6 @@ local next_id = 0
 ---@field panels table<MdReadableNavUiPanelKind, MdReadableNavUiPanel>
 ---@field order MdReadableNavNode[] Reading order of the active tree
 ---@field open boolean
----@field float? boolean Style the user asked for (true floating, false sidebar); nil follows width/layout
 ---@field revision integer
 ---@field snapshot? MdReadableNavSnapshot
 ---@field tree_id? string
@@ -272,7 +271,7 @@ local function rebuild(session, st, panel)
     lines[#lines + 1] = clip(text, width)
     entries[#lines] = entry or { kind = "label" }
   end
-  add(panel.kind == "outline" and "On this page" or (st.tree and st.tree.title or "Navigation"))
+  add(st.tree and st.tree.title or "Contents")
   -- The fold hint shows the first configured collapse/expand keys.
   local fold_keys = ((session.config.navigation or {}).fold or {}).keys
     or require("md-readable.config").defaults.navigation.fold.keys
@@ -343,16 +342,14 @@ local function rebuild(session, st, panel)
       end
     end
   end
-  if panel.kind == "outline" then
-    add_headings(0)
-  elseif st.tree then
+  if st.tree then
     ---@param nodes MdReadableNavNode[]
     ---@param depth integer
     ---@param parent? string
     local function visit(nodes, depth, parent)
       for _, node in ipairs(nodes) do
         local current = st.current and st.current.id == node.id
-        local with_headings = current and session.config.layout ~= "separate" and #headings > 0
+        local with_headings = current and #headings > 0
         local expandable = #node.children > 0 or with_headings == true
         local mark = fold_icon(expandable, node.id)
         local target = node.target
@@ -372,7 +369,7 @@ local function rebuild(session, st, panel)
       end
     end
     -- A page that is not in the contents still gets its headings, on top.
-    if not st.current and #headings > 0 and session.config.layout ~= "separate" then
+    if not st.current and #headings > 0 then
       add("Not in the contents")
       add_headings(0)
       add("")
@@ -483,8 +480,7 @@ local function activate(session, st, panel)
     and entry.kind ~= "label"
     and (entry.kind == "heading" or (entry.node and entry.node.target and entry.node.target.type == "document"))
   then
-    destroy(panel)
-    st.panels[panel.kind] = nil
+    M.close(session)
   end
 end
 -- Moves the reading view to the heading under the panel cursor while the
@@ -662,7 +658,7 @@ local function create_panel(session, st, kind, floating, focus)
     })
   else
     vim.api.nvim_set_current_win(session.read_win)
-    vim.cmd((kind == "outline" and "rightbelow" or "leftabove") .. " " .. width .. "vsplit")
+    vim.cmd("leftabove " .. width .. "vsplit")
     win = vim.api.nvim_get_current_win()
     vim.api.nvim_win_set_buf(win, buf)
     vim.api.nvim_win_set_width(win, width)
@@ -670,6 +666,18 @@ local function create_panel(session, st, kind, floating, focus)
   options(win)
   local panel = { buf = buf, win = win, kind = kind, floating = floating, entries = {} }
   st.panels[kind] = panel
+  vim.api.nvim_create_autocmd("WinClosed", {
+    pattern = tostring(win),
+    once = true,
+    callback = function()
+      vim.schedule(function()
+        -- Ignore windows replaced by resize or explicitly closed by this UI.
+        if st.panels[kind] == panel and not valid(panel.win) then
+          M.close(session)
+        end
+      end)
+    end,
+  })
   -- The configured reader keymaps work here too; the panel keys set below
   -- replace any of them on the same key (Enter, q, h/l, ...).
   require("md-readable.keymaps").attach(buf, session.config.keymaps)
@@ -709,8 +717,7 @@ local function create_panel(session, st, kind, floating, focus)
   end, "Close navigation and return to document")
   key("<Esc>", function()
     if floating then
-      destroy(panel)
-      st.panels[kind] = nil
+      M.close(session)
     end
     focus_reader(session)
   end, "Return to document")
@@ -811,7 +818,7 @@ function M.update(session)
   st.updating = false
 end
 ---@param session MdReadableSession
----@param opts? {user?: boolean, float?: boolean} user: opened by an explicit command; float: force the style
+---@param opts? {user?: boolean, float?: boolean} user: focus the panel; float: deprecated, ignored
 ---@return integer? win Book panel window
 function M.open(session, opts)
   opts = opts or {}
@@ -824,10 +831,13 @@ function M.open(session, opts)
     end
     return
   end
+  if session.ensure_navigation then
+    session:ensure_navigation()
+  end
   local st = state(session)
   st.open = true
   refresh_model(session, st)
-  local cfg, layout = session.config.navigation or {}, session.config.layout or "integrated"
+  local cfg = session.config.navigation or {}
   local width, minimum = cfg.width or 28, cfg.min_body_width or 48
   local available = vim.api.nvim_win_get_width(session.read_win)
   for _, panel in pairs(st.panels) do
@@ -838,24 +848,10 @@ function M.open(session, opts)
   available = math.min(available, vim.o.columns)
   local narrow = available < minimum + width + 1
   st.available_width, st.lines = available, vim.o.lines
-  if opts.float ~= nil then
-    st.float = opts.float
-  end
-  -- An explicit choice wins, then navigation.style; "auto" decides by width
-  -- and layout. Opening by itself only ever places a sidebar.
-  local floating = st.float
-  if floating == nil and cfg.style == "float" then
-    floating = true
-  elseif floating == nil and cfg.style == "sidebar" then
-    floating = false
-  elseif floating == nil then
-    floating = narrow or layout == "ondemand"
-  end
-  if not st.panels.book and (opts.user or (not narrow and layout ~= "ondemand" and not floating)) then
+  -- Reader floats cannot own splits; all other placement follows available width.
+  local floating = narrow or vim.api.nvim_win_get_config(session.read_win).relative ~= ""
+  if not st.panels.book then
     create_panel(session, st, "book", floating, opts.user)
-  end
-  if layout == "separate" and not floating and not st.panels.outline and available >= minimum + width * 2 + 2 then
-    create_panel(session, st, "outline", false, false)
   end
   if not st.group then
     st.group = vim.api.nvim_create_augroup("MdReadableNavigation" .. st.id, { clear = true })
@@ -879,12 +875,11 @@ function M.open(session, opts)
           end
           local active = vim.api.nvim_get_current_win()
           local was_focused = st.panels.book and st.panels.book.win == active
-          local was_float = st.panels.book and st.panels.book.floating
           for kind, panel in pairs(st.panels) do
             destroy(panel)
             st.panels[kind] = nil
           end
-          M.open(session, { user = was_focused or was_float })
+          M.open(session, { user = was_focused })
         end)
       end,
     })
@@ -898,7 +893,7 @@ function M.close(session)
   if not st then
     return
   end
-  st.open, st.float = false, nil
+  st.open = false
   for kind, panel in pairs(st.panels) do
     destroy(panel)
     st.panels[kind] = nil
@@ -910,56 +905,33 @@ function M.close(session)
     st.group = nil
   end
 end
--- Closes the book panel, or opens it. opts.float picks the style (true
--- floating window, false sidebar); a panel open in the other style is
--- reopened in the requested one instead of closed.
+-- Legacy style arguments are accepted but placement always follows width.
 ---@param session MdReadableSession
----@param opts? {float?: boolean}
+---@param opts? {float?: boolean} Deprecated; ignored
 function M.toggle(session, opts)
-  opts = opts or {}
   local st = state(session)
   local book = st.panels.book
-  local open = book and valid(book.win)
-  if open and (opts.float == nil or book.floating == opts.float) then
+  if book and valid(book.win) then
     M.close(session)
     focus_reader(session)
   else
-    if open then
-      M.close(session)
-    end
-    local win = M.open(session, { user = true, float = opts.float })
+    local win = M.open(session, { user = true })
     if valid(win) then
       ---@cast win -nil
       vim.api.nvim_set_current_win(win)
     end
   end
 end
--- Focuses the page headings panel, or opens it. opts.float picks the style
--- (true floating window, the default for a new panel; false sidebar on the
--- right); a panel open in the other style is reopened in the requested one.
----@param session MdReadableSession
----@param opts? {float?: boolean}
-function M.outline(session, opts)
-  opts = opts or {}
-  local st = state(session)
-  st.open = true
-  refresh_model(session, st)
-  local panel = st.panels.outline
-  if panel and valid(panel.win) and (opts.float == nil or panel.floating == opts.float) then
-    vim.api.nvim_set_current_win(panel.win)
-  else
-    if panel then
-      destroy(panel)
-      st.panels.outline = nil
-    end
-    create_panel(session, st, "outline", opts.float ~= false, true)
-  end
-  M.update(session)
-end
+
+-- Compatibility entry point: headings live in the same contents panel.
+M.outline = M.toggle
 ---@param session MdReadableSession
 ---@param direction "prev"|"previous"|"next"
 ---@return boolean moved
 function M.move(session, direction)
+  if session.ensure_navigation then
+    session:ensure_navigation()
+  end
   local st = state(session)
   refresh_model(session, st)
   local node
@@ -978,6 +950,9 @@ function M.move(session, direction)
 end
 ---@param session MdReadableSession
 function M.select(session)
+  if session.ensure_navigation then
+    session:ensure_navigation()
+  end
   local result = session.nav_result
   if result and result.status == "ambiguous" and result.candidates then
     vim.ui.select(result.candidates, {

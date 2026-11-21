@@ -126,7 +126,20 @@ function Session:sync(from)
   end
   self.busy = false
 end
+function Session:reload_navigation_if_loaded()
+  if self.navigation_loaded then
+    self:load_navigation()
+  end
+end
+
+function Session:ensure_navigation()
+  if not self.navigation_loaded then
+    self:load_navigation()
+  end
+end
+
 function Session:load_navigation()
+  self.navigation_loaded = true
   local path = vim.api.nvim_buf_get_name(self.source_buf)
   if path == "" then
     return
@@ -291,7 +304,7 @@ function Session:native_jump(key, count)
   end
   self.busy = false
   self:attach_source()
-  self:load_navigation()
+  self:reload_navigation_if_loaded()
   self:refresh()
   self:jump_source(destination[1] - 1, destination[2])
 end
@@ -453,7 +466,7 @@ function Session:navigate(path, anchor)
     not self.snapshot
     or (self.snapshot.rootDir ~= "/" and path:sub(1, #self.snapshot.rootDir + 1) ~= self.snapshot.rootDir .. "/")
   then
-    self:load_navigation()
+    self:reload_navigation_if_loaded()
   end
   self:refresh()
   local dest = self.positions[path] or { 0, 0 }
@@ -612,7 +625,7 @@ function M.open(mode)
             end
             self.busy = false
             self:attach_source()
-            self:load_navigation()
+            self:reload_navigation_if_loaded()
             self:refresh()
             self:jump_source(point[1] - 1, point[2])
           end)
@@ -629,7 +642,7 @@ function M.open(mode)
       if vim.bo[args.buf].buftype == "" then
         self.source_buf = args.buf
         self:attach_source()
-        self:load_navigation()
+        self:reload_navigation_if_loaded()
         self:schedule()
       end
     end,
@@ -638,7 +651,7 @@ function M.open(mode)
     group = self.group,
     callback = function()
       if not self.closed then
-        self:load_navigation()
+        self:reload_navigation_if_loaded()
         self:schedule()
       end
     end,
@@ -671,7 +684,6 @@ function M.open(mode)
   require("md-readable.keymaps").attach(buf, config.keymaps)
   self:attach_source()
   local ok, err = pcall(function()
-    self:load_navigation()
     self:refresh()
     self:jump_source(original_cursor[1] - 1, original_cursor[2])
   end)
@@ -679,14 +691,10 @@ function M.open(mode)
     M.close(self)
     error(err)
   end
-  if config.navigation.enable and self.snapshot and mode ~= "float" then
-    service("ui.navigation", "open", self)
-  end
   if config.focus.enable then
     self.focus_enabled = service("reader.focus", "set", self, true)
   end
-  -- Opened after the navigation panel so the minimap fits the remaining width;
-  -- a reading window too narrow for it simply starts without one.
+  -- A reading window too narrow for the minimap starts without one.
   if config.minimap.enable then
     service("minimap", "open", self)
   end

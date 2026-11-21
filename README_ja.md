@@ -97,7 +97,7 @@ setupは任意です。読書bufferのキーマップは[キーマップ](#キ�
 
 | `MdReadable`の後に続ける操作                      | 内容                                                                                           |
 | ---                                               | ---                                                                                            |
-| `nav` / `outline` / `select`                      | 書籍目次、ページ見出し、adapter・treeの選択                                                    |
+| `nav` / `outline` / `select`                      | 統合目次（nav/outline）、adapter・treeの選択                                                    |
 | `prev` / `next` / `heading-prev` / `heading-next` | 章・見出し移動                                                                                 |
 | `links` / `open`                                  | リンク一覧のfloat（Enterで開く、oで本文の位置へ、qで閉じる）、カーソル位置のリンク・セルを開く |
 | `search [pattern]`                                | 省略した内容を含む原文検索                                                                     |
@@ -118,7 +118,6 @@ setupは任意です。読書bufferのキーマップは[キーマップ](#キ�
 ```lua
 require("md-readable").setup({
   -- 配置: "integrated"・"separate"・"ondemand"
-  layout = "integrated",
   -- 本文幅。floatは最大でwidth + 4列
   width = 100,
   -- 広いwindowでは本文を中央に寄せる
@@ -151,12 +150,11 @@ require("md-readable").setup({
     mode = "braille",
   },
   navigation = {
-    -- 読書表示を開いた時点で目次を表示する（以前の名前はauto_open）
-    enable = true,
+    -- 目次は初期状態で閉じ、gn / gO で開閉する
     -- 見出しにカーソルを合わせると本文が追従する（ページはEnterで開く）
     follow = true,
-    -- gnで目次を開く方法: "auto"（画面幅とlayoutで決める）・"sidebar"・"float"
-    style = "auto",
+    width = 28,
+    min_body_width = 48,
     fold = {
       -- 折りたたみのキー。キー1つ・キーの配列・false（無効）で指定
       keys = {
@@ -295,15 +293,11 @@ git = {
 
 ナビゲーションは本の中身のフォルダー（目次のページをすべて含む最も深いフォルダー。`src/`やGitBookのspaceのフォルダーなど）を基準にします。その外にあるファイル（`gitbook-docs.yaml`と同じ場所のリポジトリのREADMEなど）では目次を出さず、そのファイルの見出しだけを表示します。中身のフォルダーにあっても目次に載っていないページでは、目次の上にそのページの見出しを表示します。
 
-`layout`は、目次（`gn`）とページ見出し（`gO`）の窓の並べ方を決めます。
+目次は初期状態で閉じています。`:MdReadable nav` / `gn` と `:MdReadable outline` / `gO` は、同じ単一パネルを開閉します。書籍目次の現在ページに見出しを含め、単独Markdownではそのページの見出しを表示します。SSG検出・書籍目次解析は最初の目次操作（`select`や明示的な`refresh`を含む）または前後ページ移動まで行いません。
 
-| `layout`               | 読書表示を開いたとき                                                      | 目次の中身                                                 |
-| ---------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| `"integrated"`（既定） | 左に目次のサイドバーを開く                                                | 現在のページの下に、そのページの見出しを折りたたんで含める |
-| `"separate"`           | 左に目次、右にページ見出しの窓を開く（右の窓は幅に余裕があるときだけ）    | ページだけを並べ、見出しは右の窓に分ける                   |
-| `"ondemand"`           | 何も開かない。`gn`で開くと既定（`navigation.style = "auto"`）ではfloating | `"integrated"`と同じ                                       |
+利用可能幅が `navigation.width + navigation.min_body_width + 1`（既定77桁）以上なら左サイドバー、それ未満なら一時的なfloatです。リサイズで配置を変更し、floatでページ・見出しを選ぶと閉じて本文に戻ります。floatの読書表示では目次もfloatになります。24桁×8行未満では開けません。
 
-目次が自動で開くのは、SSGの本として認識したページを`:MdReadable`か`:MdReadable vert`で開き、`navigation.enable = true`のときです。`"separate"`では、目次に載っていないページでも目次の上に見出しを表示しません（右の窓に表示します）。
+移行: 旧 `layout = "integrated" | "separate" | "ondemand"`、`navigation.auto_open`、`navigation.enable`、`navigation.style` は削除してください。互換入力として受け付けますが無視します。旧 `nav/outline float|sidebar` と `toggle_nav({ float = ... })`、`toggle_nav_float/sidebar` も同じ自動配置パネルの開閉になります。原文と読書表示の `current / vert / float` は変更しません。読書専用テーマも引き続き使えます。
 
 狭い画面では本文幅を優先し、目次をfloatingで選択できます。Nerd Fontは不要で、ミニマップには`mode = "ascii"`もあります。
 
@@ -322,7 +316,7 @@ git = {
 | `]]` / `[[` | `actions.heading_next` / `actions.heading_prev` | 次・前の見出し                                  |
 | `]p` / `[p` | `actions.next_page` / `actions.prev_page`       | 次・前のページ                                  |
 | `gn`        | `actions.toggle_nav`                            | 書籍目次                                        |
-| `gO`        | `actions.outline`                               | ページ見出し                                    |
+| `gO`        | `actions.outline`                               | 統合目次の開閉（別名） |
 | `gl`        | `actions.links`                                 | リンク一覧                                      |
 | `g/`        | `actions.search`                                | 省略した内容を含む原文検索                      |
 | `gz`        | `actions.toggle_focus`                          | Focus切替。Visual選択中は選択行にFocus          |
@@ -341,20 +335,7 @@ git = {
 
 を割り当てられます。
 
-関数のキーマップからactionを呼ぶこともでき、`require("md-readable.actions").toggle_nav({ float = true })`で目次をフローティングウィンドウで開きます。
-したがってよりカスタマイズする場合は次のように設定することが出来ます。
-
-```lua
-keymaps = {
-    ["gN"] = { mode = "n", function()
-            require("md-readable.actions").toggle_nav({float = true})
-        end,
-        desc = "Toggle Nav on Floating Window"
-    }
-}
-```
-
-`:MdReadable nav float|sidebar`でも同じです。ページ見出しは`:MdReadable outline sidebar`で、既定の浮動ウィンドウの代わりに右側のサイドバーとして開きます。次のキーは常に有効で、設定では変更しません。
+関数のキーマップでは `require("md-readable.actions").toggle_nav()` を呼び出せます。次のキーは常に有効で、設定では変更しません。
 
 - `y` / `Y`: 対応するMarkdown原文をコピー
 - `/` `?` `n` `N`: 表示テキストを検索

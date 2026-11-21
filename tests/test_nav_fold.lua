@@ -32,7 +32,11 @@ return function(t)
       debounce = 0,
     }, opts or {}))
     vim.cmd("edit " .. path)
-    return api.open("current")
+    local session = api.open("current")
+    if not (opts and opts.closed) then
+      actions.toggle_nav()
+    end
+    return session
   end
   local function panel(s)
     local p = s._navigation and s._navigation.panels.book
@@ -60,12 +64,11 @@ return function(t)
     local s = open(root .. "/README.md")
     t.eq(nil, s.snapshot, "no book for the repository README")
     t.eq("outside-content", s.nav_result.diagnostics[1].code)
-    t.eq(nil, panel(s), "not opened automatically")
-    actions.toggle_nav()
+
     t.ok(vim.tbl_contains(lines(panel(s)), "- # Repository"), vim.inspect(lines(panel(s))))
     s = open(root .. "/src/intro.md")
     t.ok(s.snapshot, "a page of the book")
-    t.ok(panel(s), "opened automatically")
+    t.ok(panel(s), "explicitly opened")
     local model = require("md-readable.navigation.model")
     t.eq("src", model.content_dir(s.snapshot.trees[1]))
     t.ok(model.contains(s.snapshot, root .. "/src/deep/page.md"))
@@ -140,38 +143,21 @@ return function(t)
     vim.o.columns, vim.o.lines = columns, rows
   end)
 
-  t.test("navigation.style decides how toggle_nav opens the book tree", function()
+  t.test("retired placement and startup settings cannot auto-open navigation", function()
     local columns, rows = vim.o.columns, vim.o.lines
-    local root = book()
-    local s = open(root .. "/src/intro.md", { navigation = { style = "float" } })
-    t.eq(nil, panel(s), "a float never opens by itself")
-    actions.toggle_nav()
-    t.ok(panel(s) and panel(s).floating, "style float")
-    s = open(root .. "/src/intro.md", { layout = "ondemand", navigation = { style = "sidebar" } })
-    actions.toggle_nav()
-    t.ok(panel(s) and not panel(s).floating, "style sidebar, even with an on-demand layout")
-    vim.api.nvim_set_current_win(s.read_win)
-    actions.toggle_nav({ float = true })
-    t.ok(panel(s) and panel(s).floating, "an explicit choice still wins")
-    local ok, err = pcall(api.setup, { navigation = { style = "popup" } })
-    t.ok(not ok and err:find('navigation.style must be "auto", "sidebar" or "float"', 1, true), tostring(err))
-    cleanup()
-    vim.o.columns, vim.o.lines = columns, rows
-  end)
-
-  t.test("navigation.enable decides whether the book tree opens with the reading view", function()
-    local columns, rows = vim.o.columns, vim.o.lines
-    local root = book()
-    local s = open(root .. "/src/intro.md", { navigation = { enable = false } })
-    t.eq(nil, panel(s), "enable = false: not opened")
-    actions.toggle_nav()
-    t.ok(panel(s), "gn still opens it")
-    s = open(root .. "/src/intro.md", { navigation = { auto_open = false } })
-    t.eq(nil, panel(s), "auto_open is the former name")
-    t.eq(false, s.config.navigation.enable)
-    t.eq(nil, s.config.navigation.auto_open)
-    s = open(root .. "/src/intro.md", { navigation = { enable = true, auto_open = false } })
-    t.ok(panel(s), "enable wins")
+    for _, layout in ipairs({ "integrated", "separate", "ondemand" }) do
+      local s = open(book() .. "/src/intro.md", {
+        closed = true,
+        layout = layout,
+        navigation = { enable = true, auto_open = true, style = "float" },
+      })
+      t.eq(nil, panel(s))
+      t.eq(nil, s.snapshot)
+      t.eq(nil, s.config.layout)
+      t.eq(nil, s.config.navigation.auto_open)
+      actions.toggle_nav()
+      t.ok(panel(s) and not panel(s).floating)
+    end
     cleanup()
     vim.o.columns, vim.o.lines = columns, rows
   end)

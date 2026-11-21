@@ -84,7 +84,7 @@ return function(t)
   t.test("outline panel shows level markers and per-level highlights", function()
     local s = open({ "# Top", "", "## Middle", "", "### Low" })
     require("md-readable.ui.navigation").outline(s)
-    local panel = s._navigation.panels.outline
+    local panel = s._navigation.panels.book
     local lines = vim.api.nvim_buf_get_lines(panel.buf, 0, -1, false)
     -- Indent, fold icon (expanded "- " / leaf "  "), then the level marker.
     t.ok(vim.tbl_contains(lines, "- # Top"), vim.inspect(lines))
