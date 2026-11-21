@@ -1,6 +1,4 @@
 return function(t)
-  local formatter = require("md-readable.table.format")
-  local editor = require("md-readable.table.edit")
   local focus = require("md-readable.reader.focus")
   local theme = require("md-readable.ui.theme")
   local mini = require("md-readable.minimap.render")
@@ -56,69 +54,6 @@ return function(t)
     end
     return s
   end
-  local function tbl()
-    return {
-      start_row = 0,
-      end_row = 4,
-      alignments = { "left", "center", "right" },
-      rows = {
-        { source_row = 0, cells = { { text = "Name" }, { text = "中" }, { text = "Value" } } },
-        { source_row = 2, cells = { { text = "a\\|b" }, { text = "é" }, { text = "`x|y`" } } },
-        { source_row = 3, cells = { { text = "last" }, { text = "" }, { text = "5" } } },
-      },
-    }
-  end
-
-  t.test("table format preserves Unicode, inline code, escaped pipes and input", function()
-    local input = tbl()
-    local saved = vim.deepcopy(input)
-    local lines = formatter.format(input)
-    t.eq(saved, input)
-    t.eq(
-      { "| Name | 中  | Value |", "| :--- | :-: | ----: |", "| a\\|b |  é  | `x|y` |", "| last |     |     5 |" },
-      lines
-    )
-    for _, line in ipairs(lines) do
-      t.eq(vim.fn.strdisplaywidth(lines[1]), vim.fn.strdisplaywidth(line))
-    end
-  end)
-
-  t.test("table formatting measures tabs at their physical column", function()
-    local input = {
-      rows = {
-        { cells = { { text = "h" }, { text = "h" } } },
-        { cells = { { text = "a\tb" }, { text = "中\tend" } } },
-      },
-      alignments = { "left", "left" },
-    }
-    local lines = formatter.format(input)
-    t.ok(lines[3]:find("a\tb", 1, true))
-    for _, line in ipairs(lines) do
-      t.eq(vim.fn.strdisplaywidth(lines[1]), vim.fn.strdisplaywidth(line))
-    end
-  end)
-
-  t.test("column insertion and count deletion affect every row", function()
-    local input = tbl()
-    local added = assert(editor.edit(input, "col_after", 2, 2))
-    t.eq("| Name | 中  |     |     | Value |", added[1])
-    local removed = assert(editor.edit(input, "col_delete", 1, 2))
-    t.eq("| Value |", removed[1])
-    t.eq(3, #input.rows[1].cells)
-    t.eq(nil, editor.edit(input, "col_delete", 1, 3))
-    t.eq(nil, editor.edit(input, "col_after", 4, 1))
-    t.eq(nil, editor.edit(input, "col_before", 1, 0))
-  end)
-
-  t.test("row boundaries preserve a header and allow an empty data set", function()
-    local input = tbl()
-    t.eq(6, #assert(editor.edit(input, "row_after", 0, 2)))
-    t.eq(2, #assert(editor.edit(input, "row_delete", 1, 2)))
-    t.eq(nil, editor.edit(input, "row_delete", 0, 1))
-    t.eq(nil, editor.edit(input, "row_before", 0, 1))
-    t.eq(nil, editor.edit(input, "row_delete", 2, 2))
-  end)
-
   t.test("focus bounds match Limelight blank-line and span semantics", function()
     local s = session({ "first", "first continued", "", "second", "", "", "third", "" })
     local expected = { { 0, 3 }, { 0, 3 }, { 0, 5 }, { 4, 5 }, { 4, 6 }, { 6, 8 }, { 7, 8 }, { 7, 0 } }

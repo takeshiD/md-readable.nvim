@@ -162,17 +162,11 @@ type, variable, parameter, property, operator, punctuation, tag.
 
 TABLES                                                   *md-readable-tables*
 
-    :MdReadable table format
-    :MdReadable table row-before [count]
-    :MdReadable table row-after [count]
-    :MdReadable table row-delete [count]
-    :MdReadable table col-before [count]
-    :MdReadable table col-after [count]
-    :MdReadable table col-delete [count]
-
-Edits change the original buffer, are undoable, and never save automatically.
-Headers and delimiter rows stay structurally consistent; invalid boundary
-operations are rejected. Use open on an omitted cell to read its full value.
+Tables are rendered without changing the source buffer. Use open (Enter) on
+an omitted cell to read its full value; copying its ellipsis includes the
+whole original cell. Use gs to return to the corresponding source position
+and edit there. Reading operations preserve unsaved source content.
+There are no table formatting or row/column editing commands.
 
 MINIMAP                                                  *md-readable-minimap*
 
@@ -226,6 +220,7 @@ CONFIGURATION                                            *md-readable-setup*
                     current = '> ' },
         },
       },
+      -- Display only; edit tables in the source with gs.
       table = { enable = true, max_cell_width = 28 },
       focus = { enable = true, coefficient = 0.5, span = 0, priority = 10 },
       minimap = { enable = true, follow = true, width = 12, mode = 'braille' },

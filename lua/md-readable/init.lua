@@ -23,7 +23,6 @@ local commands = {
   "focus",
   "theme",
   "minimap",
-  "table",
   "expand",
   "tab",
   "images",
@@ -36,7 +35,6 @@ local arguments = {
   focus = { "on", "off", "toggle" },
   theme = { "default", "dark", "light" },
   minimap = { "on", "off", "toggle", "focus" },
-  table = { "format", "row-before", "row-after", "row-delete", "col-before", "col-after", "col-delete" },
   images = { "allow", "deny" },
   nav = { "float", "sidebar" },
   outline = { "float", "sidebar" },
@@ -89,56 +87,6 @@ local function source_position(s)
   local pos = vim.api.nvim_win_get_cursor(s.read_win)
   return s.map:to_source(pos[1] - 1, pos[2])
 end
----@param s MdReadableSession
----@param action string "format" or a table.edit action ("row_before", ...)
----@param count? integer
-local function edit_table(s, action, count)
-  local row, col = source_position(s)
-  for _, tbl in ipairs(s.document.tables or {}) do
-    if row >= tbl.start_row and row < tbl.end_row then
-      local lines, err
-      if action == "format" then
-        lines = require("md-readable.table.format").format(tbl)
-      else
-        local index = 1
-        if action:match("^row_") then
-          for i, item in ipairs(tbl.rows) do
-            if item.source_row <= row then
-              index = i - 1
-            end
-          end
-        else
-          for _, item in ipairs(tbl.rows) do
-            if item.source_row == row then
-              for i, cell in ipairs(item.cells) do
-                if cell.start_col <= col then
-                  index = i
-                end
-              end
-            end
-          end
-        end
-        lines, err = require("md-readable.table.edit").edit(tbl, action, index, count or 1)
-      end
-      if not lines then
-        errors.user(err or "Cannot edit this table")
-      end
-      ---@cast lines string[]
-      local before = vim.api.nvim_buf_get_lines(s.source_buf, tbl.start_row, tbl.end_row, false)
-      if not vim.deep_equal(before, lines) then
-        if not vim.bo[s.source_buf].modifiable then
-          errors.user("Source buffer is not modifiable")
-        end
-        vim.api.nvim_buf_set_lines(s.source_buf, tbl.start_row, tbl.end_row, false, lines)
-        s:refresh()
-        s:jump_source(row, col)
-      end
-      return
-    end
-  end
-  errors.user("Cursor is not in a Markdown table")
-end
-
 ---@param command? string Subcommand; empty opens the current-window reader
 ---@param args? string[]
 ---@param opts? MdReadableCommandOpts|vim.api.keyset.create_user_command.command_args
@@ -162,9 +110,6 @@ function M.action(command, args, opts)
   end
   if arguments[command] then
     check_argument(command, args[1], command == "images")
-  end
-  if command == "table" and args[2] and not tonumber(args[2]) then
-    errors.user("table: count must be a number, got " .. args[2])
   end
   local s = session()
   if command == "refresh" then
@@ -246,9 +191,6 @@ function M.action(command, args, opts)
     local map = require("md-readable.minimap")
     local action = ({ on = "open", off = "close", focus = "focus", toggle = "toggle" })[args[1] or "toggle"]
     map[action](s)
-  elseif command == "table" then
-    local action = (args[1] or "format"):gsub("-", "_")
-    edit_table(s, action, tonumber(args[2]) or 1)
   elseif command == "expand" then
     local row = source_position(s)
     s.expanded[row] = not s.expanded[row]

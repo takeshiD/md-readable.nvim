@@ -207,26 +207,4 @@ return function(t)
       end
     end
   end)
-  local has_format, formatter = pcall(require, "md-readable.table.format")
-  if has_format then
-    t.test("real format and edit preserve the surrounding callout and its cell values", function()
-      local source = { "> [!NOTE]", "> | A | B |", "> |---|---|", "> |x|y|" }
-      local value = parse(source).tables[1]
-      local formatted = formatter.format(value)
-      for _, line in ipairs(formatted) do
-        t.eq("> ", line:sub(1, 2))
-      end
-      local updated = { source[1] }
-      vim.list_extend(updated, formatted)
-      local reparsed = parse(updated)
-      t.eq("callout", reparsed.blocks[1].type)
-      t.eq("> ", reparsed.tables[1].prefix)
-      t.eq("x", reparsed.tables[1].rows[2].cells[1].text)
-      local edited = require("md-readable.table.edit").edit(reparsed.tables[1], "col_after", 1, 1)
-      for _, line in ipairs(edited) do
-        t.eq("> ", line:sub(1, 2))
-      end
-      t.eq(3, #tables.parse(edited, 0).alignments)
-    end)
-  end
 end

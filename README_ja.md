@@ -32,9 +32,6 @@
     - カラーテーマ切り替え
     - テーブル内/URLの長文省略表示（本文の生URLと`links`一覧）
     - リンク種別マーカー（外部 ↗、文書 →、アンカー #、ファイル ⧉。など)
-- `Formatting`
-    - テーブル整形
-    - 表の行・列の挿入削除
 - `Contents`
     - 画像表示(png,jpg,svg,webpなど)
     - Mermaidダイアグラムレンダリング(mmdc, termaid)
@@ -104,14 +101,11 @@ setupは任意です。読書bufferのキーマップは[キーマップ](#キ�
 | `focus on/off/toggle`                             | 段落Focus。Visual範囲を指定して起動すると行範囲を固定                                          |
 | `theme default/dark/light`                        | 読書表示だけの配色変更                                                                         |
 | `minimap on/off/toggle/focus`                     | ミニマップ。カーソル移動で本文が追従、Enterで本文へ戻る                                        |
-| `table format`                                    | 原文の表を明示的に整列                                                                         |
-| `table row-before/row-after/row-delete [count]`   | データ行の挿入・削除                                                                           |
-| `table col-before/col-after/col-delete [count]`   | 列の挿入・削除                                                                                 |
 | `expand` / `tab [index]`                          | 省略内容の展開、静的タブの選択                                                                 |
 | `images allow/deny`                               | この読書Sessionでの外部画像取得の許可・禁止                                                    |
 | `refresh` / `diagnostics`                         | 構造の再取得、ナビゲーション・画像エラーの確認                                                 |
 
-表編集はundoで戻せ、自動保存しません。装飾だけをコピーした場合はレジスタを変更しません。省略セルの`…`を含めてコピーすると、元のセル全体を取得します。
+表の編集は`gs`で対応する原文位置に戻って行います。読書操作は原文の未保存内容を変更しません。装飾だけをコピーした場合はレジスタを変更しません。省略セルの`…`を含めてコピーすると、元のセル全体を取得します。
 
 # 設定
 
@@ -132,6 +126,7 @@ require("md-readable").setup({
     -- リンク種別の記号: "unicode"・"ascii"・false・種別ごとの表
     icons = "unicode",
   },
+  -- 表の表示設定のみ。原文の編集はgsで戻って行います。
   table = {
     enable = true,
     max_cell_width = 28,
