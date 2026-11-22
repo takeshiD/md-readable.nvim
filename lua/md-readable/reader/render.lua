@@ -5,6 +5,7 @@
 ---@field reserve? fun(descriptor:MdReadableRenderedImage):boolean|integer false when the media cannot be drawn; a number of rows overrides image_height
 -- Render options: a (partial) configuration plus per-session state.
 ---@class MdReadableRenderOptions: MdReadableUserConfig
+---@field alerts? MdReadableConfigAlerts Fully merged alert configuration when supplied
 ---@field tabstop? integer
 ---@field expanded? table<integer, boolean> See MdReadableSession.expanded
 ---@field tabs? table<integer, integer> See MdReadableSession.tabs

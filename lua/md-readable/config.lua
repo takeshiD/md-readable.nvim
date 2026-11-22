@@ -313,9 +313,10 @@ function M.normalize(value, given)
   given = given or value
   -- Removed minimap annotations are ignored even in older configurations.
   -- The independent reader sign column remains controlled by top-level git.
-  if type(value.minimap) == "table" then
-    value.minimap.git = nil
-    value.minimap.diagnostic = nil
+  local minimap = value["minimap"]
+  if type(minimap) == "table" then
+    minimap.git = nil
+    minimap.diagnostic = nil
   end
   for _, name in ipairs({ "images", "mermaid" }) do
     local section, written = value[name], given[name]

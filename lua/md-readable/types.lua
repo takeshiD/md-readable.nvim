@@ -93,6 +93,7 @@
 ---@field yank_register? string Register named for the pending yank
 ---@field media_skipped? table<string, MdReadableImageProblem>
 ---@field media_failures? table<string, MdReadableImageProblem>
+---@field media_sizes? table<string, integer[]> Cached image pixel dimensions {width, height}
 ---@field tree_id? string Selected navigation tree
 ---@field _navigation? MdReadableNavUiState Navigation panel state
 ---@field _links_panel? MdReadableLinksUiPanel
