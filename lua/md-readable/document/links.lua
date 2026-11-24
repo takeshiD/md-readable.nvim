@@ -1,6 +1,6 @@
 local M = {}
 ---@alias MdReadableLinkKind 'footnote'|'image'|'unresolved'|'anchor'|'external'|'asset'|'document'
----@alias MdReadableLinkStyle 'inline'|'reference'|'footnote'|'autolink'|'bare'
+---@alias MdReadableLinkStyle 'inline'|'reference'|'footnote'|'autolink'|'bare'|'html'
 ---@class MdReadableLink
 ---@field text string Label text as written
 ---@field target string Unescaped target; footnotes use "^id"
@@ -74,6 +74,69 @@ local function closing(text, start, opening, ending)
       i = i + 1
     end
   end
+end
+
+-- Inline HTML that GitHub renders in Markdown: <a href>label</a> and <img src alt>.
+-- range covers the whole tag(s); the label is the <a> content or the alt value.
+local function attribute(tag, tag_start, name)
+  for _, quote in ipairs({ '"', "'" }) do
+    local _, e, value = tag:find("[%s/]" .. name .. "%s*=%s*" .. quote .. "([^" .. quote .. "]*)" .. quote)
+    if e then
+      local value_start = tag_start + e - #value - 1 -- 1-based first byte of the value
+      return value, value_start, value_start + #value - 1
+    end
+  end
+  local _, e, value = tag:find("[%s/]" .. name .. "%s*=%s*([^%s\"'=<>`]+)")
+  if e then
+    return value, tag_start + e - #value, tag_start + e - 1
+  end
+end
+local function decode(value)
+  return (value:gsub("&quot;", '"'):gsub("&#39;", "'"):gsub("&lt;", "<"):gsub("&gt;", ">"):gsub("&amp;", "&"))
+end
+function M.html(line, i, row)
+  local tag = line:match("^<[aA]%s[^<>]*>", i) or line:match("^<[iI][mM][gG][%s/][^<>]*>", i)
+  if not tag then
+    return nil
+  end
+  local tag_end = i + #tag - 1
+  if tag:sub(2, 2):lower() == "a" then
+    local href = attribute(tag, i, "href")
+    local close_start, close_end = line:find("</[aA]%s*>", tag_end + 1)
+    if not href or not close_start then
+      return nil
+    end
+    href = decode(href)
+    return {
+      text = line:sub(tag_end + 1, close_start - 1),
+      target = href,
+      kind = href:match("^#") and "anchor"
+        or href:match("^[%a][%w+.-]*:") and "external"
+        or href:match("%.[%w]+$") and not href:lower():match("%.mdx?$") and "asset"
+        or "document",
+      range = range(row, i - 1, close_end),
+      label_start = tag_end,
+      label_end = close_start - 1,
+      style = "html",
+    }
+  end
+  local src = attribute(tag, i, "src")
+  if not src then
+    return nil
+  end
+  local alt, alt_start, alt_end = attribute(tag, i, "alt")
+  if not alt or alt == "" then
+    alt_start, alt_end = i, tag_end
+  end
+  return {
+    text = alt and decode(alt) or "",
+    target = decode(src),
+    kind = "image",
+    range = range(row, i - 1, tag_end),
+    label_start = alt_start - 1,
+    label_end = alt_end,
+    style = "html",
+  }
 end
 
 ---@param line string
@@ -165,7 +228,11 @@ function M.parse(line, row, references)
         end
       elseif c == "<" then
         local value = line:match("^<([^<>%s]+)>", i)
-        if value and (value:match("^[%a][%w+.-]*:") or value:match("^[^@]+@[^@]+%.[^@]+$")) then
+        local html = M.html(line, i, row)
+        if html then
+          result[#result + 1] = html
+          i = html.range["end"].byteColumn + 1
+        elseif value and (value:match("^[%a][%w+.-]*:") or value:match("^[^@]+@[^@]+%.[^@]+$")) then
           local target_value = value:match("^[%a][%w+.-]*:") and value or "mailto:" .. value
           result[#result + 1] = {
             text = value,
