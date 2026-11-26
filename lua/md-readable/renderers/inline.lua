@@ -140,6 +140,9 @@ function M.parse(line, row, links, opts, start_col, end_col)
           end
         end
         i = link.range["end"].byteColumn + 1
+      elseif c == "<" and line:match("^</?[pP][%s>/]", i) and line:match("^</?[pP][^<>]*>", i) then
+        -- <p> / </p> is paragraph markup only; its content reads as ordinary text.
+        i = i + #line:match("^</?[pP][^<>]*>", i)
       elseif c == "&" then
         local entity = line:match("^&([#%w]+);", i)
         local named = {

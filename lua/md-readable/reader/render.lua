@@ -248,7 +248,8 @@ function M.render(document, opts)
       if not block or block.type ~= "paragraph" then
         return false
       end
-      if doc.lines[block.start_row + 1]:match("^%s*</?[%a][%w-]*[%s>/]") then
+      local tag = doc.lines[block.start_row + 1]:match("^%s*</?([%a][%w-]*)[%s>/]")
+      if tag and not ({ p = true, a = true })[tag:lower()] then
         return false
       end
       for _, link in ipairs(doc.links) do
@@ -260,6 +261,11 @@ function M.render(document, opts)
     end
     for block_index, block in ipairs(blocks) do
       if consumed[block_index] then -- Joined into the preceding ordinary paragraph.
+      elseif
+        block.type == "paragraph"
+        and block.end_row - block.start_row == 1
+        and doc.lines[block.start_row + 1]:match("^%s*</?[pP][^<>]*>%s*$")
+      then -- A lone <p>/</p> line is paragraph markup only, not a blank row.
       elseif M.renderers[block.type] then
         M.renderers[block.type](block, ctx)
       elseif block.type == "table" and (opts.table or {}).enable == false then
